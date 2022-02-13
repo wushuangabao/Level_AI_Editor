@@ -1,0 +1,116 @@
+#	1=场景AI专属，0=棋子AI专属	函数名称	描述	返回值类型（0表示没有返回值）	注释
+1100	0	GetChessType	获取当前棋子的种类	棋子种类	
+1101	0	GetChessGUID	获取当前棋子的GUID	棋子	
+1102	-1	GetChessTypeByGUID	获取{{棋子}}的种类	棋子种类	这是一条注释。
+#					
+1200	-1	TODO_FunctionName	获取棋子位置（坐标和朝向）	"点,r"	
+1201	-1	TODO_FunctionName	获取棋子坐标X	i	
+1202	-1	TODO_FunctionName	获取棋子坐标Y	i	
+1203	-1	TODO_FunctionName	获取棋子坐标Z	i	
+1204	-1	TODO_FunctionName	获取棋子朝向	r	
+1205	-1	TODO_FunctionName	获取到{{点}}最近的棋子	棋子	
+1206	-1	TODO_FunctionName	获取{{i}}格子范围内所有棋子	棋子组	
+1207	-1	TODO_FunctionName	获取和{{棋子}}间的距离	i	
+1208	-1	TODO_FunctionName	获取当前{{棋子种类}}棋子的总数量	i	
+#					
+1300	-1	TODO_FunctionName	转换棋子为坐标原点，取棋子的相对坐标	0	
+#					
+1400	-1	TODO_FunctionName	获取棋子当前体力	i	
+1401	-1	TODO_FunctionName	获取棋子体力上限	i	
+1402	-1	TODO_FunctionName	获取棋子当前血量	i	
+1403	-1	TODO_FunctionName	获取棋子血量上限	i	
+#					
+1500	-1	TODO_FunctionName	设置棋子体力	0	
+1501	-1	TODO_FunctionName	设置棋子体力上限	0	
+1502	-1	TODO_FunctionName	设置棋子血量	0	
+1503	-1	TODO_FunctionName	设置棋子血量上限	0	
+#					
+1600	0	TODO_FunctionName	获取棋子当前技能CD	1	
+1601	0	TODO_FunctionName	获取棋子当前技能最大释放范围	1	
+1602	0	TODO_FunctionName	获取棋子当前技能消耗	1	
+#					
+1700	-1	TODO_FunctionName	创建回合计数器	1	
+1701	-1	TODO_FunctionName	暂停回合计数器	0	
+1702	-1	TODO_FunctionName	移除回合计数器	0	
+#					
+1800	-1	TODO_FunctionName	生出棋子	1	
+1801	-1	TODO_FunctionName	插入棋子（不算棋子出生）	1	
+1802	-1	TODO_FunctionName	尝试出生棋子（如果该棋子已存在则不出生）	1	
+1803	-1	TODO_FunctionName	尝试插入棋子（不算棋子出生，如果该棋子已存在则不插入）	1	
+1804	-1	TODO_FunctionName	杀死棋子	0	
+1805	-1	TODO_FunctionName	删除棋子（不算棋子死亡）	0	
+1806	-1	TODO_FunctionName	杀死当前种类全部棋子	0	
+1807	-1	TODO_FunctionName	删除当前种类全部棋子（不算棋子死亡）	0	
+#					
+1900	-1	TODO_FunctionName	寻找目标并设为当前目标	1	
+#					
+2000	-1	TODO_FunctionName	传送棋子	0	
+2001	-1	TODO_FunctionName	使棋子移动到	0	
+2002	-1	TODO_FunctionName	改变棋子朝向	0	
+#					
+2100	-1	TODO_FunctionName	获取当前回合数	1	
+2101	-1	TODO_FunctionName	结束当前回合	0	
+#					
+2200	-1	TODO_FunctionName	使关卡胜利	0	
+2201	-1	TODO_FunctionName	使关卡失败	0	
+#					
+2300	-1	TODO_FunctionName	使棋子站着不移动	0	
+2301	-1	TODO_FunctionName	使棋子待机	0	
+2302	-1	TODO_FunctionName	使棋子逃离目标	0	
+2303	-1	TODO_FunctionName	使棋子靠近目标	0	
+2304	-1	TODO_FunctionName	使棋子围绕目标行进	0	
+2305	-1	TODO_FunctionName	使棋子跟随目标棋子行进	0	
+2306	-1	TODO_FunctionName	使棋子以X为目标释放技能	0	
+2307	-1	TODO_FunctionName	使棋子执行动作	0	
+#					
+2400	0	TODO_FunctionName	向周围呼救（使周围友军棋子目标变为当前单位目标）	0	
+#					
+2500	-1	TODO_FunctionName	开启技能监听	0	
+2501	-1	TODO_FunctionName	关闭技能监听	0	
+#					
+2600	-1	TODO_FunctionName	清除棋子当前所有AI操作任务	0	
+2601	-1	TODO_FunctionName	休眠棋子AI，使其AI不执行	0	
+2602	-1	TODO_FunctionName	激活棋子AI，使其AI继续执行	0	
+#					
+2700	0	TODO_FunctionName	传输值给场景Ai	0	
+2701	0	TODO_FunctionName	接收场景Ai传来的参数	1	
+#					
+2800	-1	TODO_FunctionName	获取目标棋子所带BUFFID	1	
+#					
+2900	-1	TODO_FunctionName	创建自定义flag参数	0	
+2901	-1	TODO_FunctionName	修改自定义flag参数	0	
+#					
+3000	-1	TODO_FunctionName	获取棋子阵营	1	
+3001	-1	TODO_FunctionName	修改棋子阵营	0	
+3002	-1	TODO_FunctionName	获取某阵营棋子数量	1	
+3003	-1	TODO_FunctionName	判断两个阵营关系	1	
+#					
+3100	-1	TODO_FunctionName	给某棋子增加BUFF	0	
+3101	-1	TODO_FunctionName	获取当前棋子状态（眩晕、点燃等）	1	
+#					
+3200	0	TODO_FunctionName	播放气泡	0	
+#					
+3300	-1	TODO_FunctionName	播放CG动画	0	
+3301	-1	TODO_FunctionName	停止CG动画	0	
+3302	-1	TODO_FunctionName	播放对话	0	
+3303	-1	TODO_FunctionName	禁止玩家操作	0	
+3304	-1	TODO_FunctionName	恢复玩家操作	0	
+3305	-1	TODO_FunctionName	修改背景音乐	1	
+3306	-1	TODO_FunctionName	隐藏ui	0	
+3307	-1	TODO_FunctionName	显示ui	0	
+#					
+3400	-1	TODO_FunctionName	打开区域	0	
+3401	-1	TODO_FunctionName	关闭区域	0	
+3402	-1	TODO_FunctionName	统计区域内某棋子	1	
+3403	-1	TODO_FunctionName	判断某区域内是否有某棋子	1	
+3404	0	TODO_FunctionName	获取当前棋子所处区域ID	1	
+#					
+3500	-1	TODO_FunctionName	使某棋子进行巡逻	0	
+3501	-1	TODO_FunctionName	使某棋子停止巡逻	0	
+#					
+3600	-1	TODO_FunctionName	获取某棋子是否在场景内	1	
+3601	-1	TODO_FunctionName	获取场景内棋子总数	1	
+3602	-1	TODO_FunctionName	得到场景内所有玩家棋子的ID	1	
+#					
+3700	1	TODO_FunctionName	接收来自棋子发来的消息	1	
+3701	1	TODO_FunctionName	对棋子发送消息	0	
