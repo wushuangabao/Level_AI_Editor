@@ -10,6 +10,8 @@ DlgConditionType::DlgConditionType(QWidget *parent) :
 {
     ui->setupUi(this);
 
+    node = nullptr;
+
     type = CONDITION_OP::AND;
     ui->btnText_1->setText("未定义值");
     ui->btnText_2->setText("未定义值");
@@ -68,11 +70,22 @@ void DlgConditionType::ModifyCompareNode(NodeInfo *node)
     initUI(COMPARE);
 
     initConditionType(node);
+    initComparationValues(node);
 
     ui->btnText_1->setText(node->getValue(1));
     ui->btnText_2->setText(node->getValue(2));
 
     exec();
+}
+
+BaseValueClass *DlgConditionType::GetValue_Left()
+{
+    return m_dlgEditValueLeft->GetValuePointer();
+}
+
+BaseValueClass *DlgConditionType::GetValue_Right()
+{
+    return m_dlgEditValueRight->GetValuePointer();
 }
 
 void DlgConditionType::on_comboBox_currentIndexChanged(int index)
@@ -104,59 +117,85 @@ void DlgConditionType::on_buttonBox_rejected()
 
 void DlgConditionType::on_buttonBox_accepted()
 {
+    // 修改Condition或者Compare节点
     if(node_type != INVALID)
     {
-        node->modifyValue(type);
+        node->modifyValue(type); // 比较运算符的类型
 
         if(node_type == CONDITION)
-            node->updateCondionText();
+            node->UpdateText();
         else if(node_type == COMPARE)
         {
-            // todo: 修改value_left和value_right
+            // 修改value_left和value_right
+            model->GetValueManager()->UpdateValueOnNode_Compare_Left(node, GetValue_Left());
+            model->GetValueManager()->UpdateValueOnNode_Compare_Right(node, GetValue_Right());
+
             node->modifyValue(1, ui->btnText_1->text());
             node->modifyValue(2, ui->btnText_2->text());
-            node->updateCompareText();
+            node->UpdateText();
         }
     }
-    else //创建Condition或者Compare节点
+
+    // 创建Condition或者Compare节点
+    else
     {
         if(type == CONDITION_OP::AND)
         {
             NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
             Q_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::AND);
-            new_node->updateCondionText();
+            new_node->UpdateText();
         }
         else if(type == CONDITION_OP::OR)
         {
             NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
             Q_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::OR);
-            new_node->updateCondionText();
+            new_node->UpdateText();
         }
         else
         {
+            if(!checkCompareValuesType())
+                return;
             NodeInfo* new_node = model->createNode("", NODE_TYPE::COMPARE, node);
-            Q_ASSERT(node != nullptr);
+            Q_ASSERT(new_node != nullptr);
             new_node->modifyValue(type);
-            // todo: 把value_left和value_right赋值给new_node
+
+            // 把value_left和value_right赋值给new_node
+            model->GetValueManager()->UpdateValueOnNode_Compare_Left(new_node, GetValue_Left());
+            model->GetValueManager()->UpdateValueOnNode_Compare_Right(new_node, GetValue_Right());
+
             new_node->modifyValue(1, m_dlgEditValueLeft->GetValueText());
             new_node->modifyValue(2, m_dlgEditValueRight->GetValueText());
-            new_node->updateCompareText();
+            new_node->UpdateText();
         }
     }
 }
 
 void DlgConditionType::on_btnText_1_clicked()
 {
-    m_dlgEditValueLeft->ModifyValue(node, 1);
+    if(node_type == INVALID) //创建Condition或者Compare节点
+    {
+        m_dlgEditValueLeft->CreateValueForParentIfNode(node);
+    }
+    else // 修改Compare节点
+    {
+        m_dlgEditValueLeft->ModifyValue(node, 1);
+    }
 
     ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
 }
 
 void DlgConditionType::on_btnText_2_clicked()
 {
-    m_dlgEditValueRight->ModifyValue(node, 2);
+    if(node_type == INVALID) //创建Condition或者Compare节点
+    {
+        m_dlgEditValueRight->CreateValueForParentIfNode(node);
+    }
+    else // 修改Compare节点
+    {
+        m_dlgEditValueRight->ModifyValue(node, 2);
+    }
 
     ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
 }
@@ -203,4 +242,46 @@ void DlgConditionType::initConditionType(NodeInfo *node)
     this->node = node;
     type = getConditionEnum(node->getValue(0));
     Q_ASSERT(type != INVALID_CONDITION);
+}
+
+void DlgConditionType::initComparationValues(NodeInfo *node)
+{
+    ValueManager* vm = model->GetValueManager();
+
+    if(node->type == COMPARE)
+    {
+        BaseValueClass* value_left = vm->GetValueOnNode_Compare_Left(node);
+        BaseValueClass* value_right = vm->GetValueOnNode_Compare_Right(node);
+        if(value_left != nullptr)
+            *(m_dlgEditValueLeft->GetValuePointer()) = *value_left;
+        if(value_right != nullptr)
+            *(m_dlgEditValueRight->GetValuePointer()) = *value_right;
+    }
+    else
+    {
+        // todo
+    }
+}
+
+bool DlgConditionType::checkCompareValuesType()
+{
+    QString t_left = GetValue_Left()->GetVarType();
+    QString t_right = GetValue_Right()->GetVarType();
+    if(t_left == "")
+    {
+        info("无法确定左值的类型！");
+        return false;
+    }
+    if(t_right == "")
+    {
+        info("无法确定右值的类型！");
+        return false;
+    }
+    if(t_left == t_right)
+        return true;
+    else
+    {
+        info("左右值的类型不一致！");
+        return false;
+    }
 }

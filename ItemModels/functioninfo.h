@@ -32,14 +32,12 @@ public:
         param_is_before_text = false;
     }
 
+    inline FUNCTION_ID GetID() { return id; }
     inline QString GetName() { return name; }
-
     inline QString GetNote() { return note; }
 
     inline int GetTextNum() { return texts.size(); }
-
     inline int GetParamNum() {  return params.size(); }
-
     inline int GetReturnNum() { return values.size(); }
 
     inline QString GetTextAt(int i)
@@ -50,7 +48,7 @@ public:
             return "";
     }
 
-    inline QString GetParamNameAt(int i)
+    inline QString GetParamTypeAt(int i)
     {
         if(i >= 0 && i < params.size())
             return params[i];
@@ -58,7 +56,7 @@ public:
             return "";
     }
 
-    inline QString GetReturnNameAt(int i)
+    inline QString GetReturnTypeAt(int i) //目前还没有返回2个值的函数，所以使用的i都是0
     {
         if(i >= 0 && i < values.size())
             return values[i];
@@ -74,6 +72,7 @@ public:
 
     static FunctionInfo* GetInstance();
 
+    FunctionClass* GetFunctionInfoByID(FUNCTION_ID id);
     FunctionClass* GetFunctionInfoAt(int idx);
     QVector<FunctionClass> infoList;
 

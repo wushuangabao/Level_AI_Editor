@@ -13,6 +13,8 @@ namespace Ui {
 class DlgConditionType;
 }
 
+class BaseValueClass;
+
 class DlgConditionType : public QDialog
 {
     Q_OBJECT
@@ -28,6 +30,9 @@ public:
     void ModifyCondition(NodeInfo* node);
     void ModifyCompareNode(NodeInfo* node);
 
+    BaseValueClass* GetValue_Left();
+    BaseValueClass* GetValue_Right();
+
 private slots:
     void on_comboBox_currentIndexChanged(int index);
 
@@ -40,6 +45,10 @@ private slots:
 private:
     void initUI(NODE_TYPE node_type);
     void initConditionType(NodeInfo* node);
+    void initComparationValues(NodeInfo* node);
+
+    // 比较左右值的类型是否一致
+    bool checkCompareValuesType();
 
     Ui::DlgConditionType *ui;
 

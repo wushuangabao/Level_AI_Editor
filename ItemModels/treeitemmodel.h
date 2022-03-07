@@ -22,6 +22,8 @@ public:
     // 获取节点数据：包括DisplayRole|TextAlignmentRole等
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
+    bool ClearAllEvents();
+
     // 删除节点
     bool deleteNode(NodeInfo* node);
     // 创建新节点
@@ -35,17 +37,30 @@ public:
     NodeInfo* findEvtCondNodeOf(NodeInfo* cur_node);
     // 当前节点对应哪个顶层动作节点（sequence)
     NodeInfo* findEvtActNodeOf(NodeInfo* cur_node);
+    // 当前节点属于事件条件节点，还是属于事件动作序列节点
+    int findBelongToWhichNode(NodeInfo* cur_node);
     // 当前节点是不是顶层条件节点
     bool isEventCondition(NodeInfo* cur_node);
     // 当前节点是不是顶层动作节点（sequence)
     bool isEventActionSeq(NodeInfo* cur_node);
 
-    ValueManager* GetValueManagerOf(NodeInfo* node);
+    QStringList* GetEventParamsOf(NodeInfo* node);
+    ValueManager* GetValueManager();
+
+    NodeInfo* FindEventByName(QString ename);
+    int FindEventPosByName(QString ename);
+    QStringList GetEventNames();
+    void UpdateEventName(NodeInfo* evt_node, QString new_name);
 
     NodeInfo* m_pRootNode;
 
 private:
-    QMap<NodeInfo*, ValueManager*> eventsValueManager;
+//    QMap<Level*, ValueManager*> eventsValueManager;
+
+    ValueManager* globalValueManager;
+
+    // 找出parent_node的子节点中，所有与监听事件event_name有关的节点
+    void findNodesOpenOrCloseEventIn(NodeInfo* parent_node, QString event_name, QList<NodeInfo*> &node_list);
 };
 
 #endif // TREEITEMMODEL_H

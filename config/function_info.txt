@@ -3,11 +3,11 @@
 1101	0	GetChessGUID	获取当前棋子的GUID	棋子	
 1102	-1	GetChessTypeByGUID	获取{{棋子}}的种类	棋子种类	这是一条注释。
 #					
-1200	-1	TODO_FunctionName	获取棋子位置（坐标和朝向）	"点,r"	
-1201	-1	TODO_FunctionName	获取棋子坐标X	i	
-1202	-1	TODO_FunctionName	获取棋子坐标Y	i	
-1203	-1	TODO_FunctionName	获取棋子坐标Z	i	
-1204	-1	TODO_FunctionName	获取棋子朝向	r	
+1200	-1	TODO_GetChessPosition	获取棋子位置（坐标和朝向）	"点,r"	
+1201	-1	TODO_GetChessPosX	获取棋子坐标X	i	
+1202	-1	TODO_GetChessPosY	获取棋子坐标Y	i	
+1203	-1	TODO_GetChessPosZ	获取棋子坐标Z	i	
+1204	-1	TODO_GetChessRound	获取棋子朝向	r	
 1205	-1	TODO_FunctionName	获取到{{点}}最近的棋子	棋子	
 1206	-1	TODO_FunctionName	获取{{i}}格子范围内所有棋子	棋子组	
 1207	-1	TODO_FunctionName	获取和{{棋子}}间的距离	i	

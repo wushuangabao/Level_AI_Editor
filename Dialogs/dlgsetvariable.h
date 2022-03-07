@@ -10,6 +10,7 @@ class DlgSetVariable;
 class DlgEditValue;
 class TreeItemModel;
 class NodeInfo;
+class BaseValueClass;
 
 class DlgSetVariable : public QDialog
 {
@@ -19,11 +20,13 @@ public:
     explicit DlgSetVariable(QWidget *parent = 0);
     ~DlgSetVariable();
 
-    void SetModelPointer(TreeItemModel* m);
+    void SetModel(TreeItemModel* m);
 
     void EditSetVarNode(NodeInfo* set_var_node);
 
     QString GetNodeText();
+    QString GetValueName();
+    BaseValueClass* GetValuePointer();
 
 private slots:
     void on_pushButton_clicked();

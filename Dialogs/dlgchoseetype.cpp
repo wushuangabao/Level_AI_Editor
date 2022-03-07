@@ -7,21 +7,8 @@ DlgChoseEType::DlgChoseEType(QWidget *parent) :
 {
     ui->setupUi(this);
 
-    action_map.insert("设置变量", SET_VAR);
-    action_map.insert("call..", FUNCTION);
-    action_map.insert("序列（顺序执行）", SEQUENCE);
-    action_map.insert("选择（if）", CHOICE);
-    action_map.insert("循环（重复执行）", LOOP);
-    action_map.insert("跳出（序列或循环）", END);
-
-    QMapIterator<QString, NODE_TYPE> i(action_map);
-    while (i.hasNext()) {
-        i.next();
-        action_list.append(i.key());
-    }
-
     // 禁用右上角关闭按钮
-    setWindowFlag(Qt::WindowCloseButtonHint, false);
+//    setWindowFlag(Qt::WindowCloseButtonHint, false);
 }
 
 DlgChoseEType::~DlgChoseEType()
@@ -29,20 +16,41 @@ DlgChoseEType::~DlgChoseEType()
     delete ui;
 }
 
-void DlgChoseEType::ShowWithEventType(QString name)
+void DlgChoseEType::CreateNewEvent()
 {
-    setWindowTitle("编辑事件类型");
+    setWindowTitle("新建事件");
 
     ui->label->setText("事件类型：");
+    ui->label->setVisible(true);
+
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText("");
+    event_name = "";
+    ui->label_name->setVisible(true);
+
+    ui->comboBox->clear();
+    ui->comboBox->addItems(EventType::GetInstance()->eventNameVector);
+    ui->comboBox->setVisible(true);
+
+    index = 0;
+    text = "";
+    ui->comboBox->setCurrentIndex(0);
+
+    exec();
+}
+
+void DlgChoseEType::EditEventName(QString name)
+{
+    setWindowTitle("编辑事件名称");
+
+    ui->label->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
     event_name = name;
     ui->label_name->setVisible(true);
 
-    ui->comboBox->clear();
-    ui->comboBox->addItems(EventType::GetInstance()->eventNameVector);
-    ui->comboBox->setCurrentIndex(0);
+    ui->comboBox->setVisible(false);
 
     index = 0;
     text = "";
@@ -50,47 +58,69 @@ void DlgChoseEType::ShowWithEventType(QString name)
     exec();
 }
 
-void DlgChoseEType::ShowWithActionType()
+int DlgChoseEType::ChoseEventNameIn(QStringList enames)
 {
-    setWindowTitle("新建动作");
+    setWindowTitle("选择事件");
 
-    ui->label->setText("节点类型：");
+    ui->label->setText("事件名称：");
+    ui->label->setVisible(true);
 
     ui->lineEdit->setVisible(false);
     ui->label_name->setVisible(false);
 
     ui->comboBox->clear();
-    ui->comboBox->addItems(action_list);
+    ui->comboBox->addItems(enames);
+    ui->comboBox->setVisible(true);
+
+    index = 0;
+    text = "";
     ui->comboBox->setCurrentIndex(0);
 
-    index = -1;
+    exec();
+    return index;
+}
+
+void DlgChoseEType::EditEventType()
+{
+    setWindowTitle("编辑事件类型");
+
+    ui->label->setText("事件类型：");
+    ui->label->setVisible(true);
+
+    ui->lineEdit->setVisible(false);
+    ui->label_name->setVisible(false);
+
+    ui->comboBox->clear();
+    ui->comboBox->addItems(EventType::GetInstance()->eventNameVector);
+    ui->comboBox->setCurrentIndex(0);
+    ui->comboBox->setVisible(true);
+
+    index = 0;
     text = "";
 
     exec();
 }
 
-void DlgChoseEType::on_buttonBox_accepted()
-{
-    text = ui->comboBox->currentText();
-
-    if(action_map.contains(text))
-        index = action_map[text];
-    else if(text == "---")
-        index = -1;
-    else
-        index = ui->comboBox->currentIndex();
-}
-
-void DlgChoseEType::on_buttonBox_rejected()
-{
-    if(action_map.contains(ui->comboBox->currentText()))
-    {
-        index = INVALID;
-    }
-    index = -1;
-}
-
 void DlgChoseEType::on_lineEdit_textChanged(const QString &arg1)
 {
     event_name = arg1;
+}
+
+void DlgChoseEType::on_DlgChoseEType_accepted()
+{
+}
+
+void DlgChoseEType::on_DlgChoseEType_rejected()
+{
+    index = -1;
+}
+
+void DlgChoseEType::on_comboBox_currentIndexChanged(int id)
+{
+    Q_UNUSED(id);
+    text = ui->comboBox->currentText();
+    if(text == "---" || text == "")
+        index = -1;
+    else
+        index = ui->comboBox->currentIndex();
 }

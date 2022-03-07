@@ -55,6 +55,14 @@ void EventType::ClearData()
         }
     }
 
+    if(paramTypesVector.size() > 0)
+    {
+        for(int i = 0; i < paramTypesVector.size(); i++)
+        {
+            paramTypesVector[i].clear();
+        }
+    }
+
     paramNamesVector.clear();
     eventIdVector.clear();
     eventNameVector.clear();
@@ -104,6 +112,7 @@ void EventType::createFakeData()
             continue;
 
         QStringList str_list;
+        QStringList type_list;
         switch(i)
         {
         case 1:
@@ -112,15 +121,18 @@ void EventType::createFakeData()
         case 9:
         case 10:
             str_list << "棋子ID";
+            type_list << "number";
             break;
         case 4:
         case 5:
         case 6:
             str_list << "回合数";
+            type_list << "number";
             break;
         }
 
         paramNamesVector.append(str_list);
+        paramTypesVector.append(type_list);
         eventIdVector.append(i + 1000);
         eventNameVector.append(event_list[i]);
     }
@@ -154,14 +166,23 @@ bool EventType::createDateByConfig(QString file_path)
         eventNameVector << sl[1];
 
         QStringList params;
-        if(n > 2)
+        QStringList types;
+        for(int i = 2; i < n; i++)
         {
-            for(int i = 2; i < n; i++)
+            QStringList pname_type = sl[i].split('|', QString::SkipEmptyParts);
+            if(pname_type.size() == 2)
             {
+                params << pname_type[0];
+                types << pname_type[1];
+            }
+            else
+            {
+                types << "number";
                 params << sl[i];
             }
         }
         paramNamesVector << params;
+        paramTypesVector << types;
     }
 
     file.close();

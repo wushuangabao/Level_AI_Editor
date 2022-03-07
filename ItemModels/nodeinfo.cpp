@@ -18,6 +18,7 @@ void NodeInfo::clear()
     text.clear();
     for(int i = 0; i < childs.size(); i++)
     {
+        childs[i]->clear();
         delete childs[i];
     }
     childs.clear();
@@ -39,7 +40,7 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
         new_node->initEventMembers();
         break;
     case ETYPE:
-        new_node->updateEventType(0);
+        new_node->UpdateEventType(1000);
         break;
     case SET_VAR:
         new_node->text = "a = 0";
@@ -55,7 +56,11 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
         is_valid = tryAddChoice(new_node);
         break;
     case LOOP:
-        new_node->addNewChild(SEQUENCE, "do x times:");
+        new_node->addNewChild(SEQUENCE, "while 1 do:");
+        break;
+    case OPEN_EVENT:
+    case CLOSE_EVENT:
+        new_node->addNewValue("默认事件");
         break;
     default:
         break;
@@ -73,6 +78,23 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
     }
 }
 
+NodeInfo *NodeInfo::addNewChild_Compare(QString compare_type, QString left_value, QString right_value)
+{
+    CONDITION_OP op = getConditionEnum(compare_type);
+    Q_ASSERT(op >= EQUAL_TO && op <= EQUAL_LESS);
+
+    NodeInfo* new_node = new NodeInfo(this, COMPARE, "");
+    this->childs.append(new_node);
+
+    new_node->addNewValue(compare_type);
+    new_node->addNewValue(left_value);
+    new_node->addNewValue(right_value);
+
+    new_node->updateCompareText();
+
+    return new_node;
+}
+
 int NodeInfo::getValuesCount()
 {
     return values.size();
@@ -81,7 +103,10 @@ int NodeInfo::getValuesCount()
 QString NodeInfo::getValue(int id)
 {
     if(id < 0 || id >= values.size())
-        return "ERROR";
+    {
+       info("node " + text + " values 取值越界");
+       return "ERROR";
+    }
     return values[id];
 }
 
@@ -113,7 +138,11 @@ bool NodeInfo::modifyValue(CONDITION_OP v)
         if(s == "ERROR")
             return false;
         else
+        {
             values[0] = s;
+            if(type == CONDITION)
+                text = s;
+        }
     }
 
     return true;
@@ -138,25 +167,52 @@ void NodeInfo::clearValues()
     values.clear();
 }
 
+void NodeInfo::UpdateText()
+{
+    switch (type) {
+    case CONDITION:
+        updateCondionText();
+        break;
+    case COMPARE:
+        updateCompareText();
+        break;
+    case OPEN_EVENT:
+        if(values.size() == 1)
+            text = "开始监听事件：" + values[0];
+        else
+            text = "开始监听事件：？？？";
+        break;
+    case CLOSE_EVENT:
+        if(values.size() == 1)
+            text = "停止监听事件：" + values[0];
+        else
+            text = "停止监听事件：？？？";
+        break;
+    default:
+        break;
+    }
+}
+
 
 /////////////////////////////////////
 /// 更新节点的text（显示）
 /////////////////////////////////////
 
-void NodeInfo::updateEventType(EVENT_TYPE_ID event_id)
+void NodeInfo::UpdateEventType(EVENT_TYPE_ID event_id)
 {
     if(type != NODE_TYPE::ETYPE)
         return;
 
-    if(event_id < 0 || event_id >= EventType::GetInstance()->eventIdVector.size() || event_id >= EventType::GetInstance()->eventNameVector.size())
+    int index = EventType::GetInstance()->eventIdVector.indexOf(event_id);
+    if(index == -1)
     {
-        qDebug() << "ERROR param in updateEventType!" << endl;
+        qDebug() << "NOT FIND " << event_id << "in NodeInfo::updateEventType!" << endl;
         return;
     }
 
     values.clear();
-    values.append("ETYPE: " + QString::number(event_id));
-    text = EventType::GetInstance()->eventNameVector[event_id];
+    values.append(QString::number(event_id));
+    text = EventType::GetInstance()->eventNameVector[index];
 }
 
 void NodeInfo::updateCompareText()

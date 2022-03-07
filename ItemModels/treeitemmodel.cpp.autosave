@@ -266,6 +266,8 @@ QStringList *TreeItemModel::GetEventParamsOf(NodeInfo *node)
 {
     NodeInfo* event_node = findUppestNodeOf(node);
     Q_ASSERT(event_node != nullptr);
+    
+    
     return globalValueManager->GetEventParams(event_node);
 }
 

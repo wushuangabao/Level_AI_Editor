@@ -41,6 +41,10 @@ enum NODE_TYPE
     LOOP, // 循环，依次执行一个序列中的动作节点，重复一定次数
     END, // 跳出当前序列或循环
 
+    // 开启、关闭事件
+    OPEN_EVENT,
+    CLOSE_EVENT,
+
     /////////////////////////////////
     MAX
 };
@@ -69,21 +73,45 @@ __attribute__((unused)) static QString getNodeTypeStr(NODE_TYPE v)
     case COMPARE:
         return "条件（比较）";
     case SET_VAR:
-        return "设置变量";
+        return "SET_VAR";
     case SEQUENCE:
-        return "序列（顺序执行）";
+        return "SEQUENCE";
     case CHOICE:
-        return "选择（if）";
+        return "IF";
     case LOOP:
-        return "循环（重复执行）";
+        return "LOOP";
     case END:
-        return "跳出（序列或循环）";
-    case ACTION:
+        return "BREAK";
     case FUNCTION:
-        return "call..";
+        return "CALL";
+    case ACTION:
+        return "CALL";
+    case OPEN_EVENT:
+        return "OPEN_EVENT";
+    case CLOSE_EVENT:
+        return "CLOSE_EVENT";
     default:
         return "ERROR";
     }
+}
+
+__attribute__((unused)) static NODE_TYPE getNodeTypeEnum(QString str)
+{
+    if(str == "SET_VAR")
+        return SET_VAR;
+    else if(str == "CALL")
+        return FUNCTION;
+    else if(str == "IF")
+        return CHOICE;
+    else if(str == "LOOP")
+        return LOOP;
+    else if(str == "BREAK")
+        return END;
+    else if(str == "OPEN_EVENT")
+        return OPEN_EVENT;
+    else if(str == "CLOSE_EVENT")
+        return CLOSE_EVENT;
+    else return INVALID;
 }
 
 __attribute__((unused)) static QString getConditionStr(CONDITION_OP v)

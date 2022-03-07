@@ -56,9 +56,40 @@
          </item>
          <item>
           <widget class="QComboBox" name="comboBox">
+           <property name="minimumSize">
+            <size>
+             <width>70</width>
+             <height>0</height>
+            </size>
+           </property>
            <item>
             <property name="text">
-             <string>整数</string>
+             <string>number</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>string</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>bool</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>点</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>棋子</string>
+            </property>
+           </item>
+           <item>
+            <property name="text">
+             <string>棋子种类</string>
             </property>
            </item>
           </widget>

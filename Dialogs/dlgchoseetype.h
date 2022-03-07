@@ -18,21 +18,22 @@ public:
     explicit DlgChoseEType(QWidget *parent = 0);
     ~DlgChoseEType();
 
-    void ShowWithEventType(QString name = "");
-    void ShowWithActionType();
-
-    QStringList action_list;
-    QMap<QString, NODE_TYPE> action_map;
+    void CreateNewEvent();
+    void EditEventName(QString name = "");
+    int ChoseEventNameIn(QStringList names);
+    void EditEventType();
 
     int index = -1;
     QString event_name;
     QString text = "";
 
 private slots:
-    void on_buttonBox_accepted();
-    void on_buttonBox_rejected();
-
     void on_lineEdit_textChanged(const QString &arg1);
+
+    void on_DlgChoseEType_accepted();
+    void on_DlgChoseEType_rejected();
+
+    void on_comboBox_currentIndexChanged(int index);
 
 private:
     Ui::DlgChoseEType *ui;

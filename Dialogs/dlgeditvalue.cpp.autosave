@@ -134,12 +134,13 @@ void DlgEditValue::CreateValueForParentIfNode(NodeInfo *parent_node)
     this->exec();
 }
 
-void DlgEditValue::initUIforValue(QString var_type)
+void DlgEditValue::initUIforValue(const QString &var_type)
 {
     Q_ASSERT(model != nullptr);
 
     is_for_function = false;
 
+    initEvtParamComboBox(var_type);
     initVariableComboBox(var_type);
     initFunctionComboBox(var_type);
 }
@@ -382,28 +383,10 @@ void DlgEditValue::on_btnSetValue_clicked()
 
 }
 
-void DlgEditValue::initVariableComboBox(QString var_type)
+void DlgEditValue::initVariableComboBox(const QString &var_type)
 {
     Q_ASSERT(model != nullptr);
-    Q_ASSERT(node != nullptr);
-
-    // init comboBox_EvtParam
-    QStringList* event_params = model->GetEventParamsOf(node);
-    if(event_params->size() <= 0)
-    {
-        ui->comboBox_EvtParam->setEnabled(false);
-        ui->radioEvtParam->setEnabled(false);
-    }
-    else
-    {
-        disconnect(ui->comboBox_EvtParam, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_EvtParam_currentIndexChanged(int)));
-        ui->comboBox_EvtParam->clear();
-        connect(ui->comboBox_EvtParam, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_EvtParam_currentIndexChanged(int)));
-        ui->comboBox_EvtParam->addItems(*event_params);
-        ui->comboBox_EvtParam->setEnabled(true);
-        ui->radioEvtParam->setEnabled(true);
-    }
-
+    
     // init comboBox_Var
     ValueManager* vm = model->GetValueManager();
     if(vm->GetGlobalVarList().size() <= 0)
@@ -421,11 +404,9 @@ void DlgEditValue::initVariableComboBox(QString var_type)
         ui->radioVariable->setEnabled(true);
         ui->radioVariable->setChecked(true);
     }
-
-
 }
 
-void DlgEditValue::initFunctionComboBox(QString var_type)
+void DlgEditValue::initFunctionComboBox(const QString &var_type)
 {
     disconnect(ui->comboBoxFunction, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBoxFunction_currentIndexChanged(int)));
     ui->comboBoxFunction->clear();
@@ -696,6 +677,28 @@ void DlgEditValue::onBtnParam9_clicked()
 void DlgEditValue::onBtnParam10_clicked()
 {
     onBtnParam_clicked(9);
+}
+
+void DlgEditValue::initEvtParamComboBox(const QString& var_type)
+{
+    Q_ASSERT(node != nullptr);
+
+    // init comboBox_EvtParam
+    QStringList* event_params = model->GetEventParamsOf(node);
+    if(event_params->size() <= 0)
+    {
+        ui->comboBox_EvtParam->setEnabled(false);
+        ui->radioEvtParam->setEnabled(false);
+    }
+    else
+    {
+        disconnect(ui->comboBox_EvtParam, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_EvtParam_currentIndexChanged(int)));
+        ui->comboBox_EvtParam->clear();
+        connect(ui->comboBox_EvtParam, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_EvtParam_currentIndexChanged(int)));
+        ui->comboBox_EvtParam->addItems(*event_params);
+        ui->comboBox_EvtParam->setEnabled(true);
+        ui->radioEvtParam->setEnabled(true);
+    }
 }
 
 void DlgEditValue::on_radioPreset_clicked(bool checked)

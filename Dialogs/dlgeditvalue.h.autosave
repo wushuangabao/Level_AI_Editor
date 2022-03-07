@@ -69,12 +69,15 @@ private slots:
 
 
 private:
-    void initVariableComboBox(QString var_type);
-    void initFunctionComboBox(QString var_type);
+    void initEvtParamComboBox(const QString &var_type);
+    void initVariableComboBox(const QString &var_type);
+    void initFunctionComboBox(const QString &var_type);
 
-    void initUIforValue(QString var_type);
+    void initUIforValue(const QString &var_type);
     void initUI_SetInitvalue(BaseValueClass* v);
+    
     void setUIByValue(BaseValueClass* v);
+    
     void setUIVisible_Var(bool can_see);
     void setUIVisible_EvtParam(bool can_see);
     void setUIVisible_Enum(bool can_see);

@@ -36,7 +36,8 @@ SOURCES += \
     Values/valuemanager.cpp \
     Values/valueclass.cpp \
     Dialogs/dlgvariablemanager.cpp \
-    Dialogs/dlgsetvariable.cpp
+    Dialogs/dlgsetvariable.cpp \
+    Dialogs/dlgchoseactiontype.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -51,7 +52,8 @@ HEADERS += \
     Values/valuemanager.h \
     Values/valueclass.h \
     Dialogs/dlgvariablemanager.h \
-    Dialogs/dlgsetvariable.h
+    Dialogs/dlgsetvariable.h \
+    Dialogs/dlgchoseactiontype.h
 
 FORMS += \
         mainwindow.ui \
@@ -59,4 +61,5 @@ FORMS += \
     Dialogs/dlgconditiontype.ui \
     Dialogs/dlgeditvalue.ui \
     Dialogs/dlgvariablemanager.ui \
-    Dialogs/dlgsetvariable.ui
+    Dialogs/dlgsetvariable.ui \
+    Dialogs/dlgchoseactiontype.ui

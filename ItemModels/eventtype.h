@@ -12,8 +12,14 @@ public:
 
     static EventType* GetInstance();
 
+    // 参数名
     QVector<QStringList> paramNamesVector;
+    // 参数的变量类型
+    QVector<QStringList> paramTypesVector;
+
+    // 事件ID
     QVector<EVENT_TYPE_ID> eventIdVector;
+    // 事件名
     QStringList eventNameVector;
 
 private:

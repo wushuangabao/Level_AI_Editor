@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QDebug>
+#include "enumdefine.h"
 #include "functioninfo.h"
 
 FunctionInfo* FunctionInfo::data = nullptr;
@@ -20,10 +21,21 @@ FunctionInfo *FunctionInfo::GetInstance()
     return data;
 }
 
+FunctionClass *FunctionInfo::GetFunctionInfoByID(FUNCTION_ID id)
+{
+    int n = infoList.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(infoList[i].GetID() == id)
+            return &(infoList[i]);
+    }
+    return nullptr;
+}
+
 FunctionClass *FunctionInfo::GetFunctionInfoAt(int idx)
 {
     int n = infoList.size();
-    Q_ASSERT(n > idx);
+    Q_ASSERT(n > idx && idx >= 0);
 
     return &(infoList[idx]);
 }
@@ -50,6 +62,7 @@ void FunctionInfo::InitFuncInfo()
         if(!success)
         {
             ClearData();
+            info("找不到 config/function_info.txt ！");
             createFakeData();
         }
     }
@@ -113,7 +126,7 @@ bool FunctionInfo::createDateByConfig(QString file_path)
         if(sl[4] != "0")
         {
             if(sl[4] == "1")
-                func.values.append("i");
+                func.values.append("number");
             else
                 func.values = sl[4].split(',');
         }
