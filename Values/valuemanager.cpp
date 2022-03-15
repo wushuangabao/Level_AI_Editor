@@ -16,12 +16,35 @@ ValueManager::ValueManager()
 
 QStringList ValueManager::GetGlobalVarList() const
 {
-    return nameList;
+    QStringList list;
+    for(int i = 0; i < nameList.size(); i++)
+    {
+        if(dataList.at(i) != nullptr)
+            list.push_back(nameList.at(i));
+    }
+    return list;
+}
+
+QString ValueManager::GetVarNameAt(int id)
+{
+    if(id < 0 || id >= nameList.size())
+    {
+        info("GetVarName id 越界");
+        return "";
+    }
+    return nameList[id];
 }
 
 int ValueManager::GetIdOfVariable(BaseValueClass *v)
 {
+    if(v->GetValueType() != VT_VAR)
+        return -1;
     return nameList.indexOf(v->GetText());
+}
+
+int ValueManager::GetIdOfVariable(const QString &var_name)
+{
+    return nameList.indexOf(var_name);
 }
 
 bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
@@ -31,8 +54,26 @@ bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
         info("已存在这个名字的变量了。");
         return false;
     }
+    if("" == name)
+    {
+        info("变量名不能为空");
+        return false;
+    }
     else
     {
+        for(int i = 0; i < nameList.size(); i++)
+        {
+            if(nameList[i] == "")
+            {
+                nameList[i] = name;
+                if(dataList[i] == nullptr)
+                    dataList[i] = new BaseValueClass(v);
+                else
+                    dataList[i] = v;
+                return true;
+            }
+        }
+
         nameList << name;
         BaseValueClass* new_value = new BaseValueClass(v);
         dataList << new_value;
@@ -40,7 +81,75 @@ bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
     }
 }
 
-void ValueManager::DeleteVariable(QString name)
+bool ValueManager::AddNewVarAtPos(QString name, BaseValueClass *v, int pos)
+{
+    if(nameList.contains(name))
+    {
+        info("已存在这个名字的变量了。");
+        return false;
+    }
+    if("" == name)
+    {
+        info("变量名不能为空");
+        return false;
+    }
+    else
+    {
+        int n = nameList.size();
+        if(pos < n)
+        {
+            info("AddNewVarAtPos(" + QString::number(pos) + ") fail.");
+            return false;
+        }
+        else if(pos > n)
+        {
+            for(int i = n; i < pos; i++)
+            {
+                nameList << "";
+                dataList << nullptr;
+            }
+        }
+        nameList << name;
+        dataList << v;
+        return true;
+    }
+}
+
+bool ValueManager::CheckVarIsUsedOrNot(const QString &var_name)
+{
+    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+
+    // function
+    for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
+    {
+        if(itr.value()->IsUsingVar(var_name))
+            return true;
+    }
+
+    // set var
+    for(itr = nodeSetVarMap.begin(); itr != nodeSetVarMap.end(); ++itr)
+    {
+        int var_id = itr.key()->getValue(0).toInt();
+        if(nameList[var_id] == var_name)
+            return true;
+        if(itr.value()->IsUsingVar(var_name))
+            return true;
+    }
+
+    // compare
+    for(itr = nodeCompareValueLeftMap.begin(); itr != nodeCompareValueLeftMap.end(); ++itr)
+    {
+        if(itr.value()->IsUsingVar(var_name))
+            return true;
+    }
+    for(itr = nodeCompareValueRightMap.begin(); itr != nodeCompareValueRightMap.end(); ++itr)
+    {
+        if(itr.value()->IsUsingVar(var_name))
+            return true;
+    }
+}
+
+bool ValueManager::DeleteVariable(QString name)
 {
     int id = -1;
     int n = nameList.size();
@@ -49,15 +158,32 @@ void ValueManager::DeleteVariable(QString name)
         for(int i = 0; i < n; i++)
         {
             if(nameList[i] == name)
+            {
                 id = i;
+                break;
+            }
         }
     }
     if(id != -1)
     {
-        nameList.removeAt(id);
-        delete dataList[id];
-        dataList.removeAt(id);
+        DeleteVarAt(id);
+        return true;
     }
+    else
+        return false;
+}
+
+void ValueManager::DeleteVarAt(int id)
+{
+    if(id < 0 || id >= dataList.size())
+    {
+        info("id越界，删除变量失败！");
+        return;
+    }
+
+    nameList[id] = "";
+    delete dataList[id];
+    dataList[id] = nullptr;
 }
 
 void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value)
@@ -76,7 +202,7 @@ void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value
     *(dataList[idx]) = *value;
     nameList[idx] = name;
 
-    UpdateVarOnNodes(idx);
+    updateVarOnNodes(idx);
 }
 
 void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *value)
@@ -287,7 +413,7 @@ QStringList *ValueManager::GetEventParamsLua(NodeInfo *node)
     return EventType::GetInstance()->GetEventParamsLuaAt(eid);
 }
 
-void ValueManager::UpdateVarOnNodes(int var_id)
+void ValueManager::updateVarOnNodes(int var_id)
 {
     QString init_var_type = dataList.at(var_id)->GetVarType();
     QMap<NodeInfo*, BaseValueClass*>::iterator itr;

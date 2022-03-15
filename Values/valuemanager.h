@@ -15,9 +15,14 @@ public:
     void ClearData();
 
     QStringList GetGlobalVarList() const;
+    QString GetVarNameAt(int id);
     int GetIdOfVariable(BaseValueClass* v);
+    int GetIdOfVariable(const QString& var_name);
     bool AddNewVariable(QString name, BaseValueClass* v); //新增全局变量（作用域为整个事件）
-    void DeleteVariable(QString name); //删除全局变量
+    bool AddNewVarAtPos(QString name, BaseValueClass* v, int pos);
+    bool CheckVarIsUsedOrNot(const QString& var_name);
+    bool DeleteVariable(QString name); //删除全局变量
+    void DeleteVarAt(int id);
     void ModifyVarValueAt(int idx, QString name, BaseValueClass* value); //设置全局变量的初始值
 
     QString GetVarTypeAt(int idx);
@@ -41,11 +46,11 @@ public:
     QStringList* GetEventParamsUI(NodeInfo* node);
     QStringList* GetEventParamsLua(NodeInfo* node);
 
-    void UpdateVarOnNodes(int var_id); //更新所有变量ID为var_id的value的name（包括函数参数中的value）
-
 private:
     void clearNodeMap(QMap<NodeInfo*, BaseValueClass*>& node_map);
     void deleteNodeInMap(QMap<NodeInfo*, BaseValueClass*>& node_map, NodeInfo* node);
+
+    void updateVarOnNodes(int var_id); //更新所有变量ID为var_id的value的name（包括函数参数中的value）
 
     QList<BaseValueClass*> dataList; //全局变量表（存放初始值）
     QStringList nameList;  //全局变量名表，与dataList变量表一一对应

@@ -263,6 +263,31 @@ bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const
     return true;
 }
 
+bool BaseValueClass::IsUsingVar(const QString &vname)
+{
+    switch (value_type) {
+    case VT_VAR:
+        if(name == vname)
+            return true;
+        break;
+    case VT_STR:
+        if(lua_str.contains(vname))
+            info("注意检查：" + lua_str);
+        break;
+    case VT_FUNC:
+        for(int i = 0; i < GetFunctionParamsNum(); i++)
+        {
+            if(GetFunctionParamAt(i)->IsUsingVar(vname))
+                return true;
+        }
+        break;
+    default:
+        break;
+    }
+
+    return false;
+}
+
 void BaseValueClass::clearFuncParams()
 {
     int n = params.size();

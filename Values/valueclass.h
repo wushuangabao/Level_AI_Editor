@@ -48,6 +48,8 @@ public:
     QString GetEventParamInLua();
 
     bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type);
+    bool IsUsingVar(const QString& vname);
+
 private:
     QString name;        //变量名
     FunctionClass* func; //函数：函数名、参数信息

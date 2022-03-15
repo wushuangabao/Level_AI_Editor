@@ -38,7 +38,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QDir dir_backup;
     if(!dir_backup.exists(backup_path))
     {
-        bool ok = dir_backup.mkdir(backup_path);
+        /*bool ok = */dir_backup.mkdir(backup_path);
     }
 
     ui->setupUi(this);
@@ -521,10 +521,11 @@ void MainWindow::updateVarTable()
         for(int i = 0; i < n; i++)
         {
             QString var_name = vm->GetGlobalVarList().at(i);
+            int var_id = vm->GetIdOfVariable(var_name);
 //            if(!varNameIsEventParam(var_name, event_node))
 //            {
                 //                    变量名     变量类型              初始值
-                addOneRowInTable(row, var_name, vm->GetVarTypeAt(i), vm->GetInitValueOfVar(i)->GetText());
+                addOneRowInTable(row, var_name, vm->GetVarTypeAt(var_id), vm->GetInitValueOfVar(var_id)->GetText());
                 row++;
 //            }
         }
@@ -735,14 +736,15 @@ void MainWindow::addVariablesToJsonObj(QJsonObject *json)
         for(int i = 0; i < n; i++)
         {
             QString var_name = vm->GetGlobalVarList().at(i);
+            int var_id = vm->GetIdOfVariable(var_name);
 
             QJsonObject var_obj;
-            var_obj.insert("id", i);
+            var_obj.insert("id", var_id);
             var_obj.insert("name", var_name);
-            var_obj.insert("type", vm->GetVarTypeAt(i));
+            var_obj.insert("type", vm->GetVarTypeAt(var_id));
 
             QJsonObject value_obj;
-            addValueToJsonObj(vm->GetInitValueOfVar(i), &value_obj);
+            addValueToJsonObj(vm->GetInitValueOfVar(var_id), &value_obj);
             var_obj.insert("initValue", value_obj);
 
             var_array.push_back(var_obj);
@@ -803,10 +805,11 @@ void MainWindow::addActionSeqToJsonObj(NodeInfo *node, QJsonObject *json, QStrin
                 QJsonObject value_obj;
                 addValueToJsonObj(vm->GetValueOnNode_SetVar(c_node), &value_obj);
                 int var_id = c_node->getValue(0).toInt();
-                if(var_id >= 0 || var_id < m_eventTreeModel->GetValueManager()->GetGlobalVarList().size())
+                QString var_name = m_eventTreeModel->GetValueManager()->GetVarNameAt(var_id);
+                if(var_name != "")
                 {
                     node_obj.insert("value", value_obj);
-                    node_obj.insert("name", m_eventTreeModel->GetValueManager()->GetGlobalVarList().at(var_id));
+                    node_obj.insert("name", var_name);
                     node_obj.insert("id", var_id);
                 }
             }
@@ -1017,26 +1020,25 @@ bool MainWindow::parseJsonArray_Var(QJsonArray *varJsonArray)
             if(varJsonArray->at(i).isObject())
             {
                 QJsonObject var = varJsonArray->at(i).toObject();
-                if(var.contains("id") && var.value("id").isDouble() && var.value("id").toInt() == i)
+                if(var.contains("id") && var.value("id").isDouble() &&
+                   var.contains("name") && var.value("name").isString() &&
+                   var.contains("type") && var.value("type").isString() &&
+                   var.contains("initValue") && var.value("initValue").isObject())
                 {
-                    if(var.contains("name") && var.value("name").isString() &&
-                       var.contains("type") && var.value("type").isString() &&
-                       var.contains("initValue") && var.value("initValue").isObject())
+                    int id = var.value("id").toInt();
+                    QString name = var.value("name").toString();
+                    QString type = var.value("type").toString();
+                    QJsonObject init_v = var.value("initValue").toObject();
+                    BaseValueClass* v = parseJsonObj_Value(&init_v);
+                    if(v != nullptr)
                     {
-                        QString name = var.value("name").toString();
-                        QString type = var.value("type").toString();
-                        QJsonObject init_v = var.value("initValue").toObject();
-                        BaseValueClass* v = parseJsonObj_Value(&init_v);
-                        if(v != nullptr)
-                        {
-                            v->SetVarType(type);
-                            vm->AddNewVariable(name, v);
+                        v->SetVarType(type);
+                        if( !vm->AddNewVarAtPos(name, v, id) )
                             delete v;
-                        }
-                        else
-                            info("变量" + name + "的初始值解析失败！");
-                        continue;
                     }
+                    else
+                        info("变量" + name + "的初始值解析失败！");
+                    continue;
                 }
             }
         }
@@ -1229,8 +1231,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
                 int var_id = actionJsonObj->value("id").toInt();
 
                 // 检查全局变量表中是否存在这个变量
-                QStringList var_list = m_eventTreeModel->GetValueManager()->GetGlobalVarList();
-                if(var_id >= 0 && var_id < var_list.size() && var_list[var_id] == var_name)
+                if(m_eventTreeModel->GetValueManager()->GetVarNameAt(var_id) == var_name && var_name != "")
                 {
                     // 使用 new 创建 value
                     QJsonObject var_obj = actionJsonObj->value("value").toObject();
@@ -1302,8 +1303,7 @@ BaseValueClass *MainWindow::parseJsonObj_Value(QJsonObject *valueJsonObj)
         // 检查变量管理器中是否存在这个变量
         QString name = valueJsonObj->value("name").toString();
         int id = valueJsonObj->value("id").toInt();
-        QStringList var_list = m_eventTreeModel->GetValueManager()->GetGlobalVarList();
-        if(id == var_list.indexOf(name))
+        if(name == m_eventTreeModel->GetValueManager()->GetVarNameAt(id))
         {
             value = new BaseValueClass();
             value->SetVarName(name, m_eventTreeModel->GetValueManager()->GetVarTypeAt(id), id);
@@ -1469,14 +1469,17 @@ void MainWindow::generateLuaDocument(QFile *file)
 
     // 生成一个Excute函数
     file->write("function levelTable:Excute(event)\n"
+                "    local ret = false\n"
                 "    if self.EventFunc[event.id] ~= nil then\n"
                 "        for _, func in self.EventFunc[event.id] do\n"
                 "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event) == 1 then\n"
                 "                func.call(event, self.flowController)\n"
+                "                ret = true\n"
                 "                -- break\n"
                 "            end\n"
                 "        end\n"
                 "    end\n"
+                "    return ret\n"
                 "end\n\n");
 
     file->write("return levelTable\n");
@@ -1485,11 +1488,12 @@ void MainWindow::generateLuaDocument(QFile *file)
 void MainWindow::writeLuaVariables(QFile *file)
 {
     ValueManager* vm = m_eventTreeModel->GetValueManager();
-    int n = vm->GetGlobalVarList().size();
+    QStringList list = vm->GetGlobalVarList();
+    int n = list.size();
     for(int i = 0; i < n; i++)
     {
         // 用ID生成格式化的变量名
-        QString line = QString("local g_var_%1\n").arg(i);
+        QString line = QString("local g_var_%1\n").arg(vm->GetIdOfVariable(list[i]));
         file->write(line.toStdString().c_str());
     }
 }
@@ -1499,19 +1503,21 @@ void MainWindow::writeLuaVarInitFunc(QFile *file)
     file->write("function levelTable:init(flowController)\n    self.flowController = flowController\n");
 
     ValueManager* vm = m_eventTreeModel->GetValueManager();
-    int n = vm->GetGlobalVarList().size();
+    QStringList list = vm->GetGlobalVarList();
+    int n = list.size();
     for(int i = 0; i < n; i++)
     {
+        int var_id = vm->GetIdOfVariable(list[i]);
         // 格式化变量名
-        QString line = QString("    g_var_%1 = ").arg(i);
+        QString line = QString("    g_var_%1 = ").arg(var_id);
         // 赋值为 initValue
-        line += getLuaValueString(vm->GetInitValueOfVar(i));
+        line += getLuaValueString(vm->GetInitValueOfVar(var_id));
         // 注释自定义的变量名、变量类型
         for(int si = line.length(); si < 24; si++)
         {
             line += " ";
         }
-        line = line + "\t-- " + vm->GetGlobalVarList().at(i) + "\t" + vm->GetVarTypeAt(i) + "\n";
+        line = line + "\t-- " + list.at(i) + "\t" + vm->GetVarTypeAt(var_id) + "\n";
 
         file->write(line.toStdString().c_str());
     }
@@ -1939,7 +1945,7 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
     }
 
     if(vm->GetVarTypeAt(id) != value->GetVarType() && value->GetValueType() != VT_STR)
-        info("Lua提示：设置变量" + vm->GetGlobalVarList().at(id) + "的类型与值" + value->GetText() + "的类型不一致");
+        info("Lua提示：设置变量" + vm->GetVarNameAt(id) + "的类型与值" + value->GetText() + "的类型不一致");
 
     QString str_value = getLuaValueString(value);
     if(str_value == "")
@@ -2145,7 +2151,26 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
 
 void MainWindow::on_btnDeleteVar_clicked()
 {
-    saveBackupJsonFile();
+    int idx = ui->tableWidget->currentRow();
+    if(idx < 0)
+        return;
+
+    ValueManager* vm = m_eventTreeModel->GetValueManager();
+    QString var_name = vm->GetGlobalVarList().at(idx);
+
+    if(vm->CheckVarIsUsedOrNot(var_name))
+    {
+        info("这个变量正在被使用，无法删除");
+        return;
+    }
+
+    if( !vm->DeleteVariable(var_name) )
+        info("删除失败！");
+    else
+    {
+        saveBackupJsonFile();
+        updateVarTable();
+    }
 }
 
 void MainWindow::on_tableWidget_itemDoubleClicked(QTableWidgetItem *item)

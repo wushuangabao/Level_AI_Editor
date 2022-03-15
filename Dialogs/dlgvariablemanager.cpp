@@ -52,15 +52,18 @@ void DlgVariableManager::CreateVar()
 void DlgVariableManager::ModifyVar(int id_var)
 {
     MY_ASSERT(model != nullptr);
-
     node = nullptr;
-    global_var_id = id_var;
-    *init_v = *(model->GetValueManager()->GetInitValueOfVar(id_var));
+
+    ValueManager* vm = model->GetValueManager();
+    QStringList var_list = vm->GetGlobalVarList();
+
+    global_var_id = vm->GetIdOfVariable(var_list[id_var]);
+    *init_v = *(vm->GetInitValueOfVar(global_var_id));
     var_type = init_v->GetVarType();
 
     this->setWindowTitle("编辑变量");
-    ui->comboBox->setCurrentText(model->GetValueManager()->GetVarTypeAt(id_var));
-    ui->lineEdit->setText(model->GetValueManager()->GetGlobalVarList().at(id_var));
+    ui->comboBox->setCurrentText(vm->GetVarTypeAt(global_var_id));
+    ui->lineEdit->setText(vm->GetGlobalVarList().at(global_var_id));
     ui->pushButton_2->setText(init_v->GetText());
 
     exec();
