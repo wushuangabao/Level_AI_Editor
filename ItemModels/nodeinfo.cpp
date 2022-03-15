@@ -20,9 +20,63 @@ void NodeInfo::clear()
     {
         childs[i]->clear();
         delete childs[i];
+        childs[i] = nullptr;
     }
     childs.clear();
     values.clear();
+}
+
+void NodeInfo::operator=(NodeInfo &obj)
+{
+    type = obj.type;
+    text = obj.text;
+
+    values.clear();
+    for(int i = 0; i < obj.getValuesCount(); i++)
+    {
+        values.push_back(obj.getValue(i));
+    }
+
+    for(int i = 0; i < childs.size(); i++)
+    {
+        childs[i]->clear();
+        delete childs[i];
+    }
+
+    childs.clear();
+    for(int i = 0; i < obj.childs.size(); i++)
+    {
+        childs.push_back(obj.childs[i]);
+    }
+}
+
+NodeInfo *NodeInfo::InsertChildAt(int pos, NodeInfo *node)
+{
+
+}
+
+NodeInfo *NodeInfo::addNewChildNode_SetVar(QString var_name, QString value_str, int id_var)
+{
+    QString node_text = var_name + " = " + value_str;
+    if(type == SEQUENCE)
+    {
+        NodeInfo* new_node = new NodeInfo(this, SET_VAR, node_text);
+        new_node->values.push_back(QString::number(id_var));
+        childs.push_back(new_node);
+        return new_node;
+    }
+     return nullptr;
+}
+
+NodeInfo *NodeInfo::GetRootNode()
+{
+    static NodeInfo* root_node = nullptr;
+    if(root_node == nullptr)
+    {
+        root_node = new NodeInfo(nullptr, NODE_TYPE::INVALID, "rootNode");
+        qDebug() << "new root node.";
+    }
+    return root_node;
 }
 
 /////////////////////////////////////
@@ -40,10 +94,10 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
         new_node->initEventMembers();
         break;
     case ETYPE:
-        new_node->UpdateEventType(1000);
+        new_node->UpdateEventType(0);
         break;
     case SET_VAR:
-        new_node->text = "a = 0";
+        new_node->text = "??? = nil";
         break;
     case CONDITION:
     case COMPARE:
@@ -81,7 +135,7 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
 NodeInfo *NodeInfo::addNewChild_Compare(QString compare_type, QString left_value, QString right_value)
 {
     CONDITION_OP op = getConditionEnum(compare_type);
-    Q_ASSERT(op >= EQUAL_TO && op <= EQUAL_LESS);
+    MY_ASSERT(op >= EQUAL_TO && op <= EQUAL_LESS);
 
     NodeInfo* new_node = new NodeInfo(this, COMPARE, "");
     this->childs.append(new_node);
@@ -198,21 +252,17 @@ void NodeInfo::UpdateText()
 /// 更新节点的text（显示）
 /////////////////////////////////////
 
-void NodeInfo::UpdateEventType(EVENT_TYPE_ID event_id)
+void NodeInfo::UpdateEventType(int index)
 {
     if(type != NODE_TYPE::ETYPE)
         return;
 
-    int index = EventType::GetInstance()->eventIdVector.indexOf(event_id);
-    if(index == -1)
-    {
-        qDebug() << "NOT FIND " << event_id << "in NodeInfo::updateEventType!" << endl;
+    if(index < 0 || index >= EventType::GetInstance()->GetCount())
         return;
-    }
 
     values.clear();
-    values.append(QString::number(event_id));
-    text = EventType::GetInstance()->eventNameVector[index];
+    values.append(QString::number(index));
+    text = EventType::GetInstance()->GetEventNameAt(index);
 }
 
 void NodeInfo::updateCompareText()

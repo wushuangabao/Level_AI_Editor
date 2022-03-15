@@ -25,15 +25,19 @@ public:
 
     void ModifyValue(NodeInfo* node, int node_type);
     void ModifyInitVarValue(BaseValueClass* v, QString var_type);
-    void CreateValueForParentIfNode(NodeInfo* parent_node);
+    void CreateValueForParentIfNode(NodeInfo* parent_node, const QString &var_type); //给CONDITION节点创建的Compare类型的子节点上的值
+    void CreateNewValue(const QString &var_type, NodeInfo *parent_node);
 
     void ModifyCallNode(NodeInfo* function_node);
+    void CreateCallNode();
     void SetUpforFunction();
 
     void SetModel(TreeItemModel* m);
 
     QString GetValueText();
     BaseValueClass* GetValuePointer();
+
+    bool IsAccepted();
 
 private slots:
     void on_DlgEditValue_accepted();
@@ -44,15 +48,8 @@ private slots:
     void on_radioPreset_clicked(bool checked);
     void on_radioEvtParam_clicked(bool checked);
 
-    // 创建变量
-    void on_btnSetValue_clicked();
-
-    // 多选框
+    // 多选框 - 选择函数
     void on_comboBoxFunction_currentIndexChanged(int index);
-    void on_comboBox_Var_currentIndexChanged(int index);
-
-    // 文本编辑框
-    void on_lineEdit_textChanged(const QString &arg1);
 
     // 编辑函数的某个参数的值
     void onBtnParam1_clicked();
@@ -66,20 +63,23 @@ private slots:
     void onBtnParam9_clicked();
     void onBtnParam10_clicked();
 
-
-
 private:
-    void initVariableComboBox(QString var_type);
-    void initFunctionComboBox(QString var_type);
+    void initEvtParamComboBox(const QString &var_type);
+    void initVariableComboBox(const QString &var_type);
+    void initPresetComboBox(const QString &var_type);
+    void initFunctionComboBox(const QString &var_type);
 
-    void initUIforValue(QString var_type);
+    void initUIforValue(const QString &var_type);
     void initUI_SetInitvalue(BaseValueClass* v);
+
     void setUIByValue(BaseValueClass* v);
+
     void setUIVisible_Var(bool can_see);
     void setUIVisible_EvtParam(bool can_see);
     void setUIVisible_Enum(bool can_see);
 
     void onBtnParam_clicked(int idx);
+    void clearFuncTextUI();
     void updateFuncTextUI(FunctionClass* func);
     void addFuncParam(QPushButton* btn, FunctionClass* func, int param_id);
     void addFuncText(QLabel* lbl, FunctionClass* func, int text_id);
@@ -102,6 +102,8 @@ private:
     QVector<QPushButton*> funcParamBtns;
     QVector<QLabel*> funcTextLabels;
     QVector<BaseValueClass*> funcParams;
+
+    bool is_accepted;
 };
 
 #endif // DLGEDITVALUE_H

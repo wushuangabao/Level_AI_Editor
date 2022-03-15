@@ -31,20 +31,21 @@ public:
     void UpdateValueOnNode_Function(NodeInfo* node, BaseValueClass* value); //function节点上的变量
     BaseValueClass* GetValueOnNode_Function(NodeInfo* node);
 
-    void AddValueOnNode_Compare_Left(NodeInfo* node, BaseValueClass* value); //compare节点上的变量
-    void AddValueOnNode_Compare_Right(NodeInfo* node, BaseValueClass* value);
     void UpdateValueOnNode_Compare_Left(NodeInfo* node, BaseValueClass* value); //compare节点上的变量
     void UpdateValueOnNode_Compare_Right(NodeInfo* node, BaseValueClass* value);
     BaseValueClass* GetValueOnNode_Compare_Left(NodeInfo* node);
     BaseValueClass* GetValueOnNode_Compare_Right(NodeInfo* node);
 
-    void UpdateEventParams(NodeInfo* node, int eid); //根据事件类型（EventType）添加变量（也就是事件参数）
-    QStringList* GetEventParams(NodeInfo* node);
+    void OnDeleteNode(NodeInfo* node); //删除节点时更新map
 
-    void UpdateVarName(int var_id); //更新所有变量ID为var_id的value的name（包括函数参数中的value）
+    QStringList* GetEventParamsUI(NodeInfo* node);
+    QStringList* GetEventParamsLua(NodeInfo* node);
+
+    void UpdateVarOnNodes(int var_id); //更新所有变量ID为var_id的value的name（包括函数参数中的value）
 
 private:
     void clearNodeMap(QMap<NodeInfo*, BaseValueClass*>& node_map);
+    void deleteNodeInMap(QMap<NodeInfo*, BaseValueClass*>& node_map, NodeInfo* node);
 
     QList<BaseValueClass*> dataList; //全局变量表（存放初始值）
     QStringList nameList;  //全局变量名表，与dataList变量表一一对应
@@ -54,9 +55,6 @@ private:
     QMap<NodeInfo*, BaseValueClass*> nodeSetVarMap;
     QMap<NodeInfo*, BaseValueClass*> nodeCompareValueLeftMap;
     QMap<NodeInfo*, BaseValueClass*> nodeCompareValueRightMap;
-
-    // 事件节点与对应的事件参数表
-    QMap<NodeInfo*, QStringList*> eventParamsMap;
 
     // LevelClass* lvl; // 对应的关卡
 };

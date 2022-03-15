@@ -32,6 +32,7 @@ private slots:
     // 编辑变量初始值
     void on_pushButton_2_clicked();
 
+    // 选择变量的var_type
     void on_comboBox_currentIndexChanged(const QString &arg1);
 
 private:

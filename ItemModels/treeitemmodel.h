@@ -44,7 +44,9 @@ public:
     // 当前节点是不是顶层动作节点（sequence)
     bool isEventActionSeq(NodeInfo* cur_node);
 
-    QStringList* GetEventParamsOf(NodeInfo* node);
+    QStringList* GetEventParamsUIOf(NodeInfo* node);
+    QStringList* GetEventParamsLuaOf(NodeInfo* node);
+
     ValueManager* GetValueManager();
 
     NodeInfo* FindEventByName(QString ename);

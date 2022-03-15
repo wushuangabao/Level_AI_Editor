@@ -23,15 +23,20 @@ public:
     void SetModel(TreeItemModel* m);
 
     void EditSetVarNode(NodeInfo* set_var_node);
+    void CreateSetVarNode(NodeInfo *seq_node);
 
     QString GetNodeText();
     QString GetValueName();
     BaseValueClass* GetValuePointer();
 
+    bool IsAccepted();
+
 private slots:
     void on_pushButton_clicked();
 
     void on_DlgSetVariable_accepted();
+
+    void on_comboBox_currentIndexChanged(int index);
 
 private:
     void initVariableComboBox();
@@ -43,6 +48,10 @@ private:
     TreeItemModel* model;
 
     NodeInfo* node;
+
+    QString var_type;
+
+    bool is_accepted;
 };
 
 #endif // DLGSETVARIABLE_H

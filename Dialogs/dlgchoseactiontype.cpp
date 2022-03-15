@@ -1,3 +1,4 @@
+#include "../ItemModels/nodeinfo.h"
 #include "dlgchoseactiontype.h"
 #include "ui_dlgchoseactiontype.h"
 
@@ -26,9 +27,17 @@ void DlgChoseActionType::SetModel(TreeItemModel *m)
     m_dlgSetVar->SetModel(m);
 }
 
-void DlgChoseActionType::CreateActionType()
+void DlgChoseActionType::CreateActionType(NodeInfo* seq_node)
 {
     index = INVALID;
+
+    node = seq_node;
+    if(node->type != SEQUENCE)
+    {
+        info("只能在序列中插入动作！");
+        return;
+    }
+
     exec();
 }
 
@@ -36,10 +45,10 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
 {
     switch (index) {
     case SET_VAR:
-        node_text = ui->lblSetVar->text();
+        node_text = m_dlgSetVar->GetNodeText();
         break;
     case FUNCTION:
-        node_text = ui->lblCallFunc->text();
+        node_text = m_dlgCallFunc->GetValueText();
         break;
     case CHOICE:
         node_text = "if";
@@ -63,6 +72,16 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
     return index;
 }
 
+BaseValueClass *DlgChoseActionType::GetValue_SetVar()
+{
+    return m_dlgSetVar->GetValuePointer();
+}
+
+BaseValueClass *DlgChoseActionType::GetValue_CallFunc()
+{
+    return m_dlgCallFunc->GetValuePointer();
+}
+
 void DlgChoseActionType::on_btnChoice_clicked()
 {
     index = CHOICE;
@@ -84,13 +103,22 @@ void DlgChoseActionType::on_btnEnd_clicked()
 void DlgChoseActionType::on_btnSetVar_clicked()
 {
     index = SET_VAR;
-    hide();
+
+    m_dlgSetVar->CreateSetVarNode(node);
+    if(m_dlgSetVar->IsAccepted())
+    {
+//        ui->lblSetVar->setText(m_dlgSetVar->GetNodeText());
+        hide();
+    }
 }
 
 void DlgChoseActionType::on_btnCallFunc_clicked()
 {
     index = FUNCTION;
-    hide();
+
+    m_dlgCallFunc->CreateCallNode();
+    if(m_dlgCallFunc->IsAccepted())
+        hide();
 }
 
 void DlgChoseActionType::on_btnCloseEvent_clicked()

@@ -7,17 +7,18 @@
 #include "enumdefine.h"
 #include "eventtype.h"
 
-class BaseValueClass;
-
 class NodeInfo
 {
 public:
-    NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str);
+    static NodeInfo* GetRootNode();
     ~NodeInfo();
 
     void clear();
+    void operator=(NodeInfo& obj); //深拷贝除子节点之外的其他数据。父节点维持不变，子节点用obj的（原来的子节点全删了）。
 
     // new 一个新的 NodeInfo
+    NodeInfo* InsertChildAt(int pos, NodeInfo* node);
+    NodeInfo* addNewChildNode_SetVar(QString var_name, QString value_str, int id_var);
     NodeInfo* addNewChild(NODE_TYPE eType, QString str_data);
     NodeInfo* addNewChild_Compare(QString compare_type, QString left_value, QString right_value);
 
@@ -30,7 +31,7 @@ public:
     void clearValues();
 
     void UpdateText();
-    void UpdateEventType(EVENT_TYPE_ID event_id);
+    void UpdateEventType(int event_idx);
 
     NodeInfo* parent;          // 父节点
     NODE_TYPE type;            // 节点类型
@@ -38,6 +39,8 @@ public:
     QList<NodeInfo*> childs;   // 子节点
 
 private:
+    NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str);
+
     void updateCompareText();
     void updateCondionText();
 

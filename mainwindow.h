@@ -31,6 +31,8 @@ public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
 
+    void closeEvent(QCloseEvent *e);
+
 private slots:
     // 弹出菜单
     void slotTreeMenu(const QPoint &pos);
@@ -69,6 +71,12 @@ private slots:
 
     // 点击左侧关卡列表
     void on_levelList_itemClicked(QListWidgetItem *item);
+    // 关卡列表右键菜单
+    void on_levelList_customContextMenuRequested(const QPoint &pos);
+    // 创建新的关卡（拷贝当前选中的关卡）
+    void CreateNewLevel_CopyCurLvl();
+    // 删除当前选中的关卡
+    void DeleteCurrentLevel();
 
 private:
     Ui::MainWindow *ui;
@@ -85,15 +93,11 @@ private:
     TreeItemModel* m_eventTreeModel;
 
     void InitEventTree();
-    NodeInfo* createNewEventOnTree(int event_type_id, const QString& event_name);
+    NodeInfo* createNewEventOnTree(QString event_type, const QString& event_name);
 
     void editEventName(NodeInfo* node); //编辑事件名称
     void editEventType(NodeInfo* node); //编辑事件类型
     void editActionNode(NodeInfo* node); //编辑动作节点
-
-    // 左侧关卡列表
-    QStringList m_levelList;
-    void InitLevelTree();
 
     // 右侧变量列表
     void addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3);
@@ -123,9 +127,9 @@ private:
     // 生成Lua文件
     void generateLuaDocument(QFile* file);
     int space_num = 0;
-    QStringList* event_args;
     QMap<int, int> event_pos_in_table;
     void writeLuaVariables(QFile* file);
+    void writeLuaVarInitFunc(QFile* file);
     QString getLuaValueString(BaseValueClass* value);
     QString getLuaCallString(BaseValueClass* value_func);
     bool writeLuaEventInfo(QFile* file, NodeInfo* event_node);
@@ -134,7 +138,25 @@ private:
     bool writeLuaEventActionFunc(QFile* file, NodeInfo* sequence_node);
     bool writeLuaSequence(QFile* file, NodeInfo* sequence_node);
     bool writeLuaSetVar(QFile* file, NodeInfo* setvar_node);
+    bool writeLuaOpenOrCloseEvent(QFile* file, int event_pos, const QString& pre_str, bool is_open);
     int findLuaIndexOfEvent(NodeInfo* node);
+
+    // 获取exe所在目录中的config目录
+    void getConfigPath(QString& s);
+
+    // 左侧关卡列表
+    QStringList m_levelList;
+    void InitLevelTree();
+
+    // 备份Json关卡文件
+    int lastLevelIndex;
+    QMap<QString, QStringList> backupFilePaths;
+    QMap<QString, bool> savedOrNot;
+    bool saveBackupJsonFile();
+    void changeSavedFlag(const QString& level_name, bool already_saved);
+    bool isSameFile(const QString& path1, const QString& path2);
+    void deleteFile(const QString& path);
+    QString getLevelNameOnItem(QListWidgetItem* item);
 };
 
 #endif // MAINWINDOW_H

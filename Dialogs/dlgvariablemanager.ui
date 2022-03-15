@@ -72,26 +72,6 @@
              <string>string</string>
             </property>
            </item>
-           <item>
-            <property name="text">
-             <string>bool</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>点</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>棋子</string>
-            </property>
-           </item>
-           <item>
-            <property name="text">
-             <string>棋子种类</string>
-            </property>
-           </item>
           </widget>
          </item>
         </layout>

@@ -35,7 +35,7 @@ public:
     void SetVarName(const QString& name, QString var_type, int idx);
     void SetLuaStr(const QString& lua_str);
     void SetEnumValue(const QString& value_str);
-    void SetEvtParam(const QString& param_str);
+    void SetEvtParam(const QString& lua_str, const QString& ui_str, QString var_type);
 
     void SetFunction(FunctionClass* function_class);
     void SetParamAt(int idx, BaseValueClass* v);
@@ -45,7 +45,9 @@ public:
     BaseValueClass* GetFunctionParamAt(int id);
     FunctionClass* GetFunctionInfo();
 
-    void UpdateVarName(int var_id, const QString& name);
+    QString GetEventParamInLua();
+
+    bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type);
 private:
     QString name;        //变量名
     FunctionClass* func; //函数：函数名、参数信息

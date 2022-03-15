@@ -3,6 +3,9 @@
 
 #include <QMessageBox>
 
+#define MY_ASSERT(cond) do{if(!(cond)){info(QString(#cond)+QString(__FILE__));/*Q_ASSERT(cond);*/}}while(0)
+
+
 __attribute__((unused)) static void info(QString info)
 {
     QMessageBox::information(nullptr, "提示", info);

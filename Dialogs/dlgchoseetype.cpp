@@ -26,10 +26,12 @@ void DlgChoseEType::CreateNewEvent()
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText("");
     event_name = "";
+
+    ui->label_name->setText("事件名称：");
     ui->label_name->setVisible(true);
 
     ui->comboBox->clear();
-    ui->comboBox->addItems(EventType::GetInstance()->eventNameVector);
+    ui->comboBox->addItems(EventType::GetInstance()->GetEventTypeList());
     ui->comboBox->setVisible(true);
 
     index = 0;
@@ -48,6 +50,29 @@ void DlgChoseEType::EditEventName(QString name)
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
     event_name = name;
+
+    ui->label_name->setText("事件名称：");
+    ui->label_name->setVisible(true);
+
+    ui->comboBox->setVisible(false);
+
+    index = 0;
+    text = "";
+
+    exec();
+}
+
+void DlgChoseEType::EditLevelName(const QString& name)
+{
+    setWindowTitle("编辑关卡名称");
+
+    ui->label->setVisible(false);
+
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText(name);
+    event_name = name;
+
+    ui->label_name->setText("关卡名称：");
     ui->label_name->setVisible(true);
 
     ui->comboBox->setVisible(false);
@@ -91,7 +116,7 @@ void DlgChoseEType::EditEventType()
     ui->label_name->setVisible(false);
 
     ui->comboBox->clear();
-    ui->comboBox->addItems(EventType::GetInstance()->eventNameVector);
+    ui->comboBox->addItems(EventType::GetInstance()->GetEventTypeList());
     ui->comboBox->setCurrentIndex(0);
     ui->comboBox->setVisible(true);
 
@@ -113,6 +138,8 @@ void DlgChoseEType::on_DlgChoseEType_accepted()
 void DlgChoseEType::on_DlgChoseEType_rejected()
 {
     index = -1;
+    if(ui->label_name->text() == "关卡名称：")
+        event_name = "";
 }
 
 void DlgChoseEType::on_comboBox_currentIndexChanged(int id)

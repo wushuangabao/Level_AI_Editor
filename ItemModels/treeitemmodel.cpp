@@ -4,7 +4,7 @@
 TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
     : QAbstractItemModel(parent)
 {
-    m_pRootNode = new NodeInfo(nullptr, NODE_TYPE::INVALID, "rootNode");
+    m_pRootNode = NodeInfo::GetRootNode();
     globalValueManager = new ValueManager();
 }
 
@@ -130,11 +130,17 @@ bool TreeItemModel::deleteNode(NodeInfo *node)
         return false;
     }
 
-    // todo: 如果 value manager 中有node和对应的value，也要删掉
+    // 如果 value manager 中有node和对应的value，也要删掉
+    globalValueManager->OnDeleteNode(node);
+
     // todo: 如果删除的是Event，那么其他事件中的OPEN_EVENT和CLOSE_EVENT节点会失效
 
     beginResetModel();
+
+    // 清除节点数据、子节点数据
     node->clear();
+
+    // 然后从父节点中移除
     for(int i = 0; i < node->parent->childs.size(); i++)
     {
         if(node->parent->childs[i] == node)
@@ -146,8 +152,9 @@ bool TreeItemModel::deleteNode(NodeInfo *node)
             return true;
         }
     }
-    endResetModel();
+
     qDebug() << "deleteNode fails." << endl;
+    endResetModel();
     return false;
 }
 
@@ -155,25 +162,16 @@ NodeInfo* TreeItemModel::createNode(QString str_data, NODE_TYPE eType, NodeInfo 
 {
     if(parent == nullptr)
         parent = m_pRootNode;
-
     if(parent->type == EVENT)
         parent = parent->childs[2];
-
     if(parent->type == ETYPE)
         parent = parent->parent->childs[2];
-
     if(isEventCondition(parent) && (eType != CONDITION && eType != COMPARE))
         parent = parent->parent->childs[2];
 
     beginResetModel();
-
     NodeInfo* node = parent->addNewChild(eType, str_data);
-
     endResetModel();
-
-    // 增加事件节点
-    if(parent == m_pRootNode && node != nullptr)
-        globalValueManager->UpdateEventParams(node, 1000);
 
     return node;
 }
@@ -262,11 +260,20 @@ bool TreeItemModel::isEventActionSeq(NodeInfo *cur_node)
         return false;
 }
 
-QStringList *TreeItemModel::GetEventParamsOf(NodeInfo *node)
+QStringList *TreeItemModel::GetEventParamsUIOf(NodeInfo *node)
 {
     NodeInfo* event_node = findUppestNodeOf(node);
-    Q_ASSERT(event_node != nullptr);
-    return globalValueManager->GetEventParams(event_node);
+    MY_ASSERT(event_node != nullptr);
+
+    return globalValueManager->GetEventParamsUI(event_node);
+}
+
+QStringList *TreeItemModel::GetEventParamsLuaOf(NodeInfo *node)
+{
+    NodeInfo* event_node = findUppestNodeOf(node);
+    MY_ASSERT(event_node != nullptr);
+
+    return globalValueManager->GetEventParamsLua(event_node);
 }
 
 ValueManager *TreeItemModel::GetValueManager()

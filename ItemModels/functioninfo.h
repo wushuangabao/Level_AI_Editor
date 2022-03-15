@@ -12,10 +12,12 @@ private:
 
     FUNCTION_ID id;
 
-    QString name;       // 函数名（lua）
+    QString name_lua;   // 函数名（lua）
+    QString name_ui;    // 函数名（UI显示）
     QStringList texts;  // 拼接成描述的纯文本
     QStringList params; // 拼接成描述的参数类型
     QStringList values; // 返回值的类型
+    bool can_be_call;   // 是否可被用于Call Function
     QString note;       // 注释，在UI中显示
 
 public:
@@ -24,18 +26,21 @@ public:
     inline void Clear()
     {
         id = 0;
-        name.clear();
+        name_lua.clear();
+        name_ui.clear();
         texts.clear();
         params.clear();
         values.clear();
         note.clear();
         param_is_before_text = false;
+        can_be_call = false;
     }
 
     inline FUNCTION_ID GetID() { return id; }
-    inline QString GetName() { return name; }
+    inline QString GetNameLua() { return name_lua; }
+    inline QString GetNameUI() { return name_ui; }
     inline QString GetNote() { return note; }
-
+    inline bool CanBeCall() { return can_be_call; }
     inline int GetTextNum() { return texts.size(); }
     inline int GetParamNum() {  return params.size(); }
     inline int GetReturnNum() { return values.size(); }

@@ -3,8 +3,6 @@
 #include <QTextStream>
 #include "eventtype.h"
 
-EventType* EventType::instance = nullptr;
-
 EventType::EventType()
 {
     InitEventTypes();
@@ -17,11 +15,49 @@ EventType::~EventType()
 
 EventType *EventType::GetInstance()
 {
+    static EventType* instance = nullptr;
     if(instance == nullptr)
     {
         instance = new EventType();
     }
     return instance;
+}
+
+int EventType::GetIndexOf(const QString& event_id)
+{
+    for(int i = 0; i < eventTypeNameVector.size(); i++)
+        if(eventTypeNameVector[i] == event_id)
+            return i;
+
+    return -1;
+}
+
+QStringList *EventType::GetEventParamsUIAt(int idx)
+{
+    if(idx < 0 || idx >= paramNamesVector.size())
+        return nullptr;
+
+    return &(paramNamesVector[idx]);
+}
+
+QStringList *EventType::GetEventParamsLuaAt(int idx)
+{
+    if(idx < 0 || idx >= paramNameInLuaVector.size())
+        return nullptr;
+
+    return &(paramNameInLuaVector[idx]);
+}
+
+QStringList *EventType::GetEventParamTypes(QStringList *params)
+{
+    int n = paramTypesVector.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(&(paramNamesVector[i]) == params)
+            return &(paramTypesVector[i]);
+    }
+
+    return nullptr;
 }
 
 void EventType::InitEventTypes()
@@ -64,7 +100,7 @@ void EventType::ClearData()
     }
 
     paramNamesVector.clear();
-    eventIdVector.clear();
+    eventTypeNameVector.clear();
     eventNameVector.clear();
 }
 
@@ -133,7 +169,7 @@ void EventType::createFakeData()
 
         paramNamesVector.append(str_list);
         paramTypesVector.append(type_list);
-        eventIdVector.append(i + 1000);
+        eventTypeNameVector.append(QString::number(i + 1000));
         eventNameVector.append(event_list[i]);
     }
 
@@ -162,27 +198,29 @@ bool EventType::createDateByConfig(QString file_path)
         if(n < 2)
             continue;
 
-        eventIdVector << static_cast<EVENT_TYPE_ID>(sl[0].toInt());
-        eventNameVector << sl[1];
-
         QStringList params;
         QStringList types;
+        QStringList lua;
         for(int i = 2; i < n; i++)
         {
             QStringList pname_type = sl[i].split('|', QString::SkipEmptyParts);
-            if(pname_type.size() == 2)
+            if(pname_type.size() == 3)
             {
                 params << pname_type[0];
                 types << pname_type[1];
+                lua << pname_type[2];
             }
             else
             {
-                types << "number";
-                params << sl[i];
+                continue;
             }
         }
+
+        eventTypeNameVector << sl[0];
+        eventNameVector << sl[1];
         paramNamesVector << params;
         paramTypesVector << types;
+        paramNameInLuaVector << lua;
     }
 
     file.close();

@@ -73,18 +73,18 @@ void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value
         return;
     }
 
-    nameList[idx] = name;
     *(dataList[idx]) = *value;
+    nameList[idx] = name;
 
-    UpdateVarName(idx);
+    UpdateVarOnNodes(idx);
 }
 
 void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *value)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == SET_VAR);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == SET_VAR);
 
-    Q_ASSERT(value != nullptr);
+    MY_ASSERT(value != nullptr);
 
     if(nodeSetVarMap.contains(node))
     {
@@ -98,8 +98,8 @@ void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *va
 
 BaseValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == SET_VAR);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == SET_VAR);
 
     if(nodeSetVarMap.contains(node))
     {
@@ -113,12 +113,12 @@ BaseValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
 
 void ValueManager::UpdateValueOnNode_Function(NodeInfo *node, BaseValueClass *value)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == FUNCTION);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == FUNCTION);
 
-    Q_ASSERT(value != nullptr);
+    MY_ASSERT(value != nullptr);
     VALUE_TYPE vt = value->GetValueType();
-    Q_ASSERT(vt == VT_FUNC || vt == VT_STR);
+    MY_ASSERT(vt == VT_FUNC || vt == VT_STR);
 
     if(nodeFunctionMap.contains(node))
     {
@@ -132,8 +132,8 @@ void ValueManager::UpdateValueOnNode_Function(NodeInfo *node, BaseValueClass *va
 
 BaseValueClass *ValueManager::GetValueOnNode_Function(NodeInfo *node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == FUNCTION);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == FUNCTION);
 
     if(nodeFunctionMap.contains(node))
     {
@@ -145,45 +145,11 @@ BaseValueClass *ValueManager::GetValueOnNode_Function(NodeInfo *node)
     }
 }
 
-void ValueManager::AddValueOnNode_Compare_Left(NodeInfo *node, BaseValueClass *value)
-{
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(node->type == COMPARE);
-
-    if(nodeCompareValueLeftMap.contains(node))
-    {
-        delete nodeCompareValueLeftMap[node];
-        nodeCompareValueLeftMap[node] = value;
-    }
-    else
-    {
-        nodeCompareValueLeftMap.insert(node, value);
-    }
-}
-
-void ValueManager::AddValueOnNode_Compare_Right(NodeInfo *node, BaseValueClass *value)
-{
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(node->type == COMPARE);
-
-    if(nodeCompareValueRightMap.contains(node))
-    {
-        delete nodeCompareValueRightMap[node];
-        nodeCompareValueRightMap[node] = value;
-    }
-    else
-    {
-        nodeCompareValueRightMap.insert(node, value);
-    }
-}
-
 void ValueManager::UpdateValueOnNode_Compare_Left(NodeInfo *node, BaseValueClass *value)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(value != nullptr);
+    MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueLeftMap.contains(node))
     {
@@ -197,9 +163,9 @@ void ValueManager::UpdateValueOnNode_Compare_Left(NodeInfo *node, BaseValueClass
 
 void ValueManager::UpdateValueOnNode_Compare_Right(NodeInfo *node, BaseValueClass *value)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(value != nullptr);
+    MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueRightMap.contains(node))
     {
@@ -213,8 +179,8 @@ void ValueManager::UpdateValueOnNode_Compare_Right(NodeInfo *node, BaseValueClas
 
 BaseValueClass *ValueManager::GetValueOnNode_Compare_Left(NodeInfo *node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueLeftMap.contains(node))
     {
@@ -228,8 +194,8 @@ BaseValueClass *ValueManager::GetValueOnNode_Compare_Left(NodeInfo *node)
 
 BaseValueClass *ValueManager::GetValueOnNode_Compare_Right(NodeInfo *node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueRightMap.contains(node))
     {
@@ -241,6 +207,17 @@ BaseValueClass *ValueManager::GetValueOnNode_Compare_Right(NodeInfo *node)
     }
 }
 
+void ValueManager::OnDeleteNode(NodeInfo *node)
+{
+    for(int i = 0; i < node->childs.size(); i++)
+       OnDeleteNode(node->childs[i]);
+
+    deleteNodeInMap(nodeFunctionMap, node);
+    deleteNodeInMap(nodeSetVarMap, node);
+    deleteNodeInMap(nodeCompareValueLeftMap, node);
+    deleteNodeInMap(nodeCompareValueRightMap, node);
+}
+
 QString ValueManager::GetVarTypeAt(int idx)
 {
     if(idx >= dataList.size() || idx < 0)
@@ -249,7 +226,13 @@ QString ValueManager::GetVarTypeAt(int idx)
         return "";
     }
     else
-        return dataList.at(idx)->GetVarType();
+    {
+        QString init_value_type = dataList.at(idx)->GetVarType();
+        if(init_value_type == "")
+            return "未知类型";
+        else
+            return init_value_type;
+    }
 }
 
 QString ValueManager::GetVarTypeOf(const QString &name)
@@ -278,80 +261,73 @@ int ValueManager::FindIdOfVarName(const QString &name)
     return -1;
 }
 
-// 在事件节点（EVENT类型节点）中更新“事件参数”
-void ValueManager::UpdateEventParams(NodeInfo* eventNode, int eid)
+QStringList *ValueManager::GetEventParamsUI(NodeInfo *node)
 {
-    Q_ASSERT(eventNode != nullptr);
-    Q_ASSERT(eventNode->type == EVENT);
-    if(eventParamsMap.contains(eventNode))
-    {
-        eventParamsMap[eventNode]->clear();
-    }
-    else
-    {
-        QStringList* str_list = new QStringList();
-        eventParamsMap.insert(eventNode, str_list);
-    }
+    MY_ASSERT(node->type == EVENT);
+    MY_ASSERT(node->childs.size() > 1);
 
-    int n = eventNode->getValuesCount();
-    if(n > 0)
-    {
-        eventNode->clearValues();
-    }
+    NodeInfo* etype_node = node->childs[0];
+    MY_ASSERT(etype_node->type == ETYPE);
+    MY_ASSERT(etype_node->getValuesCount() > 0);
 
-    EVENT_TYPE_ID e_eid = static_cast<EVENT_TYPE_ID>(eid);
-    int index = EventType::GetInstance()->eventIdVector.indexOf(e_eid);
-    if(index == -1)
-    {
-        qDebug() << "not find e_id in UpdateEventParams!" << endl;
-        return;
-    }
-    int params_num = EventType::GetInstance()->paramNamesVector[index].size();
-    if(params_num > 0)
-    {
-        for(int i = 0; i < params_num; i++)
-        {
-            QString pname = EventType::GetInstance()->paramNamesVector[index][i];
-            eventNode->addNewValue(pname);
-            eventParamsMap[eventNode]->push_back(pname);
-        }
-    }
+    int eid = etype_node->getValue(0).toInt();
+    return EventType::GetInstance()->GetEventParamsUIAt(eid);
 }
 
-QStringList *ValueManager::GetEventParams(NodeInfo *node)
+QStringList *ValueManager::GetEventParamsLua(NodeInfo *node)
 {
-    if(eventParamsMap.contains(node))
-    {
-        return eventParamsMap[node];
-    }
-    return nullptr;
+    MY_ASSERT(node->type == EVENT);
+    MY_ASSERT(node->childs.size() > 1);
+
+    NodeInfo* etype_node = node->childs[0];
+    MY_ASSERT(etype_node->type == ETYPE);
+    MY_ASSERT(etype_node->getValuesCount() > 0);
+
+    int eid = etype_node->getValue(0).toInt();
+    return EventType::GetInstance()->GetEventParamsLuaAt(eid);
 }
 
-void ValueManager::UpdateVarName(int var_id)
+void ValueManager::UpdateVarOnNodes(int var_id)
 {
+    QString init_var_type = dataList.at(var_id)->GetVarType();
     QMap<NodeInfo*, BaseValueClass*>::iterator itr;
 
+    // function
     for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
     {
-        itr.value()->UpdateVarName(var_id, nameList[var_id]);
+        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type);
         itr.key()->text = itr.value()->GetText();
     }
+
+    // set var
     for(itr = nodeSetVarMap.begin(); itr != nodeSetVarMap.end(); ++itr)
     {
-        itr.value()->UpdateVarName(var_id, nameList[var_id]);
-        itr.key()->modifyValue(0, nameList[var_id]);
-        itr.key()->text = itr.key()->getValue(0) + " = " + itr.value()->GetText();
+        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type);
+        if(itr.key()->getValue(0).toInt() == var_id)
+        {
+            itr.key()->modifyValue(0, QString::number(var_id));
+            itr.key()->text = nameList[var_id] + " = " + itr.value()->GetText();
+        }
+        QString value_var_type = itr.value()->GetVarType();
+        if(init_var_type != value_var_type && value_var_type != "")
+            info(itr.key()->text + "，变量和值的类型不一致");
     }
+
+    // compare
     for(itr = nodeCompareValueLeftMap.begin(); itr != nodeCompareValueLeftMap.end(); ++itr)
     {
-        itr.value()->UpdateVarName(var_id, nameList[var_id]);
+        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type);
         itr.key()->modifyValue(1, itr.value()->GetText());
     }
     for(itr = nodeCompareValueRightMap.begin(); itr != nodeCompareValueRightMap.end(); ++itr)
     {
-        itr.value()->UpdateVarName(var_id, nameList[var_id]);
+        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type);
         itr.key()->modifyValue(2, itr.value()->GetText());
         itr.key()->UpdateText();
+        QString var_type_left = nodeCompareValueLeftMap[itr.key()]->GetVarType();
+        QString var_type_right = itr.value()->GetVarType();
+        if(var_type_left != "" && var_type_right != "" && var_type_left != var_type_right)
+            info("比较" + itr.key()->text + "，左右值类型不一致");
     }
 }
 
@@ -367,6 +343,16 @@ void ValueManager::clearNodeMap(QMap<NodeInfo *, BaseValueClass *> &node_map)
     node_map.clear();
 }
 
+void ValueManager::deleteNodeInMap(QMap<NodeInfo *, BaseValueClass *> &node_map, NodeInfo *node)
+{
+    if(node_map.contains(node))
+    {
+        delete node_map[node];
+        node_map[node] = nullptr;
+        node_map.remove(node);
+    }
+}
+
 void ValueManager::ClearData()
 {
     if(dataList.size() > 0)
@@ -378,13 +364,6 @@ void ValueManager::ClearData()
     }
     dataList.clear();
     nameList.clear();
-
-    QMap<NodeInfo*, QStringList*>::iterator itr;
-    for(itr = eventParamsMap.begin(); itr != eventParamsMap.end(); ++itr)
-    {
-        delete itr.value();
-    }
-    eventParamsMap.clear();
 
     clearNodeMap(nodeFunctionMap);
     clearNodeMap(nodeSetVarMap);

@@ -143,24 +143,11 @@
   <widget class="QComboBox" name="comboBox_Var">
    <property name="geometry">
     <rect>
-     <x>90</x>
+     <x>80</x>
      <y>240</y>
-     <width>181</width>
+     <width>191</width>
      <height>22</height>
     </rect>
-   </property>
-  </widget>
-  <widget class="QPushButton" name="btnSetValue">
-   <property name="geometry">
-    <rect>
-     <x>280</x>
-     <y>240</y>
-     <width>75</width>
-     <height>23</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>创建变量</string>
    </property>
   </widget>
   <widget class="QRadioButton" name="radioPreset">
@@ -179,9 +166,9 @@
   <widget class="QComboBox" name="comboBox_Enum">
    <property name="geometry">
     <rect>
-     <x>90</x>
+     <x>80</x>
      <y>200</y>
-     <width>91</width>
+     <width>101</width>
      <height>22</height>
     </rect>
    </property>
@@ -192,9 +179,9 @@
   <widget class="QComboBox" name="comboBox_EvtParam">
    <property name="geometry">
     <rect>
-     <x>300</x>
+     <x>280</x>
      <y>200</y>
-     <width>91</width>
+     <width>111</width>
      <height>22</height>
     </rect>
    </property>
@@ -205,7 +192,7 @@
   <widget class="QRadioButton" name="radioEvtParam">
    <property name="geometry">
     <rect>
-     <x>220</x>
+     <x>200</x>
      <y>200</y>
      <width>81</width>
      <height>21</height>

@@ -22,8 +22,10 @@ public:
     ~DlgChoseActionType();
 
     void SetModel(TreeItemModel* m);
-    void CreateActionType();
+    void CreateActionType(NodeInfo *seq_node);
     NODE_TYPE GetNodeTypeAndText(QString& node_text);
+    BaseValueClass* GetValue_SetVar();
+    BaseValueClass* GetValue_CallFunc();
 
 private slots:
     void on_btnChoice_clicked();
@@ -43,6 +45,7 @@ private:
     DlgEditValue* m_dlgCallFunc;
 
     TreeItemModel* model;
+    NodeInfo* node;
     NODE_TYPE index;
 };
 

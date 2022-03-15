@@ -20,6 +20,9 @@ public:
 
     void CreateNewEvent();
     void EditEventName(QString name = "");
+
+    void EditLevelName(const QString& name);
+
     int ChoseEventNameIn(QStringList names);
     void EditEventType();
 

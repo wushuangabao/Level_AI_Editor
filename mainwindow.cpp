@@ -14,6 +14,7 @@
 #include "Dialogs/dlgsetvariable.h"
 #include "Dialogs/dlgvariablemanager.h"
 #include "Dialogs/dlgchoseactiontype.h"
+#include "Values/enuminfo.h"
 #include "ItemModels/functioninfo.h"
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
@@ -23,7 +24,22 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     m_curETNode = nullptr;
-    event_args = nullptr;
+    backupFilePaths.clear();
+
+    // 检查config等目录是否存在
+    QString config_path;
+    getConfigPath(config_path);
+    QDir dir_config(config_path.left(config_path.size() - 1));
+    if(!dir_config.exists())
+    {
+        info("找不到" + config_path + "文件夹");
+    }
+    QString backup_path = config_path + "backup";
+    QDir dir_backup;
+    if(!dir_backup.exists(backup_path))
+    {
+        bool ok = dir_backup.mkdir(backup_path);
+    }
 
     ui->setupUi(this);
 
@@ -38,7 +54,7 @@ MainWindow::MainWindow(QWidget *parent) :
     m_dlgManageVar = new DlgVariableManager(this);
     m_dlgChoseActionType = new DlgChoseActionType(this);
 
-    InitEventTree();
+    InitEventTree(); //整个程序中只调用一次
 
     // 设置 treeView 的连接线
     ui->eventTreeView->setStyle(QStyleFactory::create("windows"));
@@ -46,12 +62,53 @@ MainWindow::MainWindow(QWidget *parent) :
     // 自动调整第2列的宽度
     ui->tableWidget->resizeColumnToContents(1);
 
-    InitLevelTree();
+    InitLevelTree(); //整个程序中只调用一次
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    bool need_save = false;
+    foreach (bool already_saved, savedOrNot)
+    {
+        if(!already_saved)
+        {
+            need_save = true;
+            break;
+        }
+    }
+    if(need_save)
+    {
+        int ch = QMessageBox::warning(nullptr, "提示", "还有未保存的修改，确定直接退出？", QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if(ch != QMessageBox::Yes)
+        {
+            event->ignore();
+            return;
+        }
+    }
+
+    // 删除所有backup文件
+    QString backup_path;
+    getConfigPath(backup_path);
+    backup_path += "backup";
+    QDir dir(backup_path);
+    if(!dir.exists())
+        return;
+    dir.setFilter(QDir::Files);
+    QStringList file_list = dir.entryList();
+    int file_num = file_list.size();
+    backup_path += "/";
+    for(int i = 0; i < file_num; i++)
+    {
+        QString file_path = backup_path + file_list[i];
+        deleteFile(file_path);
+    }
+
+    QMainWindow::closeEvent(event);
 }
 
 void MainWindow::slotTreeMenu(const QPoint &pos)
@@ -184,12 +241,12 @@ void MainWindow::slotEditNode(bool b)
         // 关闭事件监听
         case CLOSE_EVENT:
             editActionNode(m_curETNode);
-
-        default:
             break;
+        default:
+            return;
         }
+        saveBackupJsonFile();
     }
-
 }
 
 void MainWindow::slotCutNode(bool b)
@@ -214,6 +271,7 @@ void MainWindow::slotDeleteNode(bool b)
     {
         m_curETNode = nullptr;
         ui->eventTreeView->expandAll();
+        saveBackupJsonFile();
     }
 }
 
@@ -234,8 +292,11 @@ void MainWindow::slotNewEvent(bool b)
                 info("已存在事件名：" + new_name);
             else
             {
-                if(EventType::GetInstance()->eventIdVector.size() > m_dlgChoseEvtType->index)
-                    createNewEventOnTree(EventType::GetInstance()->eventIdVector[m_dlgChoseEvtType->index], new_name);
+                if(EventType::GetInstance()->GetCount() > m_dlgChoseEvtType->index)
+                {
+                    createNewEventOnTree(EventType::GetInstance()->GetEventLuaType(m_dlgChoseEvtType->index), new_name);
+                    saveBackupJsonFile();
+                }
                 else
                     info("不存在这个事件类型！");
             }
@@ -250,6 +311,7 @@ void MainWindow::slotNewCondition(bool b)
     {
         m_dlgConditionType->CreateCondition(m_curETNode, "AND");
         ui->eventTreeView->expandAll();
+        saveBackupJsonFile();
     }
 }
 
@@ -257,16 +319,67 @@ void MainWindow::slotNewAction(bool b)
 {
     Q_UNUSED(b);
 
-    m_dlgChoseActionType->CreateActionType();
+    // 选择并新建一个动作节点
+    m_dlgChoseActionType->CreateActionType(m_curETNode);
     QString node_text;
     NODE_TYPE type = m_dlgChoseActionType->GetNodeTypeAndText(node_text);
-    if(type != INVALID)
+
+    switch (type)
+    {
+    case INVALID:
+        return;
+    case SET_VAR:
+    {
+        QStringList texts = node_text.split(" = ");
+        if(texts.size() == 2)
+        {
+            int id_var = m_eventTreeModel->GetValueManager()->FindIdOfVarName(texts[0]);
+            NodeInfo* new_node = m_curETNode->addNewChildNode_SetVar(texts[0], texts[1], id_var); //在动作序列中插入新建的setvar节点
+            if(new_node != nullptr && m_dlgChoseActionType->GetValue_SetVar() != nullptr)
+                m_eventTreeModel->GetValueManager()->UpdateValueOnNode_SetValue(new_node, m_dlgChoseActionType->GetValue_SetVar());
+            else
+            {
+                info("创建SET_VAR节点失败");
+                return;
+            }
+        }
+        else
+        {
+            info("创建SET_VAR节点失败");
+            return;
+        }
+        break;
+    }
+    case FUNCTION:
+    {
+        NodeInfo* new_node = m_curETNode->addNewChild(FUNCTION, node_text);
+        if(new_node != nullptr)
+        {
+            m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Function(new_node, m_dlgChoseActionType->GetValue_CallFunc());
+        }
+        else
+        {
+            info("创建FUNCTION节点失败");
+            return;
+        }
+    }
+        break;
+    case OPEN_EVENT:
+    case CLOSE_EVENT:
     {
         NodeInfo* new_node = m_eventTreeModel->createNode(node_text, type, m_curETNode);
         m_curETNode = new_node;
         ui->eventTreeView->expandAll();
         editActionNode(new_node);
+        return;
     }
+        break;
+    default:
+        m_curETNode = m_eventTreeModel->createNode(node_text, type, m_curETNode);
+        break;
+    }
+    ui->eventTreeView->expandAll();
+    saveBackupJsonFile();
 }
 
 // 初始化m_eventTreeModel
@@ -290,12 +403,11 @@ void MainWindow::InitEventTree()
     m_dlgChoseActionType->SetModel(m_eventTreeModel);
 }
 
-NodeInfo* MainWindow::createNewEventOnTree(int event_type_id, const QString &event_name)
+NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &event_name)
 {
-    EVENT_TYPE_ID event_id = static_cast<EVENT_TYPE_ID>(event_type_id);
-    if(!EventType::GetInstance()->eventIdVector.contains(event_id))
+    if(!EventType::GetInstance()->IsEventIdValid(event_type))
     {
-        qDebug() << "ERROR param in createNewEventOnTree!" << endl;
+        info("ERROR param in createNewEventOnTree!");
         return nullptr;
     }
 
@@ -303,8 +415,7 @@ NodeInfo* MainWindow::createNewEventOnTree(int event_type_id, const QString &eve
     if(new_node == nullptr)
         return nullptr;
 
-    new_node->childs[0]->UpdateEventType(event_id);
-    m_eventTreeModel->GetValueManager()->UpdateEventParams(new_node, event_type_id);
+    new_node->childs[0]->UpdateEventType(EventType::GetInstance()->GetIndexOf(event_type));
 
     ui->eventTreeView->expandAll();
     return new_node;
@@ -342,11 +453,9 @@ void MainWindow::editEventType(NodeInfo *node)
 
     // 选择事件类型（EventType）
     m_dlgChoseEvtType->EditEventType();
-    if(m_dlgChoseEvtType->index > -1  && m_dlgChoseEvtType->index < EventType::GetInstance()->eventIdVector.size())
+    if(m_dlgChoseEvtType->index > -1  && m_dlgChoseEvtType->index < EventType::GetInstance()->GetCount())
     {
-        EVENT_TYPE_ID event_id = EventType::GetInstance()->eventIdVector[m_dlgChoseEvtType->index];
-        node->UpdateEventType(event_id);
-        m_eventTreeModel->GetValueManager()->UpdateEventParams(node->parent, event_id);
+        node->UpdateEventType(m_dlgChoseEvtType->index);
     }
 }
 
@@ -457,23 +566,149 @@ void MainWindow::generateJsonDocument(QFile *file)
     file->write(document.toJson());
 }
 
+bool MainWindow::saveBackupJsonFile()
+{
+    if(lastLevelIndex == -1)
+        return false;
+    QString level_name = m_levelList[lastLevelIndex];
+
+    QString config_path;
+    getConfigPath(config_path);
+    QString file_path = config_path + "backup/" + level_name + "_aoutosaved_" + QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss") + ".json";
+
+    QFile file(file_path);
+    if(!file.open(QIODevice::ReadWrite))
+    {
+        qDebug() << "Bcakup file open error: " << file_path << endl;
+        return false;
+    }
+    else
+    {
+        // 生成备份文件
+        file.resize(0);
+        generateJsonDocument(&file);
+        file.close();
+
+        // 存在旧的备份文件
+        if(backupFilePaths.contains(level_name))
+        {
+            // 新旧备份文件路径不同，则需存储路径
+            if(backupFilePaths[level_name].last() != file_path)
+            {
+                if(isSameFile(backupFilePaths[level_name].last(), file_path))
+                {
+                    // 如果内容一致，那么删掉原来那个文件，移除它的路径
+                    deleteFile(backupFilePaths[level_name].last());
+                    backupFilePaths[level_name].removeLast();
+                }
+                // 在最后插入新的备份文件路径
+                backupFilePaths[level_name].push_back(file_path);
+            }
+            changeSavedFlag(level_name, isSameFile(config_path + level_name + ".json", file_path));
+            // 路径相同，则内容已经被覆盖了，也无须再存储路径
+            return true;
+        }
+        // 没有旧的备份文件时
+        else
+        {
+            // 如果当前备份文件与原关卡文件的内容不同，则存储备份文件路径
+            if(!isSameFile(config_path + level_name + ".json", file_path))
+            {
+                backupFilePaths.insert(level_name, QStringList());
+                backupFilePaths[level_name].push_back(file_path);
+                changeSavedFlag(level_name, false);
+                return true;
+            }
+            // 没有改动，删除备份文件
+            else
+            {
+                deleteFile(file_path);
+                return false;
+            }
+        }
+    }
+}
+
+void MainWindow::changeSavedFlag(const QString &level_name, bool already_saved)
+{
+    if(savedOrNot.contains(level_name))
+    {
+        if(savedOrNot[level_name] == already_saved)
+            return;
+        else
+            savedOrNot[level_name] = already_saved;
+    }
+    else
+    {
+        savedOrNot.insert(level_name, already_saved);
+    }
+
+    int pos = m_levelList.indexOf(level_name);
+    MY_ASSERT(pos != -1);
+    QListWidgetItem* item = ui->levelList->item(pos);
+
+    // 没保存，UI中显示星号
+    if(!already_saved)
+    {
+        item->setText(level_name + " *");
+    }
+    // 已保存，去掉星号
+    else
+    {
+        item->setText(level_name);
+    }
+}
+
+bool MainWindow::isSameFile(const QString &path1, const QString &path2)
+{
+    bool same = false;
+    QFile file1(path1);
+    QFile file2(path2);
+    if(file1.open(QIODevice::ReadOnly))
+    {
+        if(file2.open(QIODevice::ReadOnly))
+        {
+            QByteArray b1 = file1.readAll();
+            QByteArray b2 = file2.readAll();
+            int n = b1.size();
+            if(n == b2.size())
+            {
+                same = true;
+                for(int i = 0; i < n; i++)
+                {
+                    if(b1.at(i) != b2.at(i))
+                    {
+                        same = false;
+                        break;
+                    }
+                }
+            }
+            file2.close();
+        }
+        else
+        {
+            info(path2 + "无法打开");
+        }
+        file1.close();
+    }
+    else
+    {
+        info(path1 + "无法打开");
+    }
+    return same;
+}
+
 void MainWindow::createEventTypeJsonObj(NodeInfo *node, QJsonObject *json)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(json != nullptr);
-    Q_ASSERT(node->type == ETYPE);
-    Q_ASSERT(node->getValuesCount() >= 1);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(json != nullptr);
+    MY_ASSERT(node->type == ETYPE);
+    MY_ASSERT(node->getValuesCount() >= 1);
 
-    bool ok = false;
-    int eid = node->getValue(0).toInt(&ok);
-    Q_ASSERT(ok == true);
+    int index = node->getValue(0).toInt();
+    MY_ASSERT(index != -1);
 
-    EVENT_TYPE_ID e_eid = static_cast<EVENT_TYPE_ID>(eid);
-    int index = EventType::GetInstance()->eventIdVector.indexOf(e_eid);
-    Q_ASSERT(index != -1);
-
-    json->insert("id", e_eid);
-//    json->insert("name", EventType::GetInstance()->eventNameVector[index]);
+    json->insert("name", EventType::GetInstance()->GetEventLuaType(index));
 
 //    int params_num = EventType::GetInstance()->paramNamesVector[index].size();
 //    if(params_num > 0)
@@ -490,7 +725,7 @@ void MainWindow::createEventTypeJsonObj(NodeInfo *node, QJsonObject *json)
 
 void MainWindow::addVariablesToJsonObj(QJsonObject *json)
 {
-    Q_ASSERT(json != nullptr);
+    MY_ASSERT(json != nullptr);
 
     QJsonArray var_array;
     ValueManager* vm = m_eventTreeModel->GetValueManager();
@@ -529,9 +764,9 @@ void MainWindow::addVariablesToJsonObj(QJsonObject *json)
 // ]
 void MainWindow::addActionSeqToJsonObj(NodeInfo *node, QJsonObject *json, QString key_name)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(json != nullptr);
-    Q_ASSERT(node->type == SEQUENCE);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(json != nullptr);
+    MY_ASSERT(node->type == SEQUENCE);
 
     QJsonArray node_list;
     int n = node->childs.size();
@@ -567,9 +802,13 @@ void MainWindow::addActionSeqToJsonObj(NodeInfo *node, QJsonObject *json, QStrin
                 ValueManager* vm = m_eventTreeModel->GetValueManager();
                 QJsonObject value_obj;
                 addValueToJsonObj(vm->GetValueOnNode_SetVar(c_node), &value_obj);
-                node_obj.insert("value", value_obj);
-                node_obj.insert("name", c_node->getValue(0));
-                node_obj.insert("id", vm->FindIdOfVarName(c_node->getValue(0)));
+                int var_id = c_node->getValue(0).toInt();
+                if(var_id >= 0 || var_id < m_eventTreeModel->GetValueManager()->GetGlobalVarList().size())
+                {
+                    node_obj.insert("value", value_obj);
+                    node_obj.insert("name", m_eventTreeModel->GetValueManager()->GetGlobalVarList().at(var_id));
+                    node_obj.insert("id", var_id);
+                }
             }
                 break;
             case FUNCTION:
@@ -594,9 +833,9 @@ void MainWindow::addActionSeqToJsonObj(NodeInfo *node, QJsonObject *json, QStrin
 // "AND/OR" : [conditions]
 void MainWindow::addConditionToJsonObj(NodeInfo *node, QJsonObject *json)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(json != nullptr);
-    Q_ASSERT(node->type == CONDITION);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(json != nullptr);
+    MY_ASSERT(node->type == CONDITION);
 
     int num = node->childs.size();
 
@@ -628,10 +867,10 @@ void MainWindow::addConditionToJsonObj(NodeInfo *node, QJsonObject *json)
 // }
 void MainWindow::addComparationToJsonArrary(NodeInfo *node, QJsonArray *conditions)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(conditions != nullptr);
-    Q_ASSERT(node->type == COMPARE);
-    Q_ASSERT(node->getValuesCount() >= 3);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(conditions != nullptr);
+    MY_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node->getValuesCount() >= 3);
 
     QJsonObject comparation;
     comparation.insert("type", node->getValue(0));
@@ -651,32 +890,50 @@ void MainWindow::addComparationToJsonArrary(NodeInfo *node, QJsonArray *conditio
 
 void MainWindow::addValueToJsonObj(BaseValueClass* value, QJsonObject *json)
 {
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(json != nullptr);
+    MY_ASSERT(value != nullptr);
+    MY_ASSERT(json != nullptr);
 
     switch (value->GetValueType()) {
     case VT_VAR:
+    {
+        int id = m_eventTreeModel->GetValueManager()->GetIdOfVariable(value);
+        if(id == -1)
+            info("Json提示：找不到变量" + value->GetText());
+        else
+            json->insert("type", m_eventTreeModel->GetValueManager()->GetVarTypeAt(id));
         json->insert("name", value->GetText());
-        json->insert("id", m_eventTreeModel->GetValueManager()->GetIdOfVariable(value)); // id=-1说明这个变量不存在dataList表中
+        json->insert("id", id);
+    }
         break;
     case VT_FUNC:
         {
             QJsonObject function;
             addFunctionToJsonObj(value, &function);
             json->insert("call", function);
+            json->insert("type", value->GetFunctionInfo()->GetReturnTypeAt(0)); //可以是空值""，因为有些函数无返回值
         }
         break;
     case VT_STR:
         json->insert("code", value->GetText());
+        json->insert("type", value->GetVarType());
+        break;
+    case VT_ENUM:
+        json->insert("enum", value->GetText());
+        json->insert("type", value->GetVarType());
+        break;
+    case VT_PARAM:
+        json->insert("param", value->GetEventParamInLua());
+        json->insert("name", value->GetText());
+        json->insert("type", value->GetVarType()); //todo: 似乎应该在EventType管理器中取
         break;
     }
 }
 
 void MainWindow::addFunctionToJsonObj(BaseValueClass *value, QJsonObject *json)
 {
-    Q_ASSERT(value != nullptr);
-    Q_ASSERT(json != nullptr);
-    Q_ASSERT(value->GetValueType() == VT_FUNC);
+    MY_ASSERT(value != nullptr);
+    MY_ASSERT(json != nullptr);
+    MY_ASSERT(value->GetValueType() == VT_FUNC);
 
     json->insert("function", value->GetFunctionName());
     json->insert("id", value->GetFunctionInfo()->GetID());
@@ -707,7 +964,7 @@ bool MainWindow::openJsonFile(QString fileName)
 
     if ( !jsonDocument.isNull() && jsonParserError.error == QJsonParseError::NoError )
     {
-        qDebug() << "open json file: " << fileName << "success!" << endl;
+//        qDebug() << "open json file: " << fileName << "success!" << endl;
 
         if ( jsonDocument.isObject() ) {
             QJsonObject jsonObject = jsonDocument.object();
@@ -772,6 +1029,7 @@ bool MainWindow::parseJsonArray_Var(QJsonArray *varJsonArray)
                         BaseValueClass* v = parseJsonObj_Value(&init_v);
                         if(v != nullptr)
                         {
+                            v->SetVarType(type);
                             vm->AddNewVariable(name, v);
                             delete v;
                         }
@@ -794,12 +1052,12 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
     if(eventJsonObj->contains("event_type") && eventJsonObj->value("event_type").isObject())
     {
         QJsonObject eventTypeObj = eventJsonObj->value("event_type").toObject();
-        EVENT_TYPE_ID eid;
-        if(eventTypeObj.contains("id") && eventTypeObj.value("id").isDouble())
-            eid = eventTypeObj.value("id").toInt();
+        QString etype;
+        if(eventTypeObj.contains("name") && eventTypeObj.value("name").isString())
+            etype = eventTypeObj.value("name").toString();
         else
             return false;
-        event_node = createNewEventOnTree(eid, event_name);
+        event_node = createNewEventOnTree(etype, event_name);
         if(event_node == nullptr)
             return false;
     }
@@ -837,9 +1095,9 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
 
 bool MainWindow::parseJsonArray_Condition(QJsonArray *conditions, NodeInfo *condition_node)
 {
-    Q_ASSERT(condition_node->type == CONDITION);
-    Q_ASSERT(condition_node->getValuesCount() == 1);
-    Q_ASSERT(condition_node->getValue(0) == "AND" || condition_node->getValue(0) == "OR"); //最顶层的条件节点必须是AND或OR类型
+    MY_ASSERT(condition_node->type == CONDITION);
+    MY_ASSERT(condition_node->getValuesCount() == 1);
+    MY_ASSERT(condition_node->getValue(0) == "AND" || condition_node->getValue(0) == "OR"); //最顶层的条件节点必须是AND或OR类型
     bool ok = false;
 
     int num = conditions->size();
@@ -879,15 +1137,12 @@ bool MainWindow::parseJsonArray_Condition(QJsonArray *conditions, NodeInfo *cond
                     {
                         QString compare_type = condition.value("type").toString();
                         NodeInfo* new_node = condition_node->addNewChild_Compare(compare_type, left_value->GetText(), right_value->GetText());
-                        m_eventTreeModel->GetValueManager()->AddValueOnNode_Compare_Left(new_node, left_value);
-                        m_eventTreeModel->GetValueManager()->AddValueOnNode_Compare_Right(new_node, right_value);
+                        m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Compare_Left(new_node, left_value);
+                        m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Compare_Right(new_node, right_value);
                         ok = true;
                     }
-                    else
-                    {
-                        if(left_value != nullptr) delete left_value;
-                        if(right_value != nullptr) delete right_value;
-                    }
+                    if(left_value != nullptr) delete left_value;
+                    if(right_value != nullptr) delete right_value;
                 }
             }
         }
@@ -986,7 +1241,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
                         NodeInfo* new_node = m_eventTreeModel->createNode("", node_type, parent_node);
                         if(new_node != nullptr)
                         {
-                            new_node->addNewValue(var_name);
+                            new_node->addNewValue(QString::number(var_id));
                             new_node->text = var_name + " = " + var_value->GetText();
                             m_eventTreeModel->GetValueManager()->UpdateValueOnNode_SetValue(new_node, var_value);
                             return true;
@@ -1053,17 +1308,48 @@ BaseValueClass *MainWindow::parseJsonObj_Value(QJsonObject *valueJsonObj)
             value = new BaseValueClass();
             value->SetVarName(name, m_eventTreeModel->GetValueManager()->GetVarTypeAt(id), id);
         }
+        else
+            info("Json解析：找不到变量" + name + " id=" + id);
     }
-    else if(valueJsonObj->contains("code") && valueJsonObj->value("code").isString())
+    else if(valueJsonObj->contains("code") && valueJsonObj->value("code").isString() &&
+            valueJsonObj->contains("type") && valueJsonObj->value("type").isString())
     {
         QString code = valueJsonObj->value("code").toString();
         value = new BaseValueClass(code);
-        value->SetLuaStr(code);
+        QString type = valueJsonObj->value("type").toString();
+        value->SetVarType(type);
     }
-    else if(valueJsonObj->contains("call") && valueJsonObj->value("call").isObject())
+    else if(valueJsonObj->contains("call") && valueJsonObj->value("call").isObject() &&
+            valueJsonObj->contains("type") && valueJsonObj->value("type").isString())
     {
         QJsonObject func_obj = valueJsonObj->value("call").toObject();
         value = parseJsonObj_Function(&func_obj);
+        if(value != nullptr)
+        {
+            QString type = valueJsonObj->value("type").toString();
+            value->SetVarType(type);
+        }
+        else
+            info("Json解析：Function" + func_obj.value("function").toString() + "创建失败");
+    }
+    else if(valueJsonObj->contains("enum") && valueJsonObj->value("enum").isString() &&
+            valueJsonObj->contains("type") && valueJsonObj->value("type").isString())
+    {
+        QString code = valueJsonObj->value("enum").toString();
+        value = new BaseValueClass();
+        QString type = valueJsonObj->value("type").toString();
+        value->SetVarType(type);
+        value->SetEnumValue(code);
+    }
+    else if(valueJsonObj->contains("param") && valueJsonObj->value("param").isString() &&
+            valueJsonObj->contains("name") && valueJsonObj->value("name").isString() &&
+            valueJsonObj->contains("type") && valueJsonObj->value("type").isString())
+    {
+        QString code = valueJsonObj->value("param").toString();
+        QString name = valueJsonObj->value("name").toString();
+        QString type = valueJsonObj->value("type").toString();
+        value = new BaseValueClass();
+        value->SetEvtParam(code, name, type);
     }
     return value;
 }
@@ -1079,7 +1365,7 @@ BaseValueClass *MainWindow::parseJsonObj_Function(QJsonObject *func_obj)
         QString func_name = func_obj->value("function").toString();
         FUNCTION_ID func_id = func_obj->value("id").toInt();
         FunctionClass* func = FunctionInfo::GetInstance()->GetFunctionInfoByID(func_id);
-        if(func != nullptr && func->GetName() == func_name)
+        if(func != nullptr && func->GetNameLua() == func_name)
         {
             value = new BaseValueClass();
             value->SetFunction(func); //这里已经new指定数量的参数了
@@ -1131,18 +1417,13 @@ void MainWindow::generateLuaDocument(QFile *file)
     if(trigger_num <= 0)
         return;
 
-    // 定义所有变量
-    writeLuaVariables(file);
-    file->write("\n");
-
-    // 事件列表
     // 先把同一种事件类型的trigger放到一个vector里面
     event_pos_in_table.clear();
-    QMap<int, QVector<int>> event_map;
+    QMap<QString, QVector<int>> event_map;
     for(int i = 0; i < trigger_num; i++)
     {
         NodeInfo* node = m_eventTreeModel->m_pRootNode->childs[i];
-        int event_id = node->childs[0]->getValue(0).toInt();
+        QString event_id = node->childs[0]->getValue(0);
         if(!event_map.contains(event_id))
         {
             event_map.insert(event_id, QVector<int>());
@@ -1150,12 +1431,29 @@ void MainWindow::generateLuaDocument(QFile *file)
         event_pos_in_table.insert(i, event_map[event_id].size());
         event_map[event_id].append(i);
     }
-    // 然后创建一个lua table
-    file->write("local EventFunc = {\n");
-    QMap<int, QVector<int>>::iterator itr;
+
+    file->write("local levelTable = {}\n\n");
+
+    // 定义所有变量
+    writeLuaVariables(file);
+    file->write("\n");
+
+    // 生成条件检查函数、动作序列函数
+    space_num = 0;
+    for(int i = 0; i < trigger_num; i++)
+    {
+        NodeInfo* event_node = m_eventTreeModel->m_pRootNode->childs[i];
+        writeLuaEventCheckFunc(file, event_node->childs[1]);
+        writeLuaEventActionFunc(file, event_node->childs[2]);
+    }
+
+    // 创建一个 lua table 事件列表
+    file->write("levelTable.EventFunc = {\n");
+    QMap<QString, QVector<int>>::iterator itr;
     for(itr = event_map.begin(); itr != event_map.end(); ++itr)
     {
-        QString line = QString("    [%1] = {\n").arg(itr.key()); //[事件类型ID] = { {}, {}, ... }
+        QString etype = EventType::GetInstance()->GetEventLuaType(itr.key().toInt());
+        QString line = QString("    [E_LEVEL_TRIGGER_TYPE.%1] = {\n").arg(etype); //[事件类型ID] = { {}, {}, ... }
         file->write(line.toStdString().c_str());
         space_num = 8;
         for(int j = 0; j < itr.value().size(); j++)
@@ -1166,26 +1464,22 @@ void MainWindow::generateLuaDocument(QFile *file)
     }
     file->write("}\n\n");
 
+    // 生成一个Init函数
+    writeLuaVarInitFunc(file);
+
     // 生成一个Excute函数
-    file->write("function Excute(event)\n"
-                "    if EventFunc[event.id] ~= nil then\n"
-                "        for _, func in EventFunc[event.id] do\n"
+    file->write("function levelTable:Excute(event)\n"
+                "    if self.EventFunc[event.id] ~= nil then\n"
+                "        for _, func in self.EventFunc[event.id] do\n"
                 "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event) == 1 then\n"
-                "                func.call()\n"
+                "                func.call(event, self.flowController)\n"
                 "                -- break\n"
                 "            end\n"
                 "        end\n"
                 "    end\n"
                 "end\n\n");
 
-    // 生成条件检查函数、动作序列函数
-    space_num = 0;
-    for(int i = 0; i < trigger_num; i++)
-    {
-        NodeInfo* event_node = m_eventTreeModel->m_pRootNode->childs[i];
-        writeLuaEventCheckFunc(file, event_node->childs[1]);
-        writeLuaEventActionFunc(file, event_node->childs[2]);
-    }
+    file->write("return levelTable\n");
 }
 
 void MainWindow::writeLuaVariables(QFile *file)
@@ -1195,14 +1489,40 @@ void MainWindow::writeLuaVariables(QFile *file)
     for(int i = 0; i < n; i++)
     {
         // 用ID生成格式化的变量名
-        QString line = QString("local g_var_%1 = ").arg(i);
-        // 变量初始值 (vm->GetInitValueOfVar(i));
+        QString line = QString("local g_var_%1\n").arg(i);
+        file->write(line.toStdString().c_str());
+    }
+}
+
+void MainWindow::writeLuaVarInitFunc(QFile *file)
+{
+    file->write("function levelTable:init(flowController)\n    self.flowController = flowController\n");
+
+    ValueManager* vm = m_eventTreeModel->GetValueManager();
+    int n = vm->GetGlobalVarList().size();
+    for(int i = 0; i < n; i++)
+    {
+        // 格式化变量名
+        QString line = QString("    g_var_%1 = ").arg(i);
+        // 赋值为 initValue
         line += getLuaValueString(vm->GetInitValueOfVar(i));
         // 注释自定义的变量名、变量类型
-        line = line + "\t\t-- " + vm->GetGlobalVarList().at(i) + "\t\t" + vm->GetVarTypeAt(i) + "\n";
+        for(int si = line.length(); si < 24; si++)
+        {
+            line += " ";
+        }
+        line = line + "\t-- " + vm->GetGlobalVarList().at(i) + "\t" + vm->GetVarTypeAt(i) + "\n";
 
         file->write(line.toStdString().c_str());
     }
+
+    for(int i = 0; i < m_eventTreeModel->m_pRootNode->childs.size(); i++)
+    {
+        QString line = "    self.";
+        writeLuaOpenOrCloseEvent(file, i, line, true);
+    }
+
+    file->write("end\n\n");
 }
 
 QString MainWindow::getLuaValueString(BaseValueClass* value)
@@ -1217,13 +1537,8 @@ QString MainWindow::getLuaValueString(BaseValueClass* value)
         int id = m_eventTreeModel->GetValueManager()->GetIdOfVariable(value);
         if(id == -1)
         {
-            if(event_args != nullptr)
-            {
-                int id_arg = event_args->indexOf(value->GetText());
-                if(id_arg != -1)
-                    return QString("event.arg%1").arg(id_arg + 1);
-            }
-            return "";
+            info("Lua值错误：找不到" + value->GetText() + "所使用的变量");
+            return "未知的值";
         }
         else
             return QString("g_var_%1").arg(id);
@@ -1232,6 +1547,22 @@ QString MainWindow::getLuaValueString(BaseValueClass* value)
     case VT_FUNC:
     {
         return getLuaCallString(value);
+    }
+        break;
+    case VT_PARAM:
+        if(value->GetEventParamInLua() != "")
+        {
+            return QString("event.%1").arg(value->GetEventParamInLua());
+        }
+        else
+        {
+            info("Lua值错误：找不到" + value->GetText() + "所使用的事件参数");
+            return QString("\""+value->GetText()+"\"");
+        }
+        break;
+    case VT_ENUM:
+    {
+        return EnumInfo::GetInstance()->GetLuaStr(value->GetVarType(), value->GetText());
     }
         break;
     default:
@@ -1252,17 +1583,17 @@ QString MainWindow::getLuaCallString(BaseValueClass *value_func)
         return "";
     }
 
-    QString str = value_func->GetFunctionName() + "(";
+    QString str = value_func->GetFunctionName() + "(flowController";
     // value_func->GetFunctionInfo()->GetID();
 
     int n = value_func->GetFunctionParamsNum();
     for(int i = 0; i < n; i++)
     {
-        if(i > 0)
-        {
-            str += ", ";
-        }
-        str = str + getLuaValueString(value_func->GetFunctionParamAt(i)); // todo 容错处理
+        str += ", ";
+        BaseValueClass* p = value_func->GetFunctionParamAt(i);
+        str = str + getLuaValueString(p); // todo 容错处理
+        if(p->GetVarType() != value_func->GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
+            info("Lua提示：函数" + value_func->GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
     }
 
     str += ")";
@@ -1271,16 +1602,16 @@ QString MainWindow::getLuaCallString(BaseValueClass *value_func)
 
 // {
 //     "事件名称",
-//     function(args) return xxx_Check(args) end,
-//     function(sceneId, args) xxx_Execute(sceneId, args) end
+//     function(args) return Check(args) end,
+//     function(sceneId, args) Execute(sceneId, args) end
 // }
 bool MainWindow::writeLuaEventInfo(QFile *file, NodeInfo *event_node)
 {
-    Q_ASSERT(event_node != nullptr);
-    Q_ASSERT(event_node->type == EVENT);
+    MY_ASSERT(event_node != nullptr);
+    MY_ASSERT(event_node->type == EVENT);
 
     int id = findLuaIndexOfEvent(event_node);
-    Q_ASSERT(id != -1);
+    MY_ASSERT(id != -1);
     QString index = QString::number(id);
 
     QString str_space = "";
@@ -1294,10 +1625,10 @@ bool MainWindow::writeLuaEventInfo(QFile *file, NodeInfo *event_node)
     line = event_node->text + "\n";
     file->write(line.toStdString().c_str());
     // 条件检查函数
-    line = str_space + "    check = xxx_Check_" + index + ",\n";
+    line = str_space + "    check = Check_" + index + ",\n";
     file->write(line.toStdString().c_str());
     // 执行动作函数
-    line = str_space + "    call = xxx_Execute_" + index + ",\n";
+    line = str_space + "    call = Execute_" + index + ",\n";
     file->write(line.toStdString().c_str());
     // enable
     line = str_space + "    enable = 1\n";
@@ -1309,18 +1640,18 @@ bool MainWindow::writeLuaEventInfo(QFile *file, NodeInfo *event_node)
     return true;
 }
 
-// function xxx_Check(args)
+// function Check(args)
 // end
 bool MainWindow::writeLuaEventCheckFunc(QFile *file, NodeInfo *condition_node)
 {
-    Q_ASSERT(condition_node->parent->type == EVENT);
-    Q_ASSERT(condition_node->type = CONDITION);
+    MY_ASSERT(condition_node->parent->type == EVENT);
+    MY_ASSERT(condition_node->type = CONDITION);
 
     int id = findLuaIndexOfEvent(condition_node);
-    Q_ASSERT(id != -1);
+    MY_ASSERT(id != -1);
     QString index = QString::number(id);
 
-    QString line = "function xxx_Check_" + index + "(event)\n";
+    QString line = "local function Check_" + index + "(event, flowController)\n";
     file->write(line.toStdString().c_str());
 
     if(condition_node->childs.size() == 0)
@@ -1339,13 +1670,8 @@ bool MainWindow::writeLuaEventCheckFunc(QFile *file, NodeInfo *condition_node)
 
 bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
 {
-    Q_ASSERT(condition_node != nullptr);
-    Q_ASSERT(condition_node->type == CONDITION || condition_node->type == COMPARE);
-
-    if(condition_node->parent->type == EVENT)
-    {
-        event_args = m_eventTreeModel->GetEventParamsOf(condition_node);
-    }
+    MY_ASSERT(condition_node != nullptr);
+    MY_ASSERT(condition_node->type == CONDITION || condition_node->type == COMPARE);
 
     CONDITION_OP opt_enum = getConditionEnum(condition_node->getValue(0));
     switch (opt_enum) {
@@ -1395,7 +1721,7 @@ bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
     case EQUAL_GREATER:
     case EQUAL_LESS:
     {
-        Q_ASSERT(condition_node->getValuesCount() == 3);
+        MY_ASSERT(condition_node->getValuesCount() == 3);
         ValueManager* vm = m_eventTreeModel->GetValueManager();
         BaseValueClass* v_left = vm->GetValueOnNode_Compare_Left(condition_node);
         BaseValueClass* v_right = vm->GetValueOnNode_Compare_Right(condition_node);
@@ -1403,6 +1729,8 @@ bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
         {
             QString line = getLuaValueString(v_left) + " " + condition_node->getValue(0) + " " + getLuaValueString(v_right);
             file->write(line.toStdString().c_str());
+            if(v_left->GetVarType() != v_right->GetVarType() && !(v_left->GetValueType() == VT_STR || v_right->GetValueType() == VT_STR))
+                info("Lua提示：比较大小时，左值" + v_left->GetText() + "和右值" + v_right->GetText() + "的数据类型不一致");
         }
         else
             return false;
@@ -1417,14 +1745,14 @@ bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
 
 bool MainWindow::writeLuaEventActionFunc(QFile *file, NodeInfo *sequence_node)
 {
-    Q_ASSERT(sequence_node->parent->type == EVENT);
-    Q_ASSERT(sequence_node->type = SEQUENCE);
+    MY_ASSERT(sequence_node->parent->type == EVENT);
+    MY_ASSERT(sequence_node->type = SEQUENCE);
 
     int id = findLuaIndexOfEvent(sequence_node);
-    Q_ASSERT(id != -1);
+    MY_ASSERT(id != -1);
     QString index = QString::number(id);
 
-    QString line = "function xxx_Execute_" + index + "()\n";
+    QString line = "local function Execute_" + index + "(event, flowController)\n";
     file->write(line.toStdString().c_str());
 
     if(sequence_node->childs.size() <= 0)
@@ -1578,15 +1906,8 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
                 success = false;
             else if(event_pos_in_table.contains(id))
             {
-                NodeInfo* evt_node = m_eventTreeModel->m_pRootNode->childs[id];
-                int pos = event_pos_in_table[id] + 1;
-                QString line = str_space;
-                line = line + "EventFunc[" + evt_node->childs[0]->getValue(0) + "][" + QString::number(pos) + "].enable = ";
-                if(node->type == OPEN_EVENT)
-                    line = line + "1\n";
-                else
-                    line = line + "0\n";
-                file->write(line.toStdString().c_str());
+                QString line = str_space + "levelTable.";
+                success = writeLuaOpenOrCloseEvent(file, id, line, node->type == OPEN_EVENT ? true : false);
             }
             else
                 success = false;
@@ -1602,19 +1923,23 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
 
 bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
 {
-    Q_ASSERT(setvar_node != nullptr);
-    Q_ASSERT(setvar_node->type == SET_VAR);
-    Q_ASSERT(setvar_node->getValuesCount() >= 1);
-
-    if(setvar_node->getValue(0) == "")
-        return false;
+    MY_ASSERT(setvar_node != nullptr);
+    MY_ASSERT(setvar_node->type == SET_VAR);
+    MY_ASSERT(setvar_node->getValuesCount() >= 1);
 
     ValueManager* vm = m_eventTreeModel->GetValueManager();
     BaseValueClass* value = vm->GetValueOnNode_SetVar(setvar_node);
 
-    int id = vm->GetGlobalVarList().indexOf(setvar_node->getValue(0));
-    if(id == -1)
+    bool ok = false;
+    int id = setvar_node->getValue(0).toInt(&ok);
+    if(!ok)
+    {
+        info("set_var节点的value[0]不是var_id");
         return false;
+    }
+
+    if(vm->GetVarTypeAt(id) != value->GetVarType() && value->GetValueType() != VT_STR)
+        info("Lua提示：设置变量" + vm->GetGlobalVarList().at(id) + "的类型与值" + value->GetText() + "的类型不一致");
 
     QString str_value = getLuaValueString(value);
     if(str_value == "")
@@ -1631,6 +1956,22 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
     return true;
 }
 
+bool MainWindow::writeLuaOpenOrCloseEvent(QFile *file, int event_pos, const QString &pre_str, bool is_open)
+{
+    // todo 判断 false
+    NodeInfo* evt_node = m_eventTreeModel->m_pRootNode->childs[event_pos];
+    int pos = event_pos_in_table[event_pos] + 1;
+    QString etype = EventType::GetInstance()->GetEventLuaType(evt_node->childs[0]->getValue(0).toInt());
+    QString line = pre_str;
+    line = line + "EventFunc[E_LEVEL_TRIGGER_TYPE." + etype + "][" + QString::number(pos) + "].enable = ";
+    if(is_open)
+        line = line + "1\n";
+    else
+        line = line + "0\n";
+    file->write(line.toStdString().c_str());
+    return true;
+}
+
 int MainWindow::findLuaIndexOfEvent(NodeInfo *node)
 {
     for(int i = 0; i < m_eventTreeModel->m_pRootNode->childs.size(); i++)
@@ -1641,10 +1982,16 @@ int MainWindow::findLuaIndexOfEvent(NodeInfo *node)
     return -1;
 }
 
+void MainWindow::getConfigPath(QString &s)
+{
+    s = QCoreApplication::applicationFilePath();
+    s.replace("LevelEditor.exe", "config/");
+}
+
 QString MainWindow::getTriggerNameAt(int id)
 {
     int event_num = m_eventTreeModel->m_pRootNode->childs.size();
-    Q_ASSERT(event_num > id && id >= 0);
+    MY_ASSERT(event_num > id && id >= 0);
 
     return m_eventTreeModel->m_pRootNode->childs[id]->text;
 }
@@ -1665,18 +2012,17 @@ void MainWindow::on_eventTreeView_doubleClicked(const QModelIndex &index)
 
 void MainWindow::on_btnAddVar_clicked()
 {
-
     m_dlgManageVar->CreateVar();
-
     updateVarTable();
+    saveBackupJsonFile();
 }
 
 void MainWindow::on_actionSave_triggered()
 {
-    QString file_path = QCoreApplication::applicationFilePath();
-    file_path.replace("LevelEditor.exe", "config/");
+    QString file_path;
+    getConfigPath(file_path);
 
-    QString level_str = ui->levelList->currentItem()->text();
+    QString level_str = getLevelNameOnItem(ui->levelList->currentItem());
     if(level_str != "" && level_str.contains("level_"))
     {
         QString level_file_path = file_path + level_str + ".json";
@@ -1691,31 +2037,16 @@ void MainWindow::on_actionSave_triggered()
             file_level.resize(0);
             generateJsonDocument(&file_level);
             file_level.close();
+
+            changeSavedFlag(level_str, true);
         }
     }
-
-    // 再存一个备份的文件
-    QString time_str = QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss");
-    QString backup_file_path = file_path + "backup/saved_" + time_str + ".json";
-
-    QFile file(backup_file_path);
-    if(!file.open(QIODevice::ReadWrite))
-    {
-        qDebug() << "File open error: " << backup_file_path << endl;
-    }
-    else
-    {
-        file.resize(0);
-        generateJsonDocument(&file);
-        file.close();
-    }
-
 }
 
 void MainWindow::on_actionOpen_triggered()
 {
-    QString file_path = QCoreApplication::applicationFilePath();
-    file_path.replace("LevelEditor.exe", "config/");
+    QString file_path;
+    getConfigPath(file_path);
     QString fileName = QFileDialog::getOpenFileName(this, "Open File", file_path, "Json (*.json)");
     if(!fileName.isNull())
     {
@@ -1746,15 +2077,41 @@ void MainWindow::on_actionLua_triggered()
 
 void MainWindow::InitLevelTree()
 {
-    m_levelList = QStringList();
+    m_levelList.clear();
+    savedOrNot.clear();
 
-    for(int i = 1; i <= 30; i++)
+    QString config_path;
+    getConfigPath(config_path);
+
+    QDir dir(config_path.left(config_path.length() - 1));
+    if(!dir.exists())
+        return;
+    dir.setFilter(QDir::Files);
+    QStringList file_list = dir.entryList();
+
+    int file_num = file_list.size();
+    for(int i = 0; i < file_num; i++)
     {
-        m_levelList << QString("level_%1").arg(i);
+        bool ok = false;
+        int lvl_id = -1;
+        QString name = file_list[i];
+        int pos = name.indexOf(".json");
+        if(pos != -1 && name.left(6) == "level_")
+        {
+            lvl_id = name.mid(6, pos - 6).toInt(&ok);
+        }
+        if(ok && lvl_id != -1)
+            m_levelList.insert(lvl_id - 1, name.left(pos));
+    }
+
+    foreach (QString namelvl, m_levelList)
+    {
+        savedOrNot.insert(namelvl, true);
     }
 
     ui->levelList->addItems(m_levelList);
 
+    lastLevelIndex = -1;
     if(m_levelList.size() > 0)
     {
         ui->levelList->setCurrentRow(0);
@@ -1764,22 +2121,193 @@ void MainWindow::InitLevelTree()
 
 void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
 {
-    QString file_path = QCoreApplication::applicationFilePath();
-    file_path.replace("LevelEditor.exe", "config/");
-    file_path = file_path + item->text() + ".json";
+    QString file_path;
+    getConfigPath(file_path);
+
+    // 存一个备份的文件
+    if(lastLevelIndex != -1)
+        saveBackupJsonFile();
+    lastLevelIndex = ui->levelList->currentRow();
+
+    // 打开新的关卡文件或者对应的备份文件
+    QString level_name = getLevelNameOnItem(item);
+    if(backupFilePaths.contains(level_name))
+    {
+        file_path = backupFilePaths[level_name].last();
+    }
+    else
+    {
+        file_path = file_path + level_name + ".json";
+    }
+
     openJsonFile(file_path);
 }
 
 void MainWindow::on_btnDeleteVar_clicked()
 {
-
+    saveBackupJsonFile();
 }
 
 void MainWindow::on_tableWidget_itemDoubleClicked(QTableWidgetItem *item)
 {
     int idx = item->row();
-
     m_dlgManageVar->ModifyVar(idx);
-
     updateVarTable();
+    saveBackupJsonFile();
+}
+
+void MainWindow::deleteFile(const QString &path)
+{
+    QFile fileTemp(path);
+    fileTemp.remove();
+}
+
+QString MainWindow::getLevelNameOnItem(QListWidgetItem *item)
+{
+    QString level_name = item->text();
+    int pos = level_name.indexOf(" *");
+    if(pos != -1)
+    {
+        level_name = level_name.left(level_name.size() - 2);
+    }
+    return level_name;
+}
+
+void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
+{
+    QListWidgetItem* cur_item = ui->levelList->itemAt(pos);
+    if( cur_item == nullptr )
+        return;
+    QString level_name = getLevelNameOnItem(cur_item);
+
+    QMenu *popMenu = new QMenu( this );
+    QAction *copy_act = new QAction("拷贝" + level_name + "为新关卡", this);
+    QAction *del_act = new QAction("删除关卡" + level_name, this);
+    popMenu->addAction( copy_act );
+    popMenu->addAction( del_act );
+    connect( copy_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_CopyCurLvl()) );
+    connect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
+
+    popMenu->exec( QCursor::pos() );
+
+    delete popMenu;
+    delete copy_act;
+    delete del_act;
+}
+
+void MainWindow::CreateNewLevel_CopyCurLvl()
+{
+    QListWidgetItem* item = ui->levelList->currentItem();
+    if( item == nullptr )
+        return;
+
+    QString level_name = getLevelNameOnItem(item);
+    m_dlgChoseEvtType->EditLevelName(level_name);
+
+    if(m_dlgChoseEvtType->event_name != "")
+    {
+        if(m_levelList.contains(m_dlgChoseEvtType->event_name))
+        {
+            info("已经存在这个名字的关卡！");
+            return;
+        }
+
+        if(m_dlgChoseEvtType->event_name.left(6) != "level_")
+        {
+            info(QString("请命名为\"level_") + QString("数字\"的形式。"));
+            return;
+        }
+
+        QString s_num = m_dlgChoseEvtType->event_name.mid(6);
+        bool ok = false;
+        s_num.toInt(&ok);
+        if(!ok)
+        {
+            info(QString("请命名为\"level_") + QString("数字\"的形式。"));
+            return;
+        }
+
+        QString path;
+        getConfigPath(path);
+        QString path1 = path + level_name + ".json";
+        QString path2 = path + m_dlgChoseEvtType->event_name + ".json";
+        QFile file1(path1);
+        QFile file2(path2);
+
+        bool success = false;
+
+        if(file1.open(QIODevice::ReadOnly))
+        {
+            if(file2.open(QIODevice::WriteOnly))
+            {
+                file2.resize(0);
+                file2.write(file1.readAll());
+                file2.close();
+            }
+            else
+            {
+                info(m_dlgChoseEvtType->event_name + "是不合法的文件名");
+            }
+            file1.close();
+            success = true;
+        }
+        else
+        {
+            info(level_name + ".json文件无法打开");
+        }
+
+        if(success)
+        {
+            int pos = m_levelList.size();
+            m_levelList.push_back(m_dlgChoseEvtType->event_name);
+
+            savedOrNot.insert(m_dlgChoseEvtType->event_name, true);
+
+            ui->levelList->addItem(m_dlgChoseEvtType->event_name);
+            ui->levelList->setCurrentRow(pos);
+            on_levelList_itemClicked(ui->levelList->item(pos));
+        }
+    }
+}
+
+void MainWindow::DeleteCurrentLevel()
+{
+    QListWidgetItem* item = ui->levelList->currentItem();
+    if( item == nullptr )
+        return;
+    QString level_name = getLevelNameOnItem(item);
+
+    int ch = QMessageBox::warning(nullptr, "提示", "确定删除这个关卡？", QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+    if (ch != QMessageBox::Yes)
+        return;
+
+    QString path;
+    getConfigPath(path);
+    path = path + level_name + ".json";
+
+    // 删除文件
+    deleteFile(path);
+
+    // 更新数据结构
+    int pos = m_levelList.indexOf(level_name);
+    m_levelList.removeAt(pos);
+    savedOrNot.remove(level_name);
+
+    // UI中删除
+    ui->levelList->removeItemWidget(item); //这个删除不彻底，还要delete
+    delete item; item = nullptr;
+
+    // 刷新UI选择的项
+    if(lastLevelIndex == pos)
+    {
+        int new_pos = (pos == m_levelList.size()) ? pos - 1 : pos;
+        lastLevelIndex = -1;
+        ui->levelList->setCurrentRow(new_pos);
+        on_levelList_itemClicked(ui->levelList->item(new_pos));
+        return;
+    }
+    else if(lastLevelIndex > pos)
+        lastLevelIndex --;
+    else if(lastLevelIndex != -1)
+        ui->levelList->setCurrentRow(lastLevelIndex);
 }

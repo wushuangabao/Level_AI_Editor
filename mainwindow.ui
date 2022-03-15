@@ -138,7 +138,11 @@
    <widget class="QWidget" name="dockWidgetContents_2">
     <layout class="QVBoxLayout" name="verticalLayout_2">
      <item>
-      <widget class="QListWidget" name="levelList"/>
+      <widget class="QListWidget" name="levelList">
+       <property name="contextMenuPolicy">
+        <enum>Qt::CustomContextMenu</enum>
+       </property>
+      </widget>
      </item>
     </layout>
    </widget>
@@ -152,10 +156,16 @@
    <property name="text">
     <string>保存当前关卡</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="actionLua">
    <property name="text">
     <string>生成Lua文件</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+D</string>
    </property>
   </action>
  </widget>

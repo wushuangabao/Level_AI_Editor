@@ -35,7 +35,7 @@ FunctionClass *FunctionInfo::GetFunctionInfoByID(FUNCTION_ID id)
 FunctionClass *FunctionInfo::GetFunctionInfoAt(int idx)
 {
     int n = infoList.size();
-    Q_ASSERT(n > idx && idx >= 0);
+    MY_ASSERT(n > idx && idx >= 0);
 
     return &(infoList[idx]);
 }
@@ -104,7 +104,7 @@ bool FunctionInfo::createDateByConfig(QString file_path)
 
         QStringList sl = line.split('\t'/*, QString::SkipEmptyParts*/);
         int n = sl.size();
-        Q_ASSERT(n == 6);
+        MY_ASSERT(n == 8);
         FunctionClass func;
 
         // 函数ID
@@ -117,22 +117,29 @@ bool FunctionInfo::createDateByConfig(QString file_path)
         if(!ok || i == 0) continue;
 
         // 函数名称
-        func.name = sl[2];
+        func.name_lua = sl[2];
+        func.name_ui = sl[3];
 
         // 描述
-        parseTextsAndParams(&func, sl[3]);
+        parseTextsAndParams(&func, sl[4]);
 
         // 返回值类型
-        if(sl[4] != "0")
+        if(sl[5] != "0")
         {
-            if(sl[4] == "1")
+            if(sl[5] == "1")
                 func.values.append("number");
             else
-                func.values = sl[4].split(',');
+                func.values = sl[5].split(',');
         }
 
+        // 是否在Function动作节点设置时可选
+        if(sl[6] == "0")
+            func.can_be_call = false;
+        else
+            func.can_be_call = true;
+
         // 注释
-        func.note = sl[5];
+        func.note = sl[7];
 
         infoList << func;
     }
@@ -143,10 +150,11 @@ bool FunctionInfo::createDateByConfig(QString file_path)
 
 void FunctionInfo::parseTextsAndParams(FunctionClass *func, QString str)
 {
-    QStringList str_list_1 = str.split("{{");
+    QStringList str_list_1 = str.split("{{", QString::SkipEmptyParts);
     if(str_list_1.size() == 1)
     {
         func->texts.append(str);
+        func->param_is_before_text = false;
         return;
     }
 
@@ -167,7 +175,7 @@ void FunctionInfo::parseTextsAndParams(FunctionClass *func, QString str)
         int pos = str_list_1[i].indexOf(endbkt);
         if(pos == -1)
         {
-            qDebug() << str << "中的{{和}}没有一一配对！" << endl;
+            info(str + QString("中的{{和}}没有一一配对！"));
         }
         else
         {

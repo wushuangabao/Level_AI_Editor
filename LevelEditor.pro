@@ -37,7 +37,8 @@ SOURCES += \
     Values/valueclass.cpp \
     Dialogs/dlgvariablemanager.cpp \
     Dialogs/dlgsetvariable.cpp \
-    Dialogs/dlgchoseactiontype.cpp
+    Dialogs/dlgchoseactiontype.cpp \
+    Values/enuminfo.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -53,7 +54,8 @@ HEADERS += \
     Values/valueclass.h \
     Dialogs/dlgvariablemanager.h \
     Dialogs/dlgsetvariable.h \
-    Dialogs/dlgchoseactiontype.h
+    Dialogs/dlgchoseactiontype.h \
+    Values/enuminfo.h
 
 FORMS += \
         mainwindow.ui \

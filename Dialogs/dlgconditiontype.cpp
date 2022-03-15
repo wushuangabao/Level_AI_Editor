@@ -13,11 +13,12 @@ DlgConditionType::DlgConditionType(QWidget *parent) :
     node = nullptr;
 
     type = CONDITION_OP::AND;
-    ui->btnText_1->setText("未定义值");
-    ui->btnText_2->setText("未定义值");
 
     m_dlgEditValueLeft = new DlgEditValue(this);
     m_dlgEditValueRight = new DlgEditValue(this);
+
+    ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
+    ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
 }
 
 DlgConditionType::~DlgConditionType()
@@ -45,14 +46,19 @@ void DlgConditionType::CreateCondition(NodeInfo* parent, QString default_s)
             break;
         }
 
+    m_dlgEditValueLeft->GetValuePointer()->SetLuaStr("nil");
+    m_dlgEditValueRight->GetValuePointer()->SetLuaStr("nil");
+    ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
+    ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
+
     exec();
 }
 
 void DlgConditionType::ModifyCondition(NodeInfo *node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == CONDITION);
-    Q_ASSERT(node->getValuesCount() == 1);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == CONDITION);
+    MY_ASSERT(node->getValuesCount() == 1);
 
     initUI(CONDITION);
 
@@ -63,9 +69,9 @@ void DlgConditionType::ModifyCondition(NodeInfo *node)
 
 void DlgConditionType::ModifyCompareNode(NodeInfo *node)
 {
-    Q_ASSERT(node != nullptr);
-    Q_ASSERT(node->type == COMPARE);
-    Q_ASSERT(node->getValuesCount() == 3);
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(node->type == COMPARE);
+    MY_ASSERT(node->getValuesCount() == 3);
 
     initUI(COMPARE);
 
@@ -124,7 +130,7 @@ void DlgConditionType::on_buttonBox_accepted()
 
         if(node_type == CONDITION)
             node->UpdateText();
-        else if(node_type == COMPARE)
+        else if(node_type == COMPARE && checkCompareValuesType())
         {
             // 修改value_left和value_right
             model->GetValueManager()->UpdateValueOnNode_Compare_Left(node, GetValue_Left());
@@ -142,14 +148,14 @@ void DlgConditionType::on_buttonBox_accepted()
         if(type == CONDITION_OP::AND)
         {
             NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
-            Q_ASSERT(new_node != nullptr);
+            MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::AND);
             new_node->UpdateText();
         }
         else if(type == CONDITION_OP::OR)
         {
             NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
-            Q_ASSERT(new_node != nullptr);
+            MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::OR);
             new_node->UpdateText();
         }
@@ -158,7 +164,7 @@ void DlgConditionType::on_buttonBox_accepted()
             if(!checkCompareValuesType())
                 return;
             NodeInfo* new_node = model->createNode("", NODE_TYPE::COMPARE, node);
-            Q_ASSERT(new_node != nullptr);
+            MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(type);
 
             // 把value_left和value_right赋值给new_node
@@ -176,7 +182,7 @@ void DlgConditionType::on_btnText_1_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueLeft->CreateValueForParentIfNode(node);
+        m_dlgEditValueLeft->CreateValueForParentIfNode(node, m_dlgEditValueRight->GetValuePointer()->GetVarType());
     }
     else // 修改Compare节点
     {
@@ -190,7 +196,7 @@ void DlgConditionType::on_btnText_2_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueRight->CreateValueForParentIfNode(node);
+        m_dlgEditValueRight->CreateValueForParentIfNode(node, m_dlgEditValueLeft->GetValuePointer()->GetVarType());
     }
     else // 修改Compare节点
     {
@@ -241,7 +247,7 @@ void DlgConditionType::initConditionType(NodeInfo *node)
 
     this->node = node;
     type = getConditionEnum(node->getValue(0));
-    Q_ASSERT(type != INVALID_CONDITION);
+    MY_ASSERT(type != INVALID_CONDITION);
 }
 
 void DlgConditionType::initComparationValues(NodeInfo *node)
@@ -267,18 +273,18 @@ bool DlgConditionType::checkCompareValuesType()
 {
     QString t_left = GetValue_Left()->GetVarType();
     QString t_right = GetValue_Right()->GetVarType();
-    if(t_left == "")
-    {
-        info("无法确定左值的类型！");
-        return false;
-    }
-    if(t_right == "")
-    {
-        info("无法确定右值的类型！");
-        return false;
-    }
     if(t_left == t_right)
         return true;
+    else if(t_left == "")
+    {
+//        info("无法确定左值的类型！");
+        return true;
+    }
+    else if(t_right == "")
+    {
+//        info("无法确定右值的类型！");
+        return true;
+    }
     else
     {
         info("左右值的类型不一致！");
