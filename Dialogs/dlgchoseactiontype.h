@@ -20,6 +20,7 @@ class DlgChoseActionType : public QDialog
 public:
     explicit DlgChoseActionType(QWidget *parent = 0);
     ~DlgChoseActionType();
+    void closeEvent(QCloseEvent* event);
 
     void SetModel(TreeItemModel* m);
     void CreateActionType(NodeInfo *seq_node);

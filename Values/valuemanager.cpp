@@ -131,7 +131,10 @@ bool ValueManager::CheckVarIsUsedOrNot(const QString &var_name)
     {
         int var_id = itr.key()->getValue(0).toInt();
         if(nameList[var_id] == var_name)
+        {
+//            info("set_var " + itr.key()->text + "在使用");
             return true;
+        }
         if(itr.value()->IsUsingVar(var_name))
             return true;
     }
@@ -147,6 +150,8 @@ bool ValueManager::CheckVarIsUsedOrNot(const QString &var_name)
         if(itr.value()->IsUsingVar(var_name))
             return true;
     }
+
+    return false;
 }
 
 bool ValueManager::DeleteVariable(QString name)
@@ -208,7 +213,11 @@ void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value
 void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *value)
 {
     MY_ASSERT(node != nullptr);
-    MY_ASSERT(node->type == SET_VAR);
+    if(node->type != SET_VAR)
+    {
+        info("UpdateValueOnNode_SetValue node->type=" + getNodeTypeStr(node->type));
+        return;
+    }
 
     MY_ASSERT(value != nullptr);
 
@@ -225,7 +234,11 @@ void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *va
 BaseValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
 {
     MY_ASSERT(node != nullptr);
-    MY_ASSERT(node->type == SET_VAR);
+    if(node->type != SET_VAR)
+    {
+        info("GetValueOnNode_SetVar node->type=" + getNodeTypeStr(node->type));
+        return nullptr;
+    }
 
     if(nodeSetVarMap.contains(node))
     {
@@ -367,7 +380,10 @@ QString ValueManager::GetVarTypeOf(const QString &name)
     if(i != -1)
         return GetVarTypeAt(i);
     else
+    {
+        info("GetVarTypeOf " + name + "fail.");
         return "";
+    }
 }
 
 BaseValueClass* ValueManager::GetInitValueOfVar(int idx)

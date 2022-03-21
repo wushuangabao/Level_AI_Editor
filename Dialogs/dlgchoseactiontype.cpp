@@ -19,6 +19,12 @@ DlgChoseActionType::~DlgChoseActionType()
     delete ui;
 }
 
+void DlgChoseActionType::closeEvent(QCloseEvent *event)
+{
+    index = INVALID;
+    QDialog::closeEvent(event);
+}
+
 void DlgChoseActionType::SetModel(TreeItemModel *m)
 {
     model = m;

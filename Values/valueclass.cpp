@@ -268,7 +268,10 @@ bool BaseValueClass::IsUsingVar(const QString &vname)
     switch (value_type) {
     case VT_VAR:
         if(name == vname)
+        {
+//            info("注意检查：" + GetText());
             return true;
+        }
         break;
     case VT_STR:
         if(lua_str.contains(vname))
@@ -278,7 +281,10 @@ bool BaseValueClass::IsUsingVar(const QString &vname)
         for(int i = 0; i < GetFunctionParamsNum(); i++)
         {
             if(GetFunctionParamAt(i)->IsUsingVar(vname))
+            {
+//                info("注意检查：" + GetText());
                 return true;
+            }
         }
         break;
     default:

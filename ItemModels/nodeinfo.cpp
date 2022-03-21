@@ -265,6 +265,24 @@ void NodeInfo::UpdateEventType(int index)
     text = EventType::GetInstance()->GetEventNameAt(index);
 }
 
+bool NodeInfo::IsBreakButNotReturn()
+{
+    MY_ASSERT(type == END);
+    bool flag = false;
+
+    NodeInfo* cur_node = parent;
+    while(cur_node->type != EVENT)
+    {
+        if(cur_node->type == LOOP)
+        {
+            flag = true;
+            break;
+        }
+        cur_node = cur_node->parent;
+    }
+    return flag;
+}
+
 void NodeInfo::updateCompareText()
 {
     if(type != COMPARE)

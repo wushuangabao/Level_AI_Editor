@@ -33,6 +33,8 @@ public:
     void UpdateText();
     void UpdateEventType(int event_idx);
 
+    bool IsBreakButNotReturn();
+
     NodeInfo* parent;          // 父节点
     NODE_TYPE type;            // 节点类型
     QString text;              // UI文字

@@ -33,13 +33,12 @@ public:
 
 private slots:
     void on_pushButton_clicked();
-
     void on_DlgSetVariable_accepted();
 
-    void on_comboBox_currentIndexChanged(int index);
+    void on_comboBox_currentTextChanged(const QString &arg1);
 
 private:
-    void initVariableComboBox();
+    bool initVariableComboBox();
 
     Ui::DlgSetVariable *ui;
 

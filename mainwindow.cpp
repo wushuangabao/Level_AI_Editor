@@ -182,6 +182,19 @@ void MainWindow::slotTreeMenuExpand(bool b)
     }
 }
 
+void MainWindow::saveEventItemState_Expanded(const QModelIndex &index)
+{
+    if(index.isValid())
+    {
+        if(m_itemState.contains(index))
+        {
+            m_itemState[index] = true;
+        }
+        else
+            m_itemState.insert(index, true);
+    }
+}
+
 void MainWindow::slotTreeMenuCollapse(bool b)
 {
     Q_UNUSED(b);
@@ -190,6 +203,19 @@ void MainWindow::slotTreeMenuCollapse(bool b)
     if(index.isValid())
     {
         ui->eventTreeView->collapse(index);
+    }
+}
+
+void MainWindow::saveEventItemState_Collapsed(const QModelIndex &index)
+{
+    if(index.isValid())
+    {
+        if(m_itemState.contains(index))
+        {
+            m_itemState[index] = false;
+        }
+        else
+            m_itemState.insert(index, false);
     }
 }
 
@@ -209,7 +235,6 @@ void MainWindow::slotEditNode(bool b)
         // 事件类型
         case ETYPE:
             editEventType(m_curETNode);
-            ui->eventTreeView->expandAll();
             updateVarTable();
             break;
 
@@ -270,7 +295,7 @@ void MainWindow::slotDeleteNode(bool b)
     if(m_eventTreeModel->deleteNode(m_curETNode))
     {
         m_curETNode = nullptr;
-        ui->eventTreeView->expandAll();
+        updateEventTreeState();
         saveBackupJsonFile();
     }
 }
@@ -310,7 +335,11 @@ void MainWindow::slotNewCondition(bool b)
     if(m_curETNode->type == CONDITION)
     {
         m_dlgConditionType->CreateCondition(m_curETNode, "AND");
-        ui->eventTreeView->expandAll();
+
+        slotTreeMenuCollapse();
+        slotTreeMenuExpand();
+        updateEventTreeState();
+
         saveBackupJsonFile();
     }
 }
@@ -369,7 +398,6 @@ void MainWindow::slotNewAction(bool b)
     {
         NodeInfo* new_node = m_eventTreeModel->createNode(node_text, type, m_curETNode);
         m_curETNode = new_node;
-        ui->eventTreeView->expandAll();
         editActionNode(new_node);
         return;
     }
@@ -378,7 +406,11 @@ void MainWindow::slotNewAction(bool b)
         m_curETNode = m_eventTreeModel->createNode(node_text, type, m_curETNode);
         break;
     }
-    ui->eventTreeView->expandAll();
+
+    slotTreeMenuCollapse();
+    slotTreeMenuExpand();
+    updateEventTreeState();
+
     saveBackupJsonFile();
 }
 
@@ -394,6 +426,8 @@ void MainWindow::InitEventTree()
 
     ui->eventTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->eventTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu);
+    connect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
+    connect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
 
     m_dlgConditionType->SetModelPointer(m_eventTreeModel);
     m_dlgSetVar->SetModel(m_eventTreeModel);
@@ -417,7 +451,8 @@ NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &ev
 
     new_node->childs[0]->UpdateEventType(EventType::GetInstance()->GetIndexOf(event_type));
 
-    ui->eventTreeView->expandAll();
+    updateEventTreeState();
+
     return new_node;
 }
 
@@ -482,7 +517,8 @@ void MainWindow::editActionNode(NodeInfo *node)
     default:
         break;
     }
-    ui->eventTreeView->expandAll();
+
+//    updateEventTreeState();
 }
 
 void MainWindow::addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3)
@@ -1091,7 +1127,7 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
         m_eventTreeModel->deleteNode(event_node); // todo: 如果 value manager 中有node和对应的value，也要删掉
         return false;
     }
-    ui->eventTreeView->expandAll();
+    // ui->eventTreeView->expandAll();
     return true;
 }
 
@@ -1875,18 +1911,7 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
             if(node->parent->type == SEQUENCE)
             {
                 QString line = str_space;
-                bool flag = false;
-
-                NodeInfo* cur_node = node->parent;
-                while(cur_node->type != EVENT)
-                {
-                    if(cur_node->type == LOOP)
-                    {
-                        flag = true;
-                        break;
-                    }
-                    cur_node = cur_node->parent;
-                }
+                bool flag = node->IsBreakButNotReturn();
 
                 if(flag)
                 {
@@ -2007,6 +2032,10 @@ void MainWindow::on_eventTreeView_clicked(const QModelIndex &index)
     if (index.isValid())
     {
         m_curETNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+    }
+    else
+    {
+        m_curETNode = nullptr;
     }
 }
 
@@ -2147,6 +2176,12 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
     }
 
     openJsonFile(file_path);
+
+    m_itemState.clear();
+    if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
+        ui->eventTreeView->expandAll();
+    else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
+        ui->eventTreeView->expandToDepth(1);
 }
 
 void MainWindow::on_btnDeleteVar_clicked()
@@ -2336,3 +2371,13 @@ void MainWindow::DeleteCurrentLevel()
     else if(lastLevelIndex != -1)
         ui->levelList->setCurrentRow(lastLevelIndex);
 }
+
+void MainWindow::updateEventTreeState()
+{
+    QMap<QModelIndex, bool>::iterator itr;
+    for(itr = m_itemState.begin(); itr != m_itemState.end(); ++itr)
+    {
+        ui->eventTreeView->setExpanded(itr.key(), itr.value());
+    }
+}
+

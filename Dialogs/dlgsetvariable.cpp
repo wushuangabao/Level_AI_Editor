@@ -30,7 +30,10 @@ void DlgSetVariable::SetModel(TreeItemModel *m)
 void DlgSetVariable::EditSetVarNode(NodeInfo *set_var_node)
 {
     node = set_var_node;
-    initVariableComboBox();
+    is_accepted = false;
+
+    if(!initVariableComboBox())
+        return;
 
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_SetVar(node);
     if(v != nullptr)
@@ -42,9 +45,10 @@ void DlgSetVariable::EditSetVarNode(NodeInfo *set_var_node)
 void DlgSetVariable::CreateSetVarNode(NodeInfo *seq_node)
 {
     node = seq_node;
-    initVariableComboBox();
-
     is_accepted = false;
+
+    if(!initVariableComboBox())
+        return;
 
     this->exec();
 }
@@ -75,20 +79,24 @@ bool DlgSetVariable::IsAccepted()
 void DlgSetVariable::on_pushButton_clicked()
 {
     if(node != nullptr && node->type == SET_VAR)
+    {
         m_dlgEditValue->ModifyValue(node, 0);
+    }
     else if(node != nullptr && node->type == SEQUENCE)
+    {
         m_dlgEditValue->CreateNewValue(model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText()), node);
+    }
 
     ui->pushButton->setText(m_dlgEditValue->GetValueText());
 }
 
-void DlgSetVariable::initVariableComboBox()
+bool DlgSetVariable::initVariableComboBox()
 {
     MY_ASSERT(model != nullptr);
 
-    disconnect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_currentIndexChanged(int)));
+    disconnect(ui->comboBox, SIGNAL(currentTextChanged(const QString &)), this, SLOT(on_comboBox_currentTextChanged(const QString &)));
     ui->comboBox->clear();
-    connect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_currentIndexChanged(int)));
+    connect(ui->comboBox, SIGNAL(currentTextChanged(const QString &)), this, SLOT(on_comboBox_currentTextChanged(const QString &)));
 
     ValueManager* vm = model->GetValueManager();
 
@@ -101,6 +109,7 @@ void DlgSetVariable::initVariableComboBox()
     {
        ui->comboBox->setEnabled(false);
        info("没有可用的变量！请先创建变量。");
+       return false;
     }
     else if(node != nullptr && node->type == SET_VAR)
     {
@@ -108,14 +117,15 @@ void DlgSetVariable::initVariableComboBox()
         int id = 0;
         if(node->getValuesCount() > 0)
         {
-            QString var_name = node->getValue(0);
-            id = ui->comboBox->findText(var_name);
+            int var_id = node->getValue(0).toInt();
+            id = ui->comboBox->findText(vm->GetVarNameAt(var_id));
             if(id == -1)
                 id = 0;
         }
         ui->comboBox->setCurrentIndex(id);
         ui->comboBox->setEnabled(true);
     }
+    return true;
 }
 
 void DlgSetVariable::on_DlgSetVariable_accepted()
@@ -156,8 +166,10 @@ void DlgSetVariable::on_DlgSetVariable_accepted()
     }
 }
 
-void DlgSetVariable::on_comboBox_currentIndexChanged(int index)
+void DlgSetVariable::on_comboBox_currentTextChanged(const QString &arg1)
 {
+    if(arg1 == "")
+        return;
     ValueManager* vm = model->GetValueManager();
-    var_type = vm->GetVarTypeAt(index);
+    var_type = vm->GetVarTypeOf(arg1);
 }

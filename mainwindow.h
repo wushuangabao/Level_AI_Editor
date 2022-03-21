@@ -10,6 +10,7 @@ class QJsonArray;
 class QJsonParseError;
 class QListWidgetItem;
 class QTableWidgetItem;
+class QModelIndex;
 class BaseValueClass;
 
 class DlgChoseEType;
@@ -38,8 +39,10 @@ private slots:
     void slotTreeMenu(const QPoint &pos);
     // 展开Tree节点
     void slotTreeMenuExpand(bool b = false);
+    void saveEventItemState_Expanded(const QModelIndex &index);
     // 折叠Tree节点
     void slotTreeMenuCollapse(bool b = false);
+    void saveEventItemState_Collapsed(const QModelIndex &index);
 
     // eventTree右键菜单功能：
     void slotEditNode(bool b = false);
@@ -91,6 +94,8 @@ private:
     // 中间树形结构
     NodeInfo* m_curETNode;
     TreeItemModel* m_eventTreeModel;
+    QMap<QModelIndex, bool> m_itemState;
+    void updateEventTreeState();
 
     void InitEventTree();
     NodeInfo* createNewEventOnTree(QString event_type, const QString& event_name);

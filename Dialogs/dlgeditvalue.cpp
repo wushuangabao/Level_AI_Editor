@@ -126,6 +126,8 @@ void DlgEditValue::ModifyInitVarValue(BaseValueClass *v, QString var_type)
     node = nullptr;
 
     is_for_function = false;
+    this->var_type = var_type;
+
     if(var_type != "")
         setWindowTitle("设置变量初始值");
     else
@@ -137,9 +139,9 @@ void DlgEditValue::ModifyInitVarValue(BaseValueClass *v, QString var_type)
         }
     }
 
-    initVariableComboBox(var_type);
-    initPresetComboBox(var_type);
-    initFunctionComboBox(var_type);
+    initVariableComboBox();
+    initPresetComboBox();
+    initFunctionComboBox();
 
     initUI_SetInitvalue(v);
     this->exec();
@@ -158,6 +160,7 @@ void DlgEditValue::CreateNewValue(const QString& var_type, NodeInfo* p_node)
 {
     MY_ASSERT(model != nullptr);
     node = p_node;
+    value_position = -1;
 
     value->SetLuaStr("nil");
     value->SetVarType(var_type);
@@ -171,15 +174,17 @@ void DlgEditValue::initUIforValue(const QString &var_type)
     MY_ASSERT(model != nullptr);
 
     is_for_function = false;
+    this->var_type = var_type;
+
     if(var_type != "")
         setWindowTitle("设置：" + var_type);
     else
         setWindowTitle("设置：Value");
 
-    initEvtParamComboBox(var_type);
-    initVariableComboBox(var_type);
-    initPresetComboBox(var_type);
-    initFunctionComboBox(var_type);
+    initEvtParamComboBox();
+    initVariableComboBox();
+    initPresetComboBox();
+    initFunctionComboBox();
 
     if(ui->radioFunction->isEnabled())
         ui->radioFunction->setChecked(true);
@@ -203,6 +208,8 @@ void DlgEditValue::initUI_SetInitvalue(BaseValueClass *v)
 void DlgEditValue::SetUpforFunction()
 {
     is_for_function = true;
+    var_type = "";
+
     setWindowTitle("编辑Function");
 
     setUIVisible_Var(false);
@@ -212,7 +219,7 @@ void DlgEditValue::SetUpforFunction()
     ui->radioCustom->setText("lua脚本：");
     ui->radioFunction->setChecked(true);
 
-    initFunctionComboBox("");
+    initFunctionComboBox();
 }
 
 void DlgEditValue::updateFuncTextUI(FunctionClass* func)
@@ -272,7 +279,8 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     MY_ASSERT(function_node->type == FUNCTION);
 
     node = function_node;
-    v_type = VT_FUNC;
+    value_position = -1;
+    value_type = VT_FUNC;
 
     // 初始化value
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_Function(function_node);
@@ -285,7 +293,7 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     {
         ui->comboBoxFunction->setCurrentIndex(0);
         on_comboBoxFunction_currentIndexChanged(0);
-        value->SetFunction(&(FunctionInfo::GetInstance()->infoList[0]));
+        value->SetFunction(getFunctionInfoByUI());
     }
 
     this->exec();
@@ -294,12 +302,12 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
 void DlgEditValue::CreateCallNode()
 {
     MY_ASSERT(model != nullptr);
-    v_type = VT_FUNC;
+    value_type = VT_FUNC;
 
     ui->comboBoxFunction->setCurrentIndex(0);
     on_comboBoxFunction_currentIndexChanged(0);
 
-    value->SetFunction(&(FunctionInfo::GetInstance()->infoList[0]));
+    value->SetFunction(getFunctionInfoByUI());
 
     this->exec();
 }
@@ -333,7 +341,7 @@ void DlgEditValue::on_DlgEditValue_accepted()
     MY_ASSERT(model != nullptr);
 
     // 给成员变量value赋值
-    switch (v_type) {
+    switch (value_type) {
     case VT_FUNC:
     {
         FunctionClass* func = getFunctionInfoByUI();
@@ -405,7 +413,7 @@ void DlgEditValue::on_DlgEditValue_accepted()
         {
             // function 节点
             MY_ASSERT(node->type == FUNCTION);
-            if(v_type == VT_FUNC || v_type == VT_STR)
+            if(value_type == VT_FUNC || value_type == VT_STR)
             {
                 model->GetValueManager()->UpdateValueOnNode_Function(node, value);
                 node->text = value->GetText();
@@ -445,29 +453,29 @@ void DlgEditValue::on_DlgEditValue_accepted()
 
 void DlgEditValue::on_radioVariable_toggled(bool checked)
 {
-    if(checked && v_type != VT_VAR)
+    if(checked && value_type != VT_VAR)
     {
-        v_type = VT_VAR;
+        value_type = VT_VAR;
     }
 }
 
 void DlgEditValue::on_radioFunction_toggled(bool checked)
 {
-    if(checked && v_type != VT_FUNC)
+    if(checked && value_type != VT_FUNC)
     {
-        v_type = VT_FUNC;
+        value_type = VT_FUNC;
     }
 }
 
 void DlgEditValue::on_radioCustom_toggled(bool checked)
 {
-    if(checked && v_type != VT_STR)
+    if(checked && value_type != VT_STR)
     {
-        v_type = VT_STR;
+        value_type = VT_STR;
     }
 }
 
-void DlgEditValue::initVariableComboBox(const QString &var_type)
+void DlgEditValue::initVariableComboBox()
 {
     MY_ASSERT(model != nullptr);
 
@@ -478,7 +486,7 @@ void DlgEditValue::initVariableComboBox(const QString &var_type)
     int n = v_list.size();
     for(int i = 0; i < n; i++)
     {
-        if(vm->GetVarTypeAt(i) == var_type || var_type == "")
+        if(vm->GetVarTypeOf(v_list[i]) == var_type || var_type == "")
             items.append(QString(v_list.at(i)));
     }
     if(items.size() <= 0)
@@ -497,7 +505,7 @@ void DlgEditValue::initVariableComboBox(const QString &var_type)
     }
 }
 
-void DlgEditValue::initPresetComboBox(const QString &var_type)
+void DlgEditValue::initPresetComboBox()
 {
     EnumInfo* enum_info = EnumInfo::GetInstance();
     QStringList str_list = enum_info->GetEnumsOfType(var_type);
@@ -517,7 +525,14 @@ void DlgEditValue::initPresetComboBox(const QString &var_type)
     }
 }
 
-void DlgEditValue::initFunctionComboBox(const QString &var_type)
+void DlgEditValue::initFunctionComboBox()
+{
+    ui->lineEdit_Func->setText("");
+
+    resetFuncComboBox();
+}
+
+void DlgEditValue::resetFuncComboBox()
 {
     disconnect(ui->comboBoxFunction, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBoxFunction_currentIndexChanged(int)));
     ui->comboBoxFunction->clear();
@@ -525,42 +540,61 @@ void DlgEditValue::initFunctionComboBox(const QString &var_type)
 
     FunctionInfo* functions = FunctionInfo::GetInstance();
     int n = functions->infoList.size();
-    if(n > 0)
+    if(n <= 0)
     {
-        vectorFunctionInfo.clear();
-        QStringList items;
-        for(int i = 0; i < n; i++)
-        {
-            // 编辑 value 节点时，只添加 特定类型返回值 的函数
-            // 这就导致 infoList 中函数和 comboBoxFunction 中的函数名不是一一对应的了
-            // 所以这里添加函数名时，要记录一下两者的对应关系
-            if(!is_for_function && functions->infoList[i].GetReturnNum() <= 0)
-                continue;
-            if(is_for_function && !functions->infoList[i].CanBeCall())
-                continue;
-            if(var_type != "" && functions->infoList[i].GetReturnTypeAt(0) != var_type)
-                continue;
-            vectorFunctionInfo.push_back(i);
-            items.push_back(functions->infoList[i].GetNameUI());
-        }
-        ui->comboBoxFunction->addItems(items);
+        info("没有读取到任何函数信息！");
+        return;
+    }
 
-        if(items.size() <= 0)
+    vectorFunctionInfo.clear();
+    QStringList items;
+    QStringList filters = ui->lineEdit_Func->text().split(' ', QString::SkipEmptyParts);
+
+    for(int i = 0; i < n; i++)
+    {
+        FunctionClass* func = &(functions->infoList[i]);
+        // 编辑 value 节点时，只添加 特定类型返回值 的函数
+        // 这就导致 infoList 中函数和 comboBoxFunction 中的函数名不是一一对应的了
+        // 所以这里添加函数名时，要记录一下两者的对应关系
+        if(!is_for_function && func->GetReturnNum() <= 0)
+            continue;
+        if(is_for_function && !func->CanBeCall())
+            continue;
+        if(var_type != "" && func->GetReturnTypeAt(0) != var_type)
+            continue;
+        QString func_name = func->GetNameUI();
+        bool ok = true;
+        for(int j = 0; j < filters.size(); j++)
         {
-            ui->radioFunction->setEnabled(false);
-            ui->comboBoxFunction->setEnabled(false);
-            clearFuncTextUI();
+            if(!func_name.contains(filters[j]))
+                ok = false;
         }
-        else
+        if(ok)
         {
-            ui->radioFunction->setEnabled(true);
-            ui->comboBoxFunction->setEnabled(true);
-            updateFuncTextUI(getFunctionInfoByUI());
+            vectorFunctionInfo.push_back(i);
+            items.push_back(func_name);
         }
+    }
+    ui->comboBoxFunction->addItems(items);
+
+    if(items.size() <= 0)
+    {
+        ui->radioFunction->setChecked(false);
+        ui->radioFunction->setEnabled(false);
+        ui->comboBoxFunction->setEnabled(false);
+        if(ui->lineEdit_Func->text() == "")
+        {
+            ui->lineEdit_Func->setEnabled(false);
+        }
+        clearFuncTextUI();
     }
     else
     {
-        info("没有读取到任何函数信息！");
+        ui->radioFunction->setChecked(true);
+        ui->radioFunction->setEnabled(true);
+        ui->comboBoxFunction->setEnabled(true);
+        ui->lineEdit_Func->setEnabled(true);
+        updateFuncTextUI(getFunctionInfoByUI());
     }
 }
 
@@ -666,8 +700,8 @@ void DlgEditValue::clearFuncTextUI()
 
 void DlgEditValue::setUIByValue(BaseValueClass *v)
 {
-    v_type = v->GetValueType();
-    switch (v_type) {
+    value_type = v->GetValueType();
+    switch (value_type) {
     case VT_VAR:
     {
         ui->radioVariable->setChecked(true);
@@ -807,7 +841,7 @@ void DlgEditValue::onBtnParam10_clicked()
     onBtnParam_clicked(9);
 }
 
-void DlgEditValue::initEvtParamComboBox(const QString& var_type)
+void DlgEditValue::initEvtParamComboBox()
 {
     if(node == nullptr)
     {
@@ -848,17 +882,22 @@ void DlgEditValue::initEvtParamComboBox(const QString& var_type)
 
 void DlgEditValue::on_radioPreset_clicked(bool checked)
 {
-    if(checked && v_type != VT_ENUM)
+    if(checked && value_type != VT_ENUM)
     {
-        v_type = VT_ENUM;
+        value_type = VT_ENUM;
 //        on_comboBox_Preset_currentIndexChanged(ui->comboBox_Preset->currentIndex());
     }
 }
 
 void DlgEditValue::on_radioEvtParam_clicked(bool checked)
 {
-    if(checked && v_type != VT_PARAM)
+    if(checked && value_type != VT_PARAM)
     {
-        v_type = VT_PARAM;
+        value_type = VT_PARAM;
     }
+}
+
+void DlgEditValue::on_lineEdit_Func_textChanged(const QString &arg1)
+{
+    resetFuncComboBox();
 }

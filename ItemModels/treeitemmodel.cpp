@@ -8,6 +8,7 @@ TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
     globalValueManager = new ValueManager();
 }
 
+// 用于查找树中子项对应的QModelIndex
 QModelIndex TreeItemModel::index(int row, int column, const QModelIndex &parent /*= QModelIndex()*/) const
 {
 //    // 创建普通索引
@@ -35,16 +36,18 @@ QModelIndex TreeItemModel::index(int row, int column, const QModelIndex &parent 
     return QModelIndex();
 }
 
+// 用于查找树中父项对应的QModelIndex
 QModelIndex TreeItemModel::parent(const QModelIndex &child) const
 {
     if (child.internalPointer() != nullptr)
        {
            NodeInfo* pNode = reinterpret_cast<NodeInfo*>(child.internalPointer());
            NodeInfo* pParent = pNode->parent;
-           if (pParent != nullptr)
+           if (pParent != nullptr && pParent->parent != nullptr)
            {
+               int row = pParent->parent->childs.indexOf(pParent);
                // 根据父节点信息：row/col/node*获取Index
-               return createIndex(1, 0/*nCol只有0*/, pParent);
+               return createIndex(row, 0/*nCol只有0*/, pParent);
            }
        }
     // 根节点索引
@@ -76,33 +79,104 @@ int TreeItemModel::columnCount(const QModelIndex &parent /*= QModelIndex()*/) co
 
 QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayRole*/) const
 {
-//    // 节点内容：左对齐，显示行列号
-//    if (role == Qt::TextAlignmentRole)
-//        return int(Qt::AlignLeft | Qt::AlignVCenter);
-//    else if (role == Qt::DisplayRole)
-//        return QString("row=%1,col=%2").arg(index.row()).arg(index.column());
-//    else
-//        return QVariant();
+    if(!index.isValid())
+        return QVariant();
 
-    if (role == Qt::TextAlignmentRole)
-    {
+    switch (role) {
+    case Qt::TextAlignmentRole:
         return int(Qt::AlignLeft | Qt::AlignVCenter);
-    }
-    else if (role == Qt::DisplayRole)
-    {
+        break;
+    case Qt::DisplayRole:
         if (index.internalPointer() == nullptr)
         {
-            return QString("row=%1,col=%2").arg(index.row()).arg(index.column());
+            return QString("NO DATA");
         }
         else
         {
             NodeInfo* pNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
             return pNode->text;
         }
-    }
-    else
+        break;
+    case Qt::ToolTipRole:
     {
+        NodeInfo* pNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+        if(pNode != nullptr)
+        {
+            if(pNode->type == END)
+            {
+                if(pNode->IsBreakButNotReturn())
+                    return "跳出 LOOP";
+                else
+                    return "退出 事件";
+            }
+            else
+                return getNodeTypeStr(pNode->type);
+        }
+        else
+            return QString("row=%1,col=%2").arg(index.row()).arg(index.column());
+    }
+        break;
+    case Qt::ForegroundRole:
+    {
+        QColor color(Qt::black);
+        NodeInfo* pNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+        if(pNode != nullptr)
+        {
+            // 事件及其条件、动作序列、return
+            if(pNode->type == EVENT || (pNode->type == CONDITION && pNode->parent->type == EVENT)
+               || (pNode->type == SEQUENCE && pNode->parent->type == EVENT)
+               || (pNode->type == END && pNode->IsBreakButNotReturn() == false))
+            {
+                color.setRgb(255, 0, 0);
+            }
+            // 循环节点下的流程控制节点
+            else if(pNode->type == LOOP || (pNode->type == SEQUENCE && pNode->parent->type == LOOP)
+                    || (pNode->type == END && pNode->IsBreakButNotReturn()))
+            {
+                color.setRgb(75, 0, 255);
+            }
+            // if then else
+            else if(pNode->text == "if" || pNode->text == "then" || pNode->text == "else"
+                    || (pNode->type == CONDITION && pNode->parent->type == CHOICE))
+            {
+                color.setRgb(0, 127, 0);
+            }
+        }
+        return QBrush(color);
+    }
+        break;
+    case Qt::BackgroundRole:
+    {
+        QColor color(Qt::white);
+        NodeInfo* pNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+        if(pNode != nullptr)
+        {
+            // 事件及其条件、动作序列、return
+//            if(pNode->type == EVENT || (pNode->type == CONDITION && pNode->parent->type == EVENT)
+//               || (pNode->type == SEQUENCE && pNode->parent->type == EVENT)
+//               || (pNode->type == END && pNode->IsBreakButNotReturn() == false))
+//            {
+//                color.setRgb(255, 144, 160);
+//            }
+            // 循环节点下的流程控制节点
+//            else if(pNode->type == LOOP || (pNode->type == SEQUENCE && pNode->parent->type == LOOP)
+//                    || (pNode->type == END && pNode->IsBreakButNotReturn()))
+//            {
+//                color.setRgb(152, 209, 244);
+//            }
+            // if then else
+//            else if(pNode->text == "if" || pNode->text == "then" || pNode->text == "else"
+//                    || (pNode->type == CONDITION && pNode->parent->type == CHOICE))
+//            {
+//                color.setRgb(71, 233, 155);
+//            }
+        }
+        return QBrush(color);
+    }
+        break;
+    default:
         return QVariant();
+        break;
     }
 }
 

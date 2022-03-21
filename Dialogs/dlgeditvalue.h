@@ -50,6 +50,8 @@ private slots:
 
     // 多选框 - 选择函数
     void on_comboBoxFunction_currentIndexChanged(int index);
+    // 编辑框 - 筛选函数
+    void on_lineEdit_Func_textChanged(const QString &arg1);
 
     // 编辑函数的某个参数的值
     void onBtnParam1_clicked();
@@ -64,10 +66,12 @@ private slots:
     void onBtnParam10_clicked();
 
 private:
-    void initEvtParamComboBox(const QString &var_type);
-    void initVariableComboBox(const QString &var_type);
-    void initPresetComboBox(const QString &var_type);
-    void initFunctionComboBox(const QString &var_type);
+    void initEvtParamComboBox();
+    void initVariableComboBox();
+    void initPresetComboBox();
+    void initFunctionComboBox();
+
+    void resetFuncComboBox();
 
     void initUIforValue(const QString &var_type);
     void initUI_SetInitvalue(BaseValueClass* v);
@@ -96,8 +100,9 @@ private:
     NodeInfo* node;
     int value_position;
 
-    VALUE_TYPE v_type;
+    VALUE_TYPE value_type;
     BaseValueClass* value;
+    QString var_type;
 
     QVector<QPushButton*> funcParamBtns;
     QVector<QLabel*> funcTextLabels;
