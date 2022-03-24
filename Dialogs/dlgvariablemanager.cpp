@@ -63,7 +63,7 @@ void DlgVariableManager::ModifyVar(int id_var)
 
     this->setWindowTitle("编辑变量");
     ui->comboBox->setCurrentText(vm->GetVarTypeAt(global_var_id));
-    ui->lineEdit->setText(vm->GetGlobalVarList().at(global_var_id));
+    ui->lineEdit->setText(vm->GetGlobalVarList().at(id_var));
     ui->pushButton_2->setText(init_v->GetText());
 
     exec();
@@ -112,10 +112,7 @@ void DlgVariableManager::on_pushButton_clicked()
     {
         ValueManager* vm = model->GetValueManager();
         MY_ASSERT(vm != nullptr);
-        if(global_var_id >= 0 && global_var_id < vm->GetGlobalVarList().size())
-            vm->ModifyVarValueAt(global_var_id, var_name, init_v);
-        else
-            info("不存在这个变量了..");
+        vm->ModifyVarValueAt(global_var_id, var_name, init_v);
     }
     else if(node != nullptr && node->type == LOOP)
     {
