@@ -1504,11 +1504,11 @@ void MainWindow::generateLuaDocument(QFile *file)
     writeLuaVarInitFunc(file);
 
     // 生成一个Excute函数
-    file->write("function levelTable:Excute(event)\n"
+    file->write("function levelTable:Execute(event)\n"
                 "    local ret = false\n"
                 "    if self.EventFunc[event.id] ~= nil then\n"
-                "        for _, func in self.EventFunc[event.id] do\n"
-                "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event) == 1 then\n"
+                "        for _, func in ipairs (self.EventFunc[event.id]) do\n"
+                "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event, self.flowController) == 1 then\n"
                 "                func.call(event, self.flowController)\n"
                 "                ret = true\n"
                 "                -- break\n"
@@ -2092,7 +2092,7 @@ void MainWindow::on_actionOpen_triggered()
 void MainWindow::on_actionLua_triggered()
 {
     QString file_path = QCoreApplication::applicationFilePath();
-    file_path.replace("LevelEditor.exe", "");
+    file_path.replace("LevelEditor.exe", "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/");
     QString fileName = QFileDialog::getSaveFileName(this, "Save Lua", file_path, "Lua (*.lua)");
     if(!fileName.isEmpty())
     {
