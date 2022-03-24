@@ -86,20 +86,26 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int node_type)
 
     // 初始化value
     BaseValueClass* v = nullptr;
+    QString var_type = "";
     if(value_position == 0)
     {
         // set_value节点
         v = model->GetValueManager()->GetValueOnNode_SetVar(node);
+        var_type = v->GetVarType();
     }
     else if(value_position == 1)
     {
         // compare节点的左值
         v = model->GetValueManager()->GetValueOnNode_Compare_Left(node);
+        var_type = model->GetValueManager()->GetValueOnNode_Compare_Right(node)->GetVarType();
+        this->var_type = var_type;
     }
     else if(value_position == 2)
     {
         // compare节点的右值
         v = model->GetValueManager()->GetValueOnNode_Compare_Right(node);
+        var_type = model->GetValueManager()->GetValueOnNode_Compare_Left(node)->GetVarType();
+        this->var_type = var_type;
     }
     else
     {
@@ -108,10 +114,7 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int node_type)
 
     if(v != nullptr)
     {
-        if(value_position == 0)
-            initUIforValue(v->GetVarType());
-        else
-            initUIforValue("");
+        initUIforValue(var_type);
         setUIByValue(v);
     }
     else
@@ -152,6 +155,7 @@ void DlgEditValue::CreateValueForParentIfNode(NodeInfo *parent_node, const QStri
     MY_ASSERT(model != nullptr);
     node = parent_node;
     value_position = -1;
+
     initUIforValue(var_type); //还未确定值的变量类型是""
     this->exec();
 }
@@ -398,6 +402,8 @@ void DlgEditValue::on_DlgEditValue_accepted()
     case VT_ENUM:
     {
         QString str = ui->comboBox_Enum->currentText();
+        if(value->GetVarType() == "")
+            value->SetVarType(var_type);
         value->SetEnumValue(str);
     }
         break;

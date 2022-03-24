@@ -182,7 +182,7 @@ void DlgConditionType::on_btnText_1_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueLeft->CreateValueForParentIfNode(node, m_dlgEditValueRight->GetValuePointer()->GetVarType());
+        m_dlgEditValueLeft->CreateValueForParentIfNode(node, m_dlgEditValueRight->GetValuePointer()->GetVarType()); //这里取的是另一边的变量类型
     }
     else // 修改Compare节点
     {
@@ -196,7 +196,7 @@ void DlgConditionType::on_btnText_2_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueRight->CreateValueForParentIfNode(node, m_dlgEditValueLeft->GetValuePointer()->GetVarType());
+        m_dlgEditValueRight->CreateValueForParentIfNode(node, m_dlgEditValueLeft->GetValuePointer()->GetVarType()); //这里取的是另一边的变量类型
     }
     else // 修改Compare节点
     {
