@@ -76,8 +76,9 @@ private slots:
     void on_levelList_itemClicked(QListWidgetItem *item);
     // 关卡列表右键菜单
     void on_levelList_customContextMenuRequested(const QPoint &pos);
-    // 创建新的关卡（拷贝当前选中的关卡）
+    // 创建新的关卡
     void CreateNewLevel_CopyCurLvl();
+    void CreateNewLevel_EmptyLvl();
     // 删除当前选中的关卡
     void DeleteCurrentLevel();
 
@@ -150,8 +151,10 @@ private:
     void getConfigPath(QString& s);
 
     // 左侧关卡列表
+    QString m_levelPrefix;
     QStringList m_levelList;
     void InitLevelTree();
+    bool checkNewEventName();
 
     // 备份Json关卡文件
     int lastLevelIndex;

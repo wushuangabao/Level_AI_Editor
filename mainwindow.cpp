@@ -24,6 +24,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui(new Ui::MainWindow)
 {
     m_curETNode = nullptr;
+    m_levelPrefix = "Level";
     backupFilePaths.clear();
 
     // 检查config等目录是否存在
@@ -1007,6 +1008,7 @@ bool MainWindow::openJsonFile(QString fileName)
 
         if ( jsonDocument.isObject() ) {
             QJsonObject jsonObject = jsonDocument.object();
+            m_eventTreeModel->ClearAllEvents();
 
             // 变量
             if(jsonObject.contains("Var") && jsonObject.value("Var").isArray())
@@ -1045,8 +1047,6 @@ bool MainWindow::openJsonFile(QString fileName)
 
 bool MainWindow::parseJsonArray_Var(QJsonArray *varJsonArray)
 {
-    m_eventTreeModel->ClearAllEvents();
-
     int num = varJsonArray->size();
     if(num > 0)
     {
@@ -2058,7 +2058,7 @@ void MainWindow::on_actionSave_triggered()
     getConfigPath(file_path);
 
     QString level_str = getLevelNameOnItem(ui->levelList->currentItem());
-    if(level_str != "" && level_str.contains("level_"))
+    if(level_str != "" && level_str.contains(m_levelPrefix))
     {
         QString level_file_path = file_path + level_str + ".json";
 
@@ -2131,9 +2131,10 @@ void MainWindow::InitLevelTree()
         int lvl_id = -1;
         QString name = file_list[i];
         int pos = name.indexOf(".json");
-        if(pos != -1 && name.left(6) == "level_")
+        int prefix_num = m_levelPrefix.length();
+        if(pos != -1 && name.left(prefix_num) == m_levelPrefix)
         {
-            lvl_id = name.mid(6, pos - 6).toInt(&ok);
+            lvl_id = name.mid(prefix_num, pos - prefix_num).toInt(&ok);
         }
         if(ok && lvl_id != -1)
             m_levelList.insert(lvl_id - 1, name.left(pos));
@@ -2152,6 +2153,33 @@ void MainWindow::InitLevelTree()
         ui->levelList->setCurrentRow(0);
         on_levelList_itemClicked(ui->levelList->item(0));
     }
+}
+
+bool MainWindow::checkNewEventName()
+{
+    if(m_levelList.contains(m_dlgChoseEvtType->event_name))
+    {
+        info("已经存在这个名字的关卡！");
+        return false;
+    }
+
+    int prefix_num = m_levelPrefix.length();
+    if(m_dlgChoseEvtType->event_name.left(prefix_num) != m_levelPrefix)
+    {
+        info(QString("请命名为\"") + m_levelPrefix + QString("数字\"的形式。"));
+        return false;
+    }
+
+    QString s_num = m_dlgChoseEvtType->event_name.mid(prefix_num);
+    bool ok = false;
+    s_num.toInt(&ok);
+    if(!ok)
+    {
+        info(QString("请命名为\"") + m_levelPrefix + QString("数字\"的形式。"));
+        return false;
+    }
+
+    return true;
 }
 
 void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
@@ -2235,24 +2263,35 @@ QString MainWindow::getLevelNameOnItem(QListWidgetItem *item)
 
 void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
 {
+    QMenu *popMenu = new QMenu( this );
+    QAction *create_act = new QAction("新建关卡", this);
+    popMenu->addAction( create_act );
+    connect( create_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_EmptyLvl()) );
+
     QListWidgetItem* cur_item = ui->levelList->itemAt(pos);
     if( cur_item == nullptr )
-        return;
-    QString level_name = getLevelNameOnItem(cur_item);
+    {
+        popMenu->exec( QCursor::pos() );
+        delete popMenu;
+        delete create_act;
+    }
+    else
+    {
+        QString level_name = getLevelNameOnItem(cur_item);
+        QAction *copy_act = new QAction("拷贝" + level_name + "为新关卡", this);
+        QAction *del_act = new QAction("删除关卡" + level_name, this);
+        popMenu->addAction( copy_act );
+        popMenu->addAction( del_act );
+        connect( copy_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_CopyCurLvl()) );
+        connect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
 
-    QMenu *popMenu = new QMenu( this );
-    QAction *copy_act = new QAction("拷贝" + level_name + "为新关卡", this);
-    QAction *del_act = new QAction("删除关卡" + level_name, this);
-    popMenu->addAction( copy_act );
-    popMenu->addAction( del_act );
-    connect( copy_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_CopyCurLvl()) );
-    connect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
+        popMenu->exec( QCursor::pos() );
 
-    popMenu->exec( QCursor::pos() );
-
-    delete popMenu;
-    delete copy_act;
-    delete del_act;
+        delete popMenu;
+        delete create_act;
+        delete copy_act;
+        delete del_act;
+    }
 }
 
 void MainWindow::CreateNewLevel_CopyCurLvl()
@@ -2266,26 +2305,8 @@ void MainWindow::CreateNewLevel_CopyCurLvl()
 
     if(m_dlgChoseEvtType->event_name != "")
     {
-        if(m_levelList.contains(m_dlgChoseEvtType->event_name))
-        {
-            info("已经存在这个名字的关卡！");
+        if(!checkNewEventName())
             return;
-        }
-
-        if(m_dlgChoseEvtType->event_name.left(6) != "level_")
-        {
-            info(QString("请命名为\"level_") + QString("数字\"的形式。"));
-            return;
-        }
-
-        QString s_num = m_dlgChoseEvtType->event_name.mid(6);
-        bool ok = false;
-        s_num.toInt(&ok);
-        if(!ok)
-        {
-            info(QString("请命名为\"level_") + QString("数字\"的形式。"));
-            return;
-        }
 
         QString path;
         getConfigPath(path);
@@ -2326,6 +2347,53 @@ void MainWindow::CreateNewLevel_CopyCurLvl()
             ui->levelList->addItem(m_dlgChoseEvtType->event_name);
             ui->levelList->setCurrentRow(pos);
             on_levelList_itemClicked(ui->levelList->item(pos));
+        }
+    }
+}
+
+void MainWindow::CreateNewLevel_EmptyLvl()
+{
+    m_dlgChoseEvtType->EditLevelName(m_levelPrefix);
+
+    if(m_dlgChoseEvtType->event_name != "")
+    {
+        if(!checkNewEventName())
+            return;
+
+        QString path;
+        getConfigPath(path);
+        path = path + m_dlgChoseEvtType->event_name + ".json";
+        QFile file(path);
+        if(file.open(QIODevice::WriteOnly))
+        {
+            file.resize(0);
+            QString str = "{\n"
+                          "    \"Event\": [\n"
+                          "        {\n"
+                          "            \"AND\": [\n"
+                          "            ],\n"
+                          "            \"SEQUENCE\": [\n"
+                          "            ],\n"
+                          "            \"event_name\": \"未命名事件\",\n"
+                          "            \"event_type\": {\n"
+                          "                \"name\": \"" + EventType::GetInstance()->GetEventLuaType(0) + "\"\n"
+                          "            }\n"
+                          "        }\n"
+                          "    ],\n"
+                          "    \"Var\": [\n"
+                          "    ]\n"
+                          "}\n";
+            file.write(str.toStdString().c_str());
+            file.close();
+
+            savedOrNot.insert(m_dlgChoseEvtType->event_name, true);
+
+            m_levelList.push_back(m_dlgChoseEvtType->event_name);
+            ui->levelList->addItem(m_dlgChoseEvtType->event_name);
+        }
+        else
+        {
+            info("新关卡的json文件创建失败");
         }
     }
 }
