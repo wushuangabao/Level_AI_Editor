@@ -17,7 +17,7 @@ public:
     void operator=(NodeInfo& obj); //深拷贝除子节点之外的其他数据。父节点维持不变，子节点用obj的（原来的子节点全删了）。
 
     // new 一个新的 NodeInfo
-    NodeInfo* InsertChildAt(int pos, NodeInfo* node);
+    void FindAndSetNewNodePos(NodeInfo* &parent_node); //找到选择当前节点添加新的动作节点时，实际应该往哪个parent_node的childs中添加节点
     NodeInfo* addNewChildNode_SetVar(QString var_name, QString value_str, int id_var);
     NodeInfo* addNewChild(NODE_TYPE eType, QString str_data);
     NodeInfo* addNewChild_Compare(QString compare_type, QString left_value, QString right_value);
@@ -52,6 +52,7 @@ private:
     void initEventMembers();
 
     QStringList values;        // 存储一些变量
+    int new_child_pos;         // 新建子节点的位置
 };
 
 #endif // NODEINFO_H

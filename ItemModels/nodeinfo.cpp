@@ -4,7 +4,9 @@ NodeInfo::NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str)
     : parent(p),
       type(nt),
       text(str)
-{}
+{
+    new_child_pos = -1;
+}
 
 NodeInfo::~NodeInfo()
 {
@@ -50,9 +52,25 @@ void NodeInfo::operator=(NodeInfo &obj)
     }
 }
 
-NodeInfo *NodeInfo::InsertChildAt(int pos, NodeInfo *node)
+void NodeInfo::FindAndSetNewNodePos(NodeInfo *&parent_node)
 {
-
+    if(type == SEQUENCE)
+    {
+        parent_node = this;
+        parent_node->new_child_pos = -1;
+    }
+    else
+    {
+        parent_node = parent;
+        for(int i = 0; i < parent_node->childs.size(); i++)
+        {
+            if(parent_node->childs[i] == this)
+            {
+                parent_node->new_child_pos = i;
+                return;
+            }
+        }
+    }
 }
 
 NodeInfo *NodeInfo::addNewChildNode_SetVar(QString var_name, QString value_str, int id_var)
@@ -62,7 +80,13 @@ NodeInfo *NodeInfo::addNewChildNode_SetVar(QString var_name, QString value_str, 
     {
         NodeInfo* new_node = new NodeInfo(this, SET_VAR, node_text);
         new_node->values.push_back(QString::number(id_var));
-        childs.push_back(new_node);
+        if(new_child_pos != -1)
+        {
+            childs.insert(new_child_pos, new_node);
+            new_child_pos = -1;
+        }
+        else
+            childs.push_back(new_node);
         return new_node;
     }
      return nullptr;
@@ -122,7 +146,15 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
 
     if(is_valid)
     {
-        this->childs.append(new_node);
+        if(new_child_pos != -1)
+        {
+            this->childs.insert(new_child_pos, new_node);
+            new_child_pos = -1;
+        }
+        else
+        {
+            this->childs.push_back(new_node);
+        }
         return new_node;
     }
     else

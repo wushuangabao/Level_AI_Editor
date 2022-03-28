@@ -22,6 +22,7 @@ public:
     void EditEventName(QString name = "");
 
     void EditLevelName(const QString& name);
+    void EditLevelPrefix(const QString& name);
 
     int ChoseEventNameIn(QStringList names);
     void EditEventType();

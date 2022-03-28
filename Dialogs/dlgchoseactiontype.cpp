@@ -1,4 +1,5 @@
 #include "../ItemModels/nodeinfo.h"
+#include "../ItemModels/treeitemmodel.h"
 #include "dlgchoseactiontype.h"
 #include "ui_dlgchoseactiontype.h"
 
@@ -66,10 +67,18 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
         node_text = "跳出";
         break;
     case CLOSE_EVENT:
-        node_text = "停止监听..";
-        break;
     case OPEN_EVENT:
-        node_text = "开始监听..";
+    {
+        QStringList enames = model->GetEventNames();
+        int id = m_dlgChoseEvent->index;
+        if(id >= 0 && id < enames.size())
+            node_text = enames[id];
+        else
+        {
+            info("GetNodeTypeAndText ERROR");
+            node_text = getNodeTypeStr(index);
+        }
+    }
         break;
     default:
         node_text = "";
@@ -130,13 +139,19 @@ void DlgChoseActionType::on_btnCallFunc_clicked()
 void DlgChoseActionType::on_btnCloseEvent_clicked()
 {
     index = CLOSE_EVENT;
-    hide();
+
+    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->GetEventNames());
+    if(id_ename != -1)
+       hide();
 }
 
 void DlgChoseActionType::on_btnOpenEvent_clicked()
 {
     index = OPEN_EVENT;
-    hide();
+
+    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->GetEventNames());
+    if(id_ename != -1)
+       hide();
 }
 
 void DlgChoseActionType::on_btnCancel_clicked()

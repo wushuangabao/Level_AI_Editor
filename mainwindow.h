@@ -81,6 +81,10 @@ private slots:
     void CreateNewLevel_EmptyLvl();
     // 删除当前选中的关卡
     void DeleteCurrentLevel();
+    // 针对所有关卡的操作
+    void ReloadAllLevels();
+    void SaveAllLevels_Json();
+    void SaveAllLevels_Lua();
 
 private:
     Ui::MainWindow *ui;
@@ -121,7 +125,8 @@ private:
     void addFunctionToJsonObj(BaseValueClass* value, QJsonObject* json);
 
     // 解析Json文件
-    bool openJsonFile(QString fileName);
+    bool openJsonFile(QString filePath);
+    bool openJsonFile(QListWidgetItem* item, QString &level_name); // 打开新的关卡文件或者对应的备份文件
     bool parseJsonArray_Var(QJsonArray* varJsonArray);
     bool parseJsonObj_Event(QJsonObject* eventJsonObj, QString event_name);
     bool parseJsonArray_Condition(QJsonArray* conditions, NodeInfo* condition_node);
@@ -154,7 +159,8 @@ private:
     QString m_levelPrefix;
     QStringList m_levelList;
     void InitLevelTree();
-    bool checkNewEventName();
+    bool checkNewLevelName(); //检查新建的关卡名称
+    bool checkLevelPrefix(const QString& str);
 
     // 备份Json关卡文件
     int lastLevelIndex;
@@ -165,6 +171,7 @@ private:
     bool isSameFile(const QString& path1, const QString& path2);
     void deleteFile(const QString& path);
     QString getLevelNameOnItem(QListWidgetItem* item);
+    bool isNeedSave();
 };
 
 #endif // MAINWINDOW_H

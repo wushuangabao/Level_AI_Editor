@@ -83,6 +83,27 @@ void DlgChoseEType::EditLevelName(const QString& name)
     exec();
 }
 
+void DlgChoseEType::EditLevelPrefix(const QString &name)
+{
+    setWindowTitle("关卡文件的前缀");
+
+    ui->label->setVisible(false);
+
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText(name);
+    event_name = name;
+
+    ui->label_name->setText("关卡前缀：");
+    ui->label_name->setVisible(true);
+
+    ui->comboBox->setVisible(false);
+
+    index = 0;
+    text = "";
+
+    exec();
+}
+
 int DlgChoseEType::ChoseEventNameIn(QStringList enames)
 {
     setWindowTitle("选择事件");
@@ -140,6 +161,8 @@ void DlgChoseEType::on_DlgChoseEType_rejected()
     index = -1;
     if(ui->label_name->text() == "关卡名称：")
         event_name = "";
+    if(ui->label_name->text() == "关卡前缀：")
+        event_name = "-1";
 }
 
 void DlgChoseEType::on_comboBox_currentIndexChanged(int id)

@@ -14,6 +14,7 @@
 #include "Dialogs/dlgsetvariable.h"
 #include "Dialogs/dlgvariablemanager.h"
 #include "Dialogs/dlgchoseactiontype.h"
+#include "Dialogs/dlgwaiting.h"
 #include "Values/enuminfo.h"
 #include "ItemModels/functioninfo.h"
 #include "mainwindow.h"
@@ -73,16 +74,7 @@ MainWindow::~MainWindow()
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    bool need_save = false;
-    foreach (bool already_saved, savedOrNot)
-    {
-        if(!already_saved)
-        {
-            need_save = true;
-            break;
-        }
-    }
-    if(need_save)
+    if(isNeedSave())
     {
         int ch = QMessageBox::warning(nullptr, "提示", "还有未保存的修改，确定直接退出？", QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
         if(ch != QMessageBox::Yes)
@@ -158,8 +150,8 @@ void MainWindow::slotTreeMenu(const QPoint &pos)
             actCondition->setEnabled(false);
         }
 
-        // 只有“序列”节点可以新增动作（暂定）
-        if(m_curETNode->type != SEQUENCE)
+        // 非动作节点不可以新增动作
+        if(m_curETNode->type < SET_VAR)
         {
             actAddAction->setEnabled(false);
         }
@@ -349,40 +341,48 @@ void MainWindow::slotNewAction(bool b)
 {
     Q_UNUSED(b);
 
+    // 新节点加在哪个位置？
+    NodeInfo* parent_node = nullptr;
+    m_curETNode->FindAndSetNewNodePos(parent_node);
+    MY_ASSERT(parent_node != nullptr);
+    MY_ASSERT(parent_node->type == SEQUENCE);
+
     // 选择并新建一个动作节点
-    m_dlgChoseActionType->CreateActionType(m_curETNode);
+    m_dlgChoseActionType->CreateActionType(parent_node);
     QString node_text;
     NODE_TYPE type = m_dlgChoseActionType->GetNodeTypeAndText(node_text);
+    bool success = true;
 
     switch (type)
     {
     case INVALID:
-        return;
+        success = false;
+        break;
     case SET_VAR:
     {
         QStringList texts = node_text.split(" = ");
         if(texts.size() == 2)
         {
             int id_var = m_eventTreeModel->GetValueManager()->FindIdOfVarName(texts[0]);
-            NodeInfo* new_node = m_curETNode->addNewChildNode_SetVar(texts[0], texts[1], id_var); //在动作序列中插入新建的setvar节点
+            NodeInfo* new_node = parent_node->addNewChildNode_SetVar(texts[0], texts[1], id_var); //在动作序列中插入新建的setvar节点
             if(new_node != nullptr && m_dlgChoseActionType->GetValue_SetVar() != nullptr)
                 m_eventTreeModel->GetValueManager()->UpdateValueOnNode_SetValue(new_node, m_dlgChoseActionType->GetValue_SetVar());
             else
             {
                 info("创建SET_VAR节点失败");
-                return;
+                success = false;
             }
         }
         else
         {
             info("创建SET_VAR节点失败");
-            return;
+            success = false;
         }
         break;
     }
     case FUNCTION:
     {
-        NodeInfo* new_node = m_curETNode->addNewChild(FUNCTION, node_text);
+        NodeInfo* new_node = parent_node->addNewChild(FUNCTION, node_text);
         if(new_node != nullptr)
         {
             m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Function(new_node, m_dlgChoseActionType->GetValue_CallFunc());
@@ -390,29 +390,49 @@ void MainWindow::slotNewAction(bool b)
         else
         {
             info("创建FUNCTION节点失败");
-            return;
+            success = false;
         }
     }
         break;
     case OPEN_EVENT:
     case CLOSE_EVENT:
     {
-        NodeInfo* new_node = m_eventTreeModel->createNode(node_text, type, m_curETNode);
-        m_curETNode = new_node;
-        editActionNode(new_node);
-        return;
+        NodeInfo* new_node = m_eventTreeModel->createNode("", type, parent_node);
+        if(new_node == nullptr)
+        {
+            info("创建" + getNodeTypeStr(type) + "节点失败");
+            success = false;
+        }
+        else
+        {
+            new_node->modifyValue(0, node_text);
+            new_node->UpdateText();
+        }
     }
         break;
     default:
-        m_curETNode = m_eventTreeModel->createNode(node_text, type, m_curETNode);
+        m_curETNode = m_eventTreeModel->createNode(node_text, type, parent_node);
         break;
     }
 
-    slotTreeMenuCollapse();
-    slotTreeMenuExpand();
-    updateEventTreeState();
+    if(success)
+    {
+        // 刷新显示
+        if(type == SET_VAR || type == FUNCTION)
+        {
+            QModelIndex model_index = ui->eventTreeView->currentIndex();
+            if(m_curETNode->type != SEQUENCE)
+                ui->eventTreeView->setCurrentIndex(model_index.parent());
+            slotTreeMenuCollapse();
+            slotTreeMenuExpand();
+            ui->eventTreeView->setCurrentIndex(model_index);
+        }
 
-    saveBackupJsonFile();
+        updateEventTreeState();
+
+        // 备份关卡文件
+        saveBackupJsonFile();
+    }
 }
 
 // 初始化m_eventTreeModel
@@ -989,11 +1009,11 @@ void MainWindow::addFunctionToJsonObj(BaseValueClass *value, QJsonObject *json)
     json->insert("params", params);
 }
 
-bool MainWindow::openJsonFile(QString fileName)
+bool MainWindow::openJsonFile(QString filePath)
 {
-    QFile file( fileName );
+    QFile file( filePath );
     if ( !file.open( QIODevice::ReadOnly ) ) {
-        info("文件打开失败！");
+        info(filePath + "打开失败！");
         return false;
     }
 
@@ -1043,6 +1063,24 @@ bool MainWindow::openJsonFile(QString fileName)
 
     file.close();
     return success;
+}
+
+bool MainWindow::openJsonFile(QListWidgetItem *item, QString& level_name)
+{
+    QString file_path;
+    getConfigPath(file_path);
+
+    level_name = getLevelNameOnItem(item);
+    if(backupFilePaths.contains(level_name))
+    {
+        file_path = backupFilePaths[level_name].last();
+    }
+    else
+    {
+        file_path = file_path + level_name + ".json";
+    }
+
+    return openJsonFile(file_path);
 }
 
 bool MainWindow::parseJsonArray_Var(QJsonArray *varJsonArray)
@@ -2114,6 +2152,7 @@ void MainWindow::InitLevelTree()
 {
     m_levelList.clear();
     savedOrNot.clear();
+    ui->levelList->clear();
 
     QString config_path;
     getConfigPath(config_path);
@@ -2155,7 +2194,7 @@ void MainWindow::InitLevelTree()
     }
 }
 
-bool MainWindow::checkNewEventName()
+bool MainWindow::checkNewLevelName()
 {
     if(m_levelList.contains(m_dlgChoseEvtType->event_name))
     {
@@ -2182,6 +2221,22 @@ bool MainWindow::checkNewEventName()
     return true;
 }
 
+bool MainWindow::checkLevelPrefix(const QString &str)
+{
+    QByteArray ba = str.toLatin1();
+    const char *s = ba.data();
+    while(*s)
+    {
+        if( !((*s >= 'A' && *s <= 'Z') || (*s >= 'a' && *s <= 'z') || *s == '_') )
+        {
+            info("前缀只能由英文字母和下划线组成");
+            return false;
+        }
+        s++;
+    }
+    return true;
+}
+
 void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
 {
     QString file_path;
@@ -2192,24 +2247,17 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
         saveBackupJsonFile();
     lastLevelIndex = ui->levelList->currentRow();
 
-    // 打开新的关卡文件或者对应的备份文件
-    QString level_name = getLevelNameOnItem(item);
-    if(backupFilePaths.contains(level_name))
+    QString level_name;
+    if(openJsonFile(item, level_name))
     {
-        file_path = backupFilePaths[level_name].last();
-    }
-    else
-    {
-        file_path = file_path + level_name + ".json";
-    }
+        setWindowTitle("当前关卡：" + level_name);
 
-    openJsonFile(file_path);
-
-    m_itemState.clear();
-    if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
-        ui->eventTreeView->expandAll();
-    else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
-        ui->eventTreeView->expandToDepth(1);
+        m_itemState.clear();
+        if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
+            ui->eventTreeView->expandAll();
+        else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
+            ui->eventTreeView->expandToDepth(1);
+    }
 }
 
 void MainWindow::on_btnDeleteVar_clicked()
@@ -2261,35 +2309,86 @@ QString MainWindow::getLevelNameOnItem(QListWidgetItem *item)
     return level_name;
 }
 
+bool MainWindow::isNeedSave()
+{
+    foreach (bool already_saved, savedOrNot)
+    {
+        if(!already_saved)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
 void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
 {
+    // 创建菜单
     QMenu *popMenu = new QMenu( this );
-    QAction *create_act = new QAction("新建关卡", this);
-    popMenu->addAction( create_act );
-    connect( create_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_EmptyLvl()) );
 
-    QListWidgetItem* cur_item = ui->levelList->itemAt(pos);
-    if( cur_item == nullptr )
+    // 创建动作
+    QAction *copy_act = nullptr;
+    QAction *del_act = nullptr;
+    static QAction *create_act = nullptr;
+    static QAction *reload_act = nullptr;
+    static QAction *save_act = nullptr;
+    static QAction *lua_act = nullptr;
+    if(create_act == nullptr)
     {
-        popMenu->exec( QCursor::pos() );
-        delete popMenu;
-        delete create_act;
+        create_act = new QAction("新建关卡", this);
+        connect( create_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_EmptyLvl()) );
     }
-    else
+    if(reload_act == nullptr)
+    {
+        reload_act = new QAction("重载所有关卡", this);
+        connect( reload_act, SIGNAL(triggered()), this, SLOT(ReloadAllLevels()) );
+    }
+    if(save_act == nullptr)
+    {
+        save_act = new QAction("保存所有关卡", this);
+        connect( save_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Json()) );
+    }
+    if(lua_act == nullptr)
+    {
+        lua_act = new QAction("全部json转lua", this);
+        connect( lua_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Lua()) );
+    }
+
+    // 添加选项 新建关卡
+    popMenu->addAction( create_act );
+
+    // 添加选项 拷贝、删除
+    QListWidgetItem* cur_item = ui->levelList->itemAt(pos);
+    if( cur_item != nullptr )
     {
         QString level_name = getLevelNameOnItem(cur_item);
-        QAction *copy_act = new QAction("拷贝" + level_name + "为新关卡", this);
-        QAction *del_act = new QAction("删除关卡" + level_name, this);
+        copy_act = new QAction("拷贝" + level_name + "为新关卡", this);
+        del_act = new QAction("删除关卡" + level_name, this);
         popMenu->addAction( copy_act );
         popMenu->addAction( del_act );
         connect( copy_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_CopyCurLvl()) );
         connect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
+    }
 
-        popMenu->exec( QCursor::pos() );
+    // 添加选项 重载、保存、一键生成Lua
+    popMenu->addSeparator();
+    popMenu->addAction( reload_act );
+    popMenu->addAction( save_act );
+    popMenu->addAction( lua_act );
 
-        delete popMenu;
-        delete create_act;
+    // 弹出菜单
+    popMenu->exec( QCursor::pos() );
+
+    // 清理内存
+    delete popMenu;
+    if(copy_act != nullptr)
+    {
+        disconnect( copy_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_CopyCurLvl()) );
         delete copy_act;
+    }
+    if(del_act != nullptr)
+    {
+        disconnect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
         delete del_act;
     }
 }
@@ -2305,7 +2404,7 @@ void MainWindow::CreateNewLevel_CopyCurLvl()
 
     if(m_dlgChoseEvtType->event_name != "")
     {
-        if(!checkNewEventName())
+        if(!checkNewLevelName())
             return;
 
         QString path;
@@ -2357,7 +2456,7 @@ void MainWindow::CreateNewLevel_EmptyLvl()
 
     if(m_dlgChoseEvtType->event_name != "")
     {
-        if(!checkNewEventName())
+        if(!checkNewLevelName())
             return;
 
         QString path;
@@ -2438,6 +2537,137 @@ void MainWindow::DeleteCurrentLevel()
         lastLevelIndex --;
     else if(lastLevelIndex != -1)
         ui->levelList->setCurrentRow(lastLevelIndex);
+}
+
+void MainWindow::ReloadAllLevels()
+{
+    if(isNeedSave())
+    {
+        int ch = QMessageBox::warning(nullptr, "提示", "尚未保存，确定重载？", QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
+        if (ch != QMessageBox::Yes)
+            return;
+    }
+
+    m_dlgChoseEvtType->EditLevelPrefix(m_levelPrefix);
+    if(m_dlgChoseEvtType->event_name != "-1")
+    {
+        if(!checkLevelPrefix(m_dlgChoseEvtType->event_name))
+            return;
+        m_levelPrefix = m_dlgChoseEvtType->event_name;
+        InitLevelTree();
+    }
+}
+
+void MainWindow::SaveAllLevels_Json()
+{
+    m_dlgChoseEvtType->EditLevelPrefix(m_levelPrefix);
+    if(m_dlgChoseEvtType->event_name != "-1")
+    {
+        if(!checkLevelPrefix(m_dlgChoseEvtType->event_name))
+            return;
+        QString old_prefix = m_levelPrefix;
+        m_levelPrefix = m_dlgChoseEvtType->event_name;
+
+        DlgWaiting* wait = new DlgWaiting(this);
+        wait->show();
+
+        // 遍历所有关卡文件，对每个关卡都加载Json，然后删除原Json，输出新Json
+        int num = m_levelList.size();
+        for(int i = 0; i < num; i++)
+        {
+            QString old_level_name;
+            if(!openJsonFile(ui->levelList->item(i), old_level_name))
+                continue;
+
+            QString file_path;
+            getConfigPath(file_path);
+            file_path = file_path + old_level_name + ".json";
+            deleteFile(file_path);
+
+            QString new_level_name = old_level_name;
+            new_level_name.replace(old_prefix, m_levelPrefix);
+            file_path.replace(old_level_name, new_level_name);
+
+            QFile file_level(file_path);
+            if(!file_level.open(QIODevice::ReadWrite))
+            {
+                continue;
+            }
+            else
+            {
+                file_level.resize(0);
+                generateJsonDocument(&file_level);
+                file_level.close();
+            }
+
+            // 防止假死
+            QCoreApplication::processEvents();
+        }
+
+        // 重载levelList
+        InitLevelTree();
+
+        wait->close();
+    }
+}
+
+void MainWindow::SaveAllLevels_Lua()
+{
+    QString lua_path = QCoreApplication::applicationFilePath();
+    lua_path.replace("LevelEditor.exe", "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/");
+    QDir dir(lua_path);
+    if(!dir.exists())
+    {
+        lua_path = QCoreApplication::applicationFilePath();
+        lua_path.replace("LevelEditor.exe", "");
+        lua_path = QFileDialog::getExistingDirectory(this, "Lua Path", lua_path, QFileDialog::ShowDirsOnly);
+        if(lua_path.isEmpty())
+        {
+            return;
+        }
+        if(lua_path.right(1) != "/")
+            lua_path += "/";
+    }
+
+    DlgWaiting* wait = new DlgWaiting(this);
+    wait->show();
+
+    QString config_path;
+    getConfigPath(config_path);
+
+    // 先存储当前关卡的备份
+    lastLevelIndex = ui->levelList->currentRow();
+    if(lastLevelIndex != -1)
+        saveBackupJsonFile();
+    int cur_level = lastLevelIndex;
+    lastLevelIndex = -1;
+
+    // 遍历所有关卡文件，对每个关卡都加载Json，然后输出Lua
+    int num = m_levelList.size();
+    for(int i = 0; i < num; i++)
+    {
+        QString level_name = getLevelNameOnItem(ui->levelList->item(i));
+        if(!openJsonFile(config_path + level_name + ".json"))
+            continue;
+
+        QString file_path = lua_path + level_name + ".lua";
+        QFile file(file_path);
+        if(file.open(QIODevice::WriteOnly))
+        {
+            file.resize(0);
+            generateLuaDocument(&file);
+            file.close();
+        }
+
+        // 防止假死
+        QCoreApplication::processEvents();
+    }
+
+    // 恢复原来选中的关卡
+    if(cur_level != -1)
+        on_levelList_itemClicked(ui->levelList->item(cur_level));
+
+    wait->close();
 }
 
 void MainWindow::updateEventTreeState()
