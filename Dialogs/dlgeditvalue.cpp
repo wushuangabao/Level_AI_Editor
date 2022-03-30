@@ -115,7 +115,7 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int node_type)
     if(v != nullptr)
     {
         initUIforValue(var_type);
-        setUIByValue(v);
+        setValueAndUI(v);
     }
     else
         info("Modify Value 找不到编辑的值！");
@@ -190,12 +190,18 @@ void DlgEditValue::initUIforValue(const QString &var_type)
     initPresetComboBox();
     initFunctionComboBox();
 
-    if(ui->radioFunction->isEnabled())
-        ui->radioFunction->setChecked(true);
+    if(ui->radioEvtParam->isEnabled())
+        ui->radioEvtParam->setChecked(true);
+    else if(ui->radioCustom->isEnabled())
+        ui->radioCustom->setChecked(true);
+    else if(ui->radioPreset->isEnabled())
+        ui->radioPreset->setChecked(true);
     else if(ui->radioVariable->isEnabled())
         ui->radioVariable->setChecked(true);
-    else
-        ui->radioCustom->setChecked(true);
+    else if(ui->radioFunction->isEnabled())
+        ui->radioFunction->setChecked(true);
+
+    updateValueType();
 }
 
 void DlgEditValue::initUI_SetInitvalue(BaseValueClass *v)
@@ -205,7 +211,7 @@ void DlgEditValue::initUI_SetInitvalue(BaseValueClass *v)
 
     if(v != nullptr)
     {
-        setUIByValue(v);
+        setValueAndUI(v);
     }
 }
 
@@ -276,6 +282,20 @@ void DlgEditValue::setUIVisible_Enum(bool can_see)
     ui->comboBox_Enum->setVisible(can_see);
 }
 
+void DlgEditValue::updateValueType()
+{
+    if(ui->radioEvtParam->isChecked())
+        value_type = VT_PARAM;
+    else if(ui->radioCustom->isChecked())
+        value_type = VT_STR;
+    else if(ui->radioPreset->isChecked())
+        value_type = VT_ENUM;
+    else if(ui->radioVariable->isChecked())
+        value_type = VT_VAR;
+    else if(ui->radioFunction->isChecked())
+        value_type = VT_FUNC;
+}
+
 void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
 {
     MY_ASSERT(function_node != nullptr);
@@ -283,18 +303,19 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     MY_ASSERT(function_node->type == FUNCTION);
 
     node = function_node;
-    value_position = -1;
-    value_type = VT_FUNC;
+    value_position = -1; 
 
     // 初始化value
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_Function(function_node);
     if(v != nullptr)
     {
-        MY_ASSERT(v->GetValueType() == VT_FUNC);
-        setUIByValue(v);
+        value_type = v->GetValueType();
+        MY_ASSERT(value_type == VT_FUNC || value_type == VT_STR);
+        setValueAndUI(v);
     }
     else
     {
+        value_type = VT_FUNC;
         ui->comboBoxFunction->setCurrentIndex(0);
         on_comboBoxFunction_currentIndexChanged(0);
         value->SetFunction(getFunctionInfoByUI());
@@ -308,6 +329,8 @@ void DlgEditValue::CreateCallNode()
     MY_ASSERT(model != nullptr);
     value_type = VT_FUNC;
 
+    ui->lineEdit->setText("");
+    ui->radioFunction->setChecked(true);
     ui->comboBoxFunction->setCurrentIndex(0);
     on_comboBoxFunction_currentIndexChanged(0);
 
@@ -343,6 +366,8 @@ bool DlgEditValue::IsAccepted()
 void DlgEditValue::on_DlgEditValue_accepted()
 {
     MY_ASSERT(model != nullptr);
+
+    updateValueType();
 
     // 给成员变量value赋值
     switch (value_type) {
@@ -642,7 +667,7 @@ void DlgEditValue::modifyUIParamValue(int idx)
     param->SetVarType(func->GetParamTypeAt(param_id));
     *(dlg->value) = *param;
     dlg->initUIforValue(func->GetParamTypeAt(param_id));
-    dlg->setUIByValue(param);
+    dlg->setValueAndUI(param);
     dlg->exec();
     *(funcParams[idx]) = *(dlg->GetValuePointer());
 
@@ -704,7 +729,7 @@ void DlgEditValue::clearFuncTextUI()
     }
 }
 
-void DlgEditValue::setUIByValue(BaseValueClass *v)
+void DlgEditValue::setValueAndUI(BaseValueClass *v)
 {
     value_type = v->GetValueType();
     switch (value_type) {
@@ -905,5 +930,11 @@ void DlgEditValue::on_radioEvtParam_clicked(bool checked)
 
 void DlgEditValue::on_lineEdit_Func_textChanged(const QString &arg1)
 {
+    Q_UNUSED(arg1);
     resetFuncComboBox();
+}
+
+void DlgEditValue::on_DlgEditValue_rejected()
+{
+    is_accepted = false;
 }

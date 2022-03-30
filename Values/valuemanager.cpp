@@ -408,7 +408,7 @@ QStringList *ValueManager::GetEventParamsUI(NodeInfo *node)
     MY_ASSERT(node->type == EVENT);
     MY_ASSERT(node->childs.size() > 1);
 
-    NodeInfo* etype_node = node->childs[0];
+    NodeInfo* etype_node = node->childs[0]->childs[0];
     MY_ASSERT(etype_node->type == ETYPE);
     MY_ASSERT(etype_node->getValuesCount() > 0);
 
@@ -421,7 +421,7 @@ QStringList *ValueManager::GetEventParamsLua(NodeInfo *node)
     MY_ASSERT(node->type == EVENT);
     MY_ASSERT(node->childs.size() > 1);
 
-    NodeInfo* etype_node = node->childs[0];
+    NodeInfo* etype_node = node->childs[0]->childs[0];
     MY_ASSERT(etype_node->type == ETYPE);
     MY_ASSERT(etype_node->getValuesCount() > 0);
 

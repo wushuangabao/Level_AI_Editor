@@ -3,8 +3,7 @@
 
 #include <QAbstractItemModel>
 #include "nodeinfo.h"
-
-class ValueManager;
+#include "Values/valuemanager.h"
 
 class TreeItemModel : public QAbstractItemModel
 {

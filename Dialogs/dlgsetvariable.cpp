@@ -34,6 +34,7 @@ void DlgSetVariable::EditSetVarNode(NodeInfo *set_var_node)
 
     if(!initVariableComboBox())
         return;
+    ui->comboBox->setEnabled(false);
 
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_SetVar(node);
     if(v != nullptr)
@@ -47,6 +48,7 @@ void DlgSetVariable::CreateSetVarNode(NodeInfo *seq_node)
     node = seq_node;
     is_accepted = false;
 
+    ui->comboBox->setEnabled(true);
     if(!initVariableComboBox())
         return;
 

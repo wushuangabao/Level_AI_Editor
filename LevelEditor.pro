@@ -39,7 +39,9 @@ SOURCES += \
     Dialogs/dlgsetvariable.cpp \
     Dialogs/dlgchoseactiontype.cpp \
     Values/enuminfo.cpp \
-    Dialogs/dlgwaiting.cpp
+    Dialogs/dlgwaiting.cpp \
+    ItemModels/treeitemmodel_custom.cpp \
+    ItemModels/treeitemmodel_event.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -57,7 +59,9 @@ HEADERS += \
     Dialogs/dlgsetvariable.h \
     Dialogs/dlgchoseactiontype.h \
     Values/enuminfo.h \
-    Dialogs/dlgwaiting.h
+    Dialogs/dlgwaiting.h \
+    ItemModels/treeitemmodel_custom.h \
+    ItemModels/treeitemmodel_event.h
 
 FORMS += \
         mainwindow.ui \

@@ -1,4 +1,3 @@
-#include "Values/valuemanager.h"
 #include "treeitemmodel.h"
 
 TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
@@ -125,6 +124,7 @@ QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayR
             // 事件及其条件、动作序列、return
             if(pNode->type == EVENT || (pNode->type == CONDITION && pNode->parent->type == EVENT)
                || (pNode->type == SEQUENCE && pNode->parent->type == EVENT)
+               || (pNode->type == ENODE)
                || (pNode->type == END && pNode->IsBreakButNotReturn() == false))
             {
                 color.setRgb(255, 0, 0);
@@ -269,7 +269,7 @@ NodeInfo *TreeItemModel::findEvtTypeNodeOf(NodeInfo *cur_node)
     if(ai_node == nullptr)
         return nullptr;
     else
-        return ai_node->childs[0];
+        return ai_node->childs[0]->childs[0];
 }
 
 NodeInfo *TreeItemModel::findEvtCondNodeOf(NodeInfo *cur_node)

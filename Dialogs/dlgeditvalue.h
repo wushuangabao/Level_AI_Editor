@@ -41,6 +41,7 @@ public:
 
 private slots:
     void on_DlgEditValue_accepted();
+    void on_DlgEditValue_rejected();
 
     void on_radioVariable_toggled(bool checked);
     void on_radioFunction_toggled(bool checked);
@@ -76,11 +77,13 @@ private:
     void initUIforValue(const QString &var_type);
     void initUI_SetInitvalue(BaseValueClass* v);
 
-    void setUIByValue(BaseValueClass* v);
+    void setValueAndUI(BaseValueClass* v);
 
     void setUIVisible_Var(bool can_see);
     void setUIVisible_EvtParam(bool can_see);
     void setUIVisible_Enum(bool can_see);
+
+    void updateValueType();
 
     void onBtnParam_clicked(int idx);
     void clearFuncTextUI();

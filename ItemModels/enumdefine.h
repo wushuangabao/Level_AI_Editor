@@ -19,7 +19,8 @@ enum NODE_TYPE
     /// 事件
     /////////////////////////////////
 
-    EVENT, // 由一个（事件）类型枚举、一个condition和一个动作类型的节点组成
+    EVENT, // 由一个ENODE、一个CONDITION和一个SEQUENCE节点组成
+    ENODE, // 没有什么实际作用的节点。有一个ETYPE子节点
     ETYPE, // 类型枚举，含一个整数（values[0]）
 
     /////////////////////////////////
@@ -67,6 +68,8 @@ enum CONDITION_OP
 __attribute__((unused)) static QString getNodeTypeStr(NODE_TYPE v)
 {
     switch (v) {
+    case INVALID:
+        return "INVALID";
     case EVENT:
         return "事件";
     case ETYPE:

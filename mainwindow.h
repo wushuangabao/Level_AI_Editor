@@ -2,7 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "ItemModels/treeitemmodel.h"
+#include "ItemModels/treeitemmodel_event.h"
 
 class QFile;
 class QJsonObject;
@@ -98,7 +98,7 @@ private:
 
     // 中间树形结构
     NodeInfo* m_curETNode;
-    TreeItemModel* m_eventTreeModel;
+    TreeItemModel_Event* m_eventTreeModel;
     QMap<QModelIndex, bool> m_itemState;
     void updateEventTreeState();
 
@@ -158,6 +158,7 @@ private:
     // 左侧关卡列表
     QString m_levelPrefix;
     QStringList m_levelList;
+    QString m_LuaPath;
     void InitLevelTree();
     bool checkNewLevelName(); //检查新建的关卡名称
     bool checkLevelPrefix(const QString& str);

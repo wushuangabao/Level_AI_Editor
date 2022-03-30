@@ -26,6 +26,7 @@ MainWindow::MainWindow(QWidget *parent) :
 {
     m_curETNode = nullptr;
     m_levelPrefix = "Level";
+    m_LuaPath = "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/AIConfig/Level/";
     backupFilePaths.clear();
 
     // 检查config等目录是否存在
@@ -60,6 +61,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     // 设置 treeView 的连接线
     ui->eventTreeView->setStyle(QStyleFactory::create("windows"));
+    ui->funcTreeView->setStyle(QStyleFactory::create("windows"));
 
     // 自动调整第2列的宽度
     ui->tableWidget->resizeColumnToContents(1);
@@ -438,7 +440,7 @@ void MainWindow::slotNewAction(bool b)
 // 初始化m_eventTreeModel
 void MainWindow::InitEventTree()
 {
-    m_eventTreeModel = new TreeItemModel(ui->eventTreeView);
+    m_eventTreeModel = new TreeItemModel_Event(ui->eventTreeView);
     ui->eventTreeView->setModel(m_eventTreeModel);
 
 //    m_eventTreeModel->createNode("默认事件", NODE_TYPE::EVENT);
@@ -470,7 +472,7 @@ NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &ev
     if(new_node == nullptr)
         return nullptr;
 
-    new_node->childs[0]->UpdateEventType(EventType::GetInstance()->GetIndexOf(event_type));
+    new_node->childs[0]->childs[0]->UpdateEventType(EventType::GetInstance()->GetIndexOf(event_type));
 
     updateEventTreeState();
 
@@ -607,7 +609,7 @@ void MainWindow::generateJsonDocument(QFile *file)
     for(int i = 0; i < trigger_num; i++)
     {
         QJsonObject event_type;
-        createEventTypeJsonObj(m_eventTreeModel->m_pRootNode->childs[i]->childs[0], &event_type);
+        createEventTypeJsonObj(m_eventTreeModel->m_pRootNode->childs[i]->childs[0]->childs[0], &event_type);
 
         QJsonObject trigger;
 
@@ -993,20 +995,28 @@ void MainWindow::addFunctionToJsonObj(BaseValueClass *value, QJsonObject *json)
 {
     MY_ASSERT(value != nullptr);
     MY_ASSERT(json != nullptr);
-    MY_ASSERT(value->GetValueType() == VT_FUNC);
-
-    json->insert("function", value->GetFunctionName());
-    json->insert("id", value->GetFunctionInfo()->GetID());
-
-    QJsonArray params;
-    int n = value->GetFunctionParamsNum();
-    for(int i = 0; i < n; i++)
+    VALUE_TYPE value_type = value->GetValueType();
+    if(value_type == VT_FUNC)
     {
-        QJsonObject param;
-        addValueToJsonObj(value->GetFunctionParamAt(i), &param);
-        params.push_back(param);
+        json->insert("function", value->GetFunctionName());
+        json->insert("id", value->GetFunctionInfo()->GetID());
+
+        QJsonArray params;
+        int n = value->GetFunctionParamsNum();
+        for(int i = 0; i < n; i++)
+        {
+            QJsonObject param;
+            addValueToJsonObj(value->GetFunctionParamAt(i), &param);
+            params.push_back(param);
+        }
+        json->insert("params", params);
     }
-    json->insert("params", params);
+    else if(value_type == VT_STR)
+    {
+        json->insert("func_lua", value->GetText());
+    }
+    else
+        info("MainWindow::addFunctionToJsonObj value_type error!");
 }
 
 bool MainWindow::openJsonFile(QString filePath)
@@ -1481,6 +1491,11 @@ BaseValueClass *MainWindow::parseJsonObj_Function(QJsonObject *func_obj)
             }
         }
     }
+    else if(func_obj->contains("func_lua") && func_obj->value("func_lua").isString())
+    {
+        QString func_lua = func_obj->value("func_lua").toString();
+        value = new BaseValueClass(func_lua);
+    }
 
     return value;
 }
@@ -1497,7 +1512,7 @@ void MainWindow::generateLuaDocument(QFile *file)
     for(int i = 0; i < trigger_num; i++)
     {
         NodeInfo* node = m_eventTreeModel->m_pRootNode->childs[i];
-        QString event_id = node->childs[0]->getValue(0);
+        QString event_id = node->childs[0]->childs[0]->getValue(0);
         if(!event_map.contains(event_id))
         {
             event_map.insert(event_id, QVector<int>());
@@ -1509,8 +1524,8 @@ void MainWindow::generateLuaDocument(QFile *file)
     file->write("local levelTable = {}\n\n");
 
     // 定义所有变量
-    writeLuaVariables(file);
-    file->write("\n");
+    //writeLuaVariables(file);
+    //file->write("\n");
 
     // 生成条件检查函数、动作序列函数
     space_num = 0;
@@ -1546,8 +1561,8 @@ void MainWindow::generateLuaDocument(QFile *file)
                 "    local ret = false\n"
                 "    if self.EventFunc[event.id] ~= nil then\n"
                 "        for _, func in ipairs (self.EventFunc[event.id]) do\n"
-                "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event, self.flowController) == 1 then\n"
-                "                func.call(event, self.flowController)\n"
+                "            if func and func.check and func.call and func.enable and func.enable == 1 and func.check(event, self) == 1 then\n"
+                "                func.call(event, self)\n"
                 "                ret = true\n"
                 "                -- break\n"
                 "            end\n"
@@ -1583,7 +1598,7 @@ void MainWindow::writeLuaVarInitFunc(QFile *file)
     {
         int var_id = vm->GetIdOfVariable(list[i]);
         // 格式化变量名
-        QString line = QString("    g_var_%1 = ").arg(var_id);
+        QString line = QString("    self.g_var_%1 = ").arg(var_id);
         // 赋值为 initValue
         line += getLuaValueString(vm->GetInitValueOfVar(var_id));
         // 注释自定义的变量名、变量类型
@@ -1621,7 +1636,7 @@ QString MainWindow::getLuaValueString(BaseValueClass* value)
             return "未知的值";
         }
         else
-            return QString("g_var_%1").arg(id);
+            return QString("level.g_var_%1").arg(id);
     }
         break;
     case VT_FUNC:
@@ -1657,27 +1672,33 @@ QString MainWindow::getLuaCallString(BaseValueClass *value_func)
     {
         return "";
     }
-    if(value_func->GetValueType() != VT_FUNC)
+    if(value_func->GetValueType() == VT_FUNC)
+    {
+        QString str = value_func->GetFunctionName() + "(level.flowController";
+        // value_func->GetFunctionInfo()->GetID();
+
+        int n = value_func->GetFunctionParamsNum();
+        for(int i = 0; i < n; i++)
+        {
+            str += ", ";
+            BaseValueClass* p = value_func->GetFunctionParamAt(i);
+            str = str + getLuaValueString(p); // todo 容错处理
+            if(p->GetVarType() != value_func->GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
+                info("Lua提示：函数" + value_func->GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
+        }
+
+        str += ")";
+        return str;
+    }
+    else if(value_func->GetValueType() == VT_STR)
+    {
+        return QString(value_func->GetText());
+    }
+    else
     {
         info("这个值没有调用Function！");
         return "";
     }
-
-    QString str = value_func->GetFunctionName() + "(flowController";
-    // value_func->GetFunctionInfo()->GetID();
-
-    int n = value_func->GetFunctionParamsNum();
-    for(int i = 0; i < n; i++)
-    {
-        str += ", ";
-        BaseValueClass* p = value_func->GetFunctionParamAt(i);
-        str = str + getLuaValueString(p); // todo 容错处理
-        if(p->GetVarType() != value_func->GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
-            info("Lua提示：函数" + value_func->GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
-    }
-
-    str += ")";
-    return str;
 }
 
 // {
@@ -1731,7 +1752,7 @@ bool MainWindow::writeLuaEventCheckFunc(QFile *file, NodeInfo *condition_node)
     MY_ASSERT(id != -1);
     QString index = QString::number(id);
 
-    QString line = "local function Check_" + index + "(event, flowController)\n";
+    QString line = "local function Check_" + index + "(event, level)\n";
     file->write(line.toStdString().c_str());
 
     if(condition_node->childs.size() == 0)
@@ -1832,7 +1853,7 @@ bool MainWindow::writeLuaEventActionFunc(QFile *file, NodeInfo *sequence_node)
     MY_ASSERT(id != -1);
     QString index = QString::number(id);
 
-    QString line = "local function Execute_" + index + "(event, flowController)\n";
+    QString line = "local function Execute_" + index + "(event, level)\n";
     file->write(line.toStdString().c_str());
 
     if(sequence_node->childs.size() <= 0)
@@ -1975,7 +1996,7 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
                 success = false;
             else if(event_pos_in_table.contains(id))
             {
-                QString line = str_space + "levelTable.";
+                QString line = str_space + "level.";
                 success = writeLuaOpenOrCloseEvent(file, id, line, node->type == OPEN_EVENT ? true : false);
             }
             else
@@ -2019,7 +2040,7 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
     {
         line += " ";
     }
-    line = line + QString("g_var_%1").arg(id) + " = " + str_value + "\n";
+    line = line + QString("level.g_var_%1").arg(id) + " = " + str_value + "\n";
 
     file->write(line.toStdString().c_str());
     return true;
@@ -2030,7 +2051,7 @@ bool MainWindow::writeLuaOpenOrCloseEvent(QFile *file, int event_pos, const QStr
     // todo 判断 false
     NodeInfo* evt_node = m_eventTreeModel->m_pRootNode->childs[event_pos];
     int pos = event_pos_in_table[event_pos] + 1;
-    QString etype = EventType::GetInstance()->GetEventLuaType(evt_node->childs[0]->getValue(0).toInt());
+    QString etype = EventType::GetInstance()->GetEventLuaType(evt_node->childs[0]->childs[0]->getValue(0).toInt());
     QString line = pre_str;
     line = line + "EventFunc[E_LEVEL_TRIGGER_TYPE." + etype + "][" + QString::number(pos) + "].enable = ";
     if(is_open)
@@ -2130,7 +2151,7 @@ void MainWindow::on_actionOpen_triggered()
 void MainWindow::on_actionLua_triggered()
 {
     QString file_path = QCoreApplication::applicationFilePath();
-    file_path.replace("LevelEditor.exe", "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/");
+    file_path.replace("LevelEditor.exe", m_LuaPath);
     QString fileName = QFileDialog::getSaveFileName(this, "Save Lua", file_path, "Lua (*.lua)");
     if(!fileName.isEmpty())
     {
@@ -2614,7 +2635,7 @@ void MainWindow::SaveAllLevels_Json()
 void MainWindow::SaveAllLevels_Lua()
 {
     QString lua_path = QCoreApplication::applicationFilePath();
-    lua_path.replace("LevelEditor.exe", "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/");
+    lua_path.replace("LevelEditor.exe", m_LuaPath);
     QDir dir(lua_path);
     if(!dir.exists())
     {

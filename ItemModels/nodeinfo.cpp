@@ -98,9 +98,18 @@ NodeInfo *NodeInfo::GetRootNode()
     if(root_node == nullptr)
     {
         root_node = new NodeInfo(nullptr, NODE_TYPE::INVALID, "rootNode");
-        qDebug() << "new root node.";
     }
     return root_node;
+}
+
+NodeInfo *NodeInfo::GetRootNode_Custom()
+{
+    static NodeInfo* custom_root_node = nullptr;
+    if(custom_root_node == nullptr)
+    {
+        custom_root_node = new NodeInfo(nullptr, NODE_TYPE::INVALID, "rootNode");
+    }
+    return custom_root_node;
 }
 
 /////////////////////////////////////
@@ -116,6 +125,9 @@ NodeInfo *NodeInfo::addNewChild(NODE_TYPE eType, QString str_data)
     {
     case EVENT:
         new_node->initEventMembers();
+        break;
+    case ENODE:
+        new_node->addNewChild(ETYPE, "");
         break;
     case ETYPE:
         new_node->UpdateEventType(0);
@@ -397,7 +409,7 @@ bool NodeInfo::tryAddChoice(NodeInfo *new_node)
 
 void NodeInfo::initEventMembers()
 {
-    this->addNewChild(ETYPE, "事件类型");
+    this->addNewChild(ENODE, "事件");
 
     NodeInfo* new_node = new NodeInfo(this, CONDITION, "条件（and）");
     new_node->addNewValue(AND);
