@@ -34,6 +34,16 @@ void DlgChoseActionType::SetModel(TreeItemModel *m)
     m_dlgSetVar->SetModel(m);
 }
 
+void DlgChoseActionType::BeginResetModel()
+{
+    model->beginResetModel();
+}
+
+void DlgChoseActionType::EndResetModel()
+{
+    model->endResetModel();
+}
+
 void DlgChoseActionType::CreateActionType(NodeInfo* seq_node)
 {
     index = INVALID;
@@ -69,7 +79,7 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
     case CLOSE_EVENT:
     case OPEN_EVENT:
     {
-        QStringList enames = model->GetEventNames();
+        QStringList enames = model->getEventNames();
         int id = m_dlgChoseEvent->index;
         if(id >= 0 && id < enames.size())
             node_text = enames[id];
@@ -77,6 +87,20 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
         {
             info("GetNodeTypeAndText ERROR");
             node_text = getNodeTypeStr(index);
+        }
+    }
+        break;
+    case SEQUENCE:
+    {
+        QStringList names = model->getCustActSeqNames();
+        int id = m_dlgChoseEvent->index;
+        if(id >= 0 && id < names.size())
+        {
+            node_text = "自定义动作：" + names[id];
+        }
+        else
+        {
+            node_text = "-- ERROR Custom Action";
         }
     }
         break;
@@ -140,7 +164,7 @@ void DlgChoseActionType::on_btnCloseEvent_clicked()
 {
     index = CLOSE_EVENT;
 
-    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->GetEventNames());
+    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->getEventNames());
     if(id_ename != -1)
        hide();
 }
@@ -149,7 +173,7 @@ void DlgChoseActionType::on_btnOpenEvent_clicked()
 {
     index = OPEN_EVENT;
 
-    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->GetEventNames());
+    int id_ename = m_dlgChoseEvent->ChoseEventNameIn(model->getEventNames());
     if(id_ename != -1)
        hide();
 }
@@ -158,4 +182,11 @@ void DlgChoseActionType::on_btnCancel_clicked()
 {
     index = INVALID;
     hide();
+}
+
+void DlgChoseActionType::on_btnCustomAction_clicked()
+{
+    index = SEQUENCE;
+    if(m_dlgChoseEvent->ChoseCustActSeqNameIn(model->getCustActSeqNames()) != -1)
+       hide();
 }

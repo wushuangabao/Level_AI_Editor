@@ -1,7 +1,6 @@
 #include <QFileDialog>
 #include <QDateTime>
 #include <QStyleFactory>
-#include <QStandardItemModel>
 
 #include <QJsonParseError>
 #include <QVariantMap>
@@ -24,7 +23,7 @@ MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow)
 {
-    m_curETNode = nullptr;
+    m_curNode = nullptr;
     m_levelPrefix = "Level";
     m_LuaPath = "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/AIConfig/Level/";
     backupFilePaths.clear();
@@ -54,19 +53,24 @@ MainWindow::MainWindow(QWidget *parent) :
     m_dlgConditionType = new DlgConditionType(this);
     m_dlgSetVar = new DlgSetVariable(this);
     m_dlgEditFunction = new DlgEditValue(this);
+    m_dlgEditFunction->SetUpforFunction();
     m_dlgManageVar = new DlgVariableManager(this);
     m_dlgChoseActionType = new DlgChoseActionType(this);
 
-    InitEventTree(); //整个程序中只调用一次
-
     // 设置 treeView 的连接线
     ui->eventTreeView->setStyle(QStyleFactory::create("windows"));
-    ui->funcTreeView->setStyle(QStyleFactory::create("windows"));
+    ui->customTreeView->setStyle(QStyleFactory::create("windows"));
 
     // 自动调整第2列的宽度
     ui->tableWidget->resizeColumnToContents(1);
 
-    InitLevelTree(); //整个程序中只调用一次
+    InitEventTree();
+    InitCustomTree();
+
+    ui->tabWidget->setCurrentIndex(0);
+    setModelForDlg(m_eventTreeModel);
+
+    InitLevelTree();
 }
 
 MainWindow::~MainWindow()
@@ -106,7 +110,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
-void MainWindow::slotTreeMenu(const QPoint &pos)
+void MainWindow::slotTreeMenu_Event(const QPoint &pos)
 {
     QString qss = "QMenu::item{padding:3px 20px 3px 20px;}QMenu::indicator{width:13px;height:13px;}";
     // 参考 https://blog.csdn.net/dpsying/article/details/80149462
@@ -119,7 +123,7 @@ void MainWindow::slotTreeMenu(const QPoint &pos)
 
     if (index.isValid())
     {
-        m_curETNode = reinterpret_cast<NodeInfo*>(curIndex.internalPointer());
+        m_curNode = reinterpret_cast<NodeInfo*>(curIndex.internalPointer());
 
         menu.addAction(QStringLiteral("编辑节点"), this, SLOT(slotEditNode(bool)));
         menu.addSeparator();
@@ -129,31 +133,31 @@ void MainWindow::slotTreeMenu(const QPoint &pos)
         QAction* actDeleteNode = menu.addAction(QStringLiteral("删除"), this, SLOT(slotDeleteNode(bool)));
         menu.addSeparator();
 
-        if(m_curETNode->type == EVENT)
+        if(m_curNode->type == EVENT)
             menu.addAction(QStringLiteral("新增事件"), this, SLOT(slotNewEvent(bool)));
         QAction* actCondition = menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
         QAction* actAddAction = menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
 
         // 第一层节点不能剪切
-        if(m_curETNode->parent == m_eventTreeModel->m_pRootNode)
+        if(m_curNode->parent == m_eventTreeModel->m_pRootNode)
         {
             actCutNode->setEnabled(false);
         }
         // 第二层节点不能剪切、删除
-        else if(m_curETNode->parent->parent == m_eventTreeModel->m_pRootNode)
+        else if(m_curNode->parent->parent == m_eventTreeModel->m_pRootNode || m_curNode->type == ETYPE)
         {
             actCutNode->setEnabled(false);
             actDeleteNode->setEnabled(false);
         }
 
         // 只有 condition 节点可以新增条件
-        if(m_curETNode->type != CONDITION)
+        if(m_curNode->type != CONDITION)
         {
             actCondition->setEnabled(false);
         }
 
         // 非动作节点不可以新增动作
-        if(m_curETNode->type < SET_VAR)
+        if(m_curNode->type < SET_VAR)
         {
             actAddAction->setEnabled(false);
         }
@@ -166,38 +170,73 @@ void MainWindow::slotTreeMenu(const QPoint &pos)
     menu.exec(QCursor::pos());  //显示菜单
 }
 
-void MainWindow::slotTreeMenuExpand(bool b)
+void MainWindow::slotTreeMenu_Custom(const QPoint &pos)
 {
-    Q_UNUSED(b);
-    QModelIndex curIndex = ui->eventTreeView->currentIndex();
-    QModelIndex index = curIndex.sibling(curIndex.row(),0); //同一行第一列元素的index
-    if(index.isValid())
+    QString qss = "QMenu::item{padding:3px 20px 3px 20px;}QMenu::indicator{width:13px;height:13px;}";
+
+    QMenu menu;
+    menu.setStyleSheet(qss);
+
+    QModelIndex curIndex = ui->customTreeView->indexAt(pos); //当前点击的元素的index
+    QModelIndex index = curIndex.sibling(curIndex.row(),0); //该行的第1列元素的index
+
+    if (index.isValid())
     {
-        ui->eventTreeView->expand(index);
+        m_curNode = reinterpret_cast<NodeInfo*>(curIndex.internalPointer());
+
+        menu.addAction(QStringLiteral("编辑节点"), this, SLOT(slotEditNode(bool)));
+//        menu.addSeparator();
+        menu.addAction(QStringLiteral("剪切"), this, SLOT(slotCutNode(bool)));
+        menu.addAction(QStringLiteral("复制"), this, SLOT(slotCopyNode(bool)));
+        menu.addAction(QStringLiteral("粘贴"), this, SLOT(slotPasteNode(bool)));
+        menu.addAction(QStringLiteral("删除"), this, SLOT(slotDeleteNode(bool)));
+        menu.addSeparator();
+        menu.addAction(QStringLiteral("新增动作序列"), this, SLOT(slotNewCustomSeq(bool)));
+        QAction* actCondition = menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
+        QAction* actAddAction = menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
+
+        // 只有 condition 节点可以新增条件
+        if(m_curNode->type != CONDITION)
+        {
+            actCondition->setEnabled(false);
+        }
+
+        // 非动作节点不可以新增动作
+        if(m_curNode->type < SET_VAR)
+        {
+            actAddAction->setEnabled(false);
+        }
     }
+    // 空白处点击右键
+    else
+        menu.addAction(QStringLiteral("新增动作序列"), this, SLOT(slotNewCustomSeq(bool)));
+
+    menu.exec(QCursor::pos());  //显示菜单
 }
 
 void MainWindow::saveEventItemState_Expanded(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState.contains(index))
+        if(m_itemState_Event.contains(index))
         {
-            m_itemState[index] = true;
+            m_itemState_Event[index] = true;
         }
         else
-            m_itemState.insert(index, true);
+            m_itemState_Event.insert(index, true);
     }
 }
 
-void MainWindow::slotTreeMenuCollapse(bool b)
+void MainWindow::saveCustomItemState_Expanded(const QModelIndex &index)
 {
-    Q_UNUSED(b);
-    QModelIndex curIndex = ui->eventTreeView->currentIndex();
-    QModelIndex index = curIndex.sibling(curIndex.row(),0); //同一行第一列元素的index
     if(index.isValid())
     {
-        ui->eventTreeView->collapse(index);
+        if(m_itemState_Custom.contains(index))
+        {
+            m_itemState_Custom[index] = true;
+        }
+        else
+            m_itemState_Custom.insert(index, true);
     }
 }
 
@@ -205,12 +244,25 @@ void MainWindow::saveEventItemState_Collapsed(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState.contains(index))
+        if(m_itemState_Event.contains(index))
         {
-            m_itemState[index] = false;
+            m_itemState_Event[index] = false;
         }
         else
-            m_itemState.insert(index, false);
+            m_itemState_Event.insert(index, false);
+    }
+}
+
+void MainWindow::saveCustomItemState_Collapsed(const QModelIndex &index)
+{
+    if(index.isValid())
+    {
+        if(m_itemState_Custom.contains(index))
+        {
+            m_itemState_Custom[index] = false;
+        }
+        else
+            m_itemState_Custom.insert(index, false);
     }
 }
 
@@ -219,30 +271,35 @@ void MainWindow::slotEditNode(bool b)
     Q_UNUSED(b);
 //    ui->eventTreeView->viewport()->update();
 
-    if(m_curETNode != nullptr)
+    if(m_curNode != nullptr)
     {
-        switch (m_curETNode->type) {
+        switch (m_curNode->type) {
+        // 自定义动作序列
+        case SEQUENCE:
+            if(ui->tabWidget->currentIndex() == 1)
+            {
+                editCustActSeqName(m_curNode);
+            }
 
         // 一个事件
         case EVENT:
-            editEventName(m_curETNode);
+            editEventName(m_curNode);
             break;
         // 事件类型
         case ETYPE:
-            editEventType(m_curETNode);
+            editEventType(m_curNode);
             updateVarTable();
             break;
 
         // 条件
         case CONDITION:
-            m_dlgConditionType->ModifyCondition(m_curETNode);
+            m_dlgConditionType->ModifyCondition(m_curNode);
             break;
         case COMPARE:
-            m_dlgConditionType->ModifyCompareNode(m_curETNode);
+            m_dlgConditionType->ModifyCompareNode(m_curNode);
             break;
 
         // 流程控制
-        case SEQUENCE:
         case CHOICE:
         case END:
             info("不能编辑该节点。");
@@ -260,7 +317,7 @@ void MainWindow::slotEditNode(bool b)
         case OPEN_EVENT:
         // 关闭事件监听
         case CLOSE_EVENT:
-            editActionNode(m_curETNode);
+            editActionNode(m_curNode);
             break;
         default:
             return;
@@ -287,11 +344,22 @@ void MainWindow::slotPasteNode(bool b)
 void MainWindow::slotDeleteNode(bool b)
 {
     Q_UNUSED(b);
-    if(m_eventTreeModel->deleteNode(m_curETNode))
+    if(ui->tabWidget->currentIndex() == 0)
     {
-        m_curETNode = nullptr;
-        updateEventTreeState();
-        saveBackupJsonFile();
+        if(m_eventTreeModel->deleteNode(m_curNode))
+        {
+            m_curNode = nullptr;
+            updateEventTreeState();
+            saveBackupJsonFile();
+        }
+    }
+    else if(ui->tabWidget->currentIndex() == 1)
+    {
+        if(m_customTreeModel->deleteNode(m_curNode))
+        {
+            m_curNode = nullptr;
+            saveBackupJsonFile();
+        }
     }
 }
 
@@ -307,7 +375,7 @@ void MainWindow::slotNewEvent(bool b)
             info("事件名不能为空！");
         else
         {
-            NodeInfo* event_node = m_eventTreeModel->FindEventByName(new_name);
+            NodeInfo* event_node = m_eventTreeModel->FindUppestNodeByName(new_name);
             if(event_node != nullptr)
                 info("已存在事件名：" + new_name);
             else
@@ -327,12 +395,10 @@ void MainWindow::slotNewEvent(bool b)
 void MainWindow::slotNewCondition(bool b)
 {
     Q_UNUSED(b);
-    if(m_curETNode->type == CONDITION)
+    if(m_curNode->type == CONDITION)
     {
-        m_dlgConditionType->CreateCondition(m_curETNode, "AND");
+        m_dlgConditionType->CreateCondition(m_curNode, "AND");
 
-        slotTreeMenuCollapse();
-        slotTreeMenuExpand();
         updateEventTreeState();
 
         saveBackupJsonFile();
@@ -345,7 +411,7 @@ void MainWindow::slotNewAction(bool b)
 
     // 新节点加在哪个位置？
     NodeInfo* parent_node = nullptr;
-    m_curETNode->FindAndSetNewNodePos(parent_node);
+    m_curNode->FindAndSetNewNodePos(parent_node);
     MY_ASSERT(parent_node != nullptr);
     MY_ASSERT(parent_node->type == SEQUENCE);
 
@@ -353,22 +419,23 @@ void MainWindow::slotNewAction(bool b)
     m_dlgChoseActionType->CreateActionType(parent_node);
     QString node_text;
     NODE_TYPE type = m_dlgChoseActionType->GetNodeTypeAndText(node_text);
-    bool success = true;
 
+    if(type == INVALID)
+        return;
+
+    m_dlgChoseActionType->BeginResetModel();
+    bool success = true;
     switch (type)
     {
-    case INVALID:
-        success = false;
-        break;
     case SET_VAR:
     {
         QStringList texts = node_text.split(" = ");
         if(texts.size() == 2)
         {
-            int id_var = m_eventTreeModel->GetValueManager()->FindIdOfVarName(texts[0]);
+            int id_var = ValueManager::GetValueManager()->FindIdOfVarName(texts[0]);
             NodeInfo* new_node = parent_node->addNewChildNode_SetVar(texts[0], texts[1], id_var); //在动作序列中插入新建的setvar节点
             if(new_node != nullptr && m_dlgChoseActionType->GetValue_SetVar() != nullptr)
-                m_eventTreeModel->GetValueManager()->UpdateValueOnNode_SetValue(new_node, m_dlgChoseActionType->GetValue_SetVar());
+                ValueManager::GetValueManager()->UpdateValueOnNode_SetValue(new_node, m_dlgChoseActionType->GetValue_SetVar());
             else
             {
                 info("创建SET_VAR节点失败");
@@ -387,7 +454,7 @@ void MainWindow::slotNewAction(bool b)
         NodeInfo* new_node = parent_node->addNewChild(FUNCTION, node_text);
         if(new_node != nullptr)
         {
-            m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Function(new_node, m_dlgChoseActionType->GetValue_CallFunc());
+            ValueManager::GetValueManager()->UpdateValueOnNode_Function(new_node, m_dlgChoseActionType->GetValue_CallFunc());
         }
         else
         {
@@ -399,7 +466,7 @@ void MainWindow::slotNewAction(bool b)
     case OPEN_EVENT:
     case CLOSE_EVENT:
     {
-        NodeInfo* new_node = m_eventTreeModel->createNode("", type, parent_node);
+        NodeInfo* new_node = parent_node->addNewChild(type, "");
         if(new_node == nullptr)
         {
             info("创建" + getNodeTypeStr(type) + "节点失败");
@@ -412,28 +479,54 @@ void MainWindow::slotNewAction(bool b)
         }
     }
         break;
+    case SEQUENCE:
+    {
+        if("-- ERROR Custom Action" != node_text)
+        {
+            NodeInfo* new_node = parent_node->addNewChild(FUNCTION, node_text);
+            BaseValueClass* value = new BaseValueClass(node_text);
+            ValueManager::GetValueManager()->UpdateValueOnNode_Function(new_node, value);
+        }
+    }
+        break;
     default:
-        m_curETNode = m_eventTreeModel->createNode(node_text, type, parent_node);
+        m_curNode = parent_node->addNewChild(type, node_text);
         break;
     }
 
+    m_dlgChoseActionType->EndResetModel();
+
+    // 重新展开到原来的形状
+    updateEventTreeState();
+
     if(success)
     {
-        // 刷新显示
-        if(type == SET_VAR || type == FUNCTION)
-        {
-            QModelIndex model_index = ui->eventTreeView->currentIndex();
-            if(m_curETNode->type != SEQUENCE)
-                ui->eventTreeView->setCurrentIndex(model_index.parent());
-            slotTreeMenuCollapse();
-            slotTreeMenuExpand();
-            ui->eventTreeView->setCurrentIndex(model_index);
-        }
-
-        updateEventTreeState();
-
         // 备份关卡文件
         saveBackupJsonFile();
+    }
+}
+
+void MainWindow::slotNewCustomSeq(bool b)
+{
+    Q_UNUSED(b);
+
+    m_dlgChoseEvtType->CreateNewCustomSeq();
+    if(m_dlgChoseEvtType->index >= 0)
+    {
+        QString new_name = m_dlgChoseEvtType->event_name;
+        if(new_name == "")
+            info("动作名称不能为空！");
+        else
+        {
+            NodeInfo* event_node = m_customTreeModel->FindUppestNodeByName(new_name);
+            if(event_node != nullptr)
+                info("已存在动作名称：" + new_name);
+            else
+            {
+                m_customTreeModel->AddCustomSequence(new_name);
+                saveBackupJsonFile();
+            }
+        }
     }
 }
 
@@ -448,16 +541,9 @@ void MainWindow::InitEventTree()
 //    ui->eventTreeView->setItemsExpandable(false); //暂时禁止折叠
 
     ui->eventTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(ui->eventTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu);
+    connect(ui->eventTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Event);
     connect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
     connect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
-
-    m_dlgConditionType->SetModelPointer(m_eventTreeModel);
-    m_dlgSetVar->SetModel(m_eventTreeModel);
-    m_dlgEditFunction->SetModel(m_eventTreeModel);
-    m_dlgEditFunction->SetUpforFunction();
-    m_dlgManageVar->SetModel(m_eventTreeModel);
-    m_dlgChoseActionType->SetModel(m_eventTreeModel);
 }
 
 NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &event_name)
@@ -479,6 +565,17 @@ NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &ev
     return new_node;
 }
 
+void MainWindow::InitCustomTree()
+{
+    m_customTreeModel = new TreeItemModel_Custom(ui->customTreeView);
+    ui->customTreeView->setModel(m_customTreeModel);
+
+    ui->customTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(ui->customTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Custom);
+    connect(ui->customTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveCustomItemState_Collapsed(const QModelIndex&)));
+    connect(ui->customTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveCustomItemState_Expanded(const QModelIndex&)));
+}
+
 void MainWindow::editEventName(NodeInfo *node)
 {
     if(node->type != EVENT)
@@ -490,14 +587,14 @@ void MainWindow::editEventName(NodeInfo *node)
         return;
 
     QString new_name = m_dlgChoseEvtType->event_name;
-    NodeInfo* event_node = m_eventTreeModel->FindEventByName(new_name);
+    NodeInfo* event_node = m_eventTreeModel->FindUppestNodeByName(new_name);
     if(new_name != "" && event_node == nullptr)
     {
         m_eventTreeModel->UpdateEventName(node, new_name);
     }
     else
     {
-        if(event_node != nullptr && event_node != m_curETNode)
+        if(event_node != nullptr && event_node != m_curNode)
             info("已存在事件名：" + new_name);
         if(new_name == "")
             info("不能使用空事件名！");
@@ -525,12 +622,25 @@ void MainWindow::editActionNode(NodeInfo *node)
         m_dlgSetVar->EditSetVarNode(node);
         break;
     case FUNCTION:
+        if(node->text.contains("自定义动作："))
+        {
+            for(int i = 0; i < m_customTreeModel->m_pRootNode->childs.size(); i++)
+            {
+                NodeInfo* seq_node = m_customTreeModel->m_pRootNode->childs[i];
+                if(node->text.contains(seq_node->text))
+                {
+                    // 直接去编辑自定义动作序列
+                    ui->tabWidget->setCurrentIndex(1);
+                    return;
+                }
+            }
+        }
         m_dlgEditFunction->ModifyCallNode(node);
         break;
     case OPEN_EVENT:
     case CLOSE_EVENT:
     {
-        QStringList enames = m_eventTreeModel->GetEventNames();
+        QStringList enames = m_eventTreeModel->GetUppestNodeNames();
         int id_enames = m_dlgChoseEvtType->ChoseEventNameIn(enames);
         if(id_enames >= 0 && id_enames < enames.size())
             node->modifyValue(0, enames[id_enames]);
@@ -541,7 +651,32 @@ void MainWindow::editActionNode(NodeInfo *node)
         break;
     }
 
-//    updateEventTreeState();
+    //    updateEventTreeState();
+}
+
+void MainWindow::editCustActSeqName(NodeInfo *node)
+{
+    if(node->type != SEQUENCE || node->parent != NodeInfo::GetRootNode_Custom())
+        return;
+
+    m_dlgChoseEvtType->EditCustomSeqName(node->text);
+
+    if(m_dlgChoseEvtType->index == -1)
+        return;
+
+    QString new_name = m_dlgChoseEvtType->event_name;
+    NodeInfo* seq_node = m_eventTreeModel->FindUppestNodeByName(new_name);
+    if(new_name != "" && seq_node == nullptr)
+    {
+        m_customTreeModel->UpdateCustActSeqName(node, new_name);
+    }
+    else
+    {
+        if(seq_node != nullptr && seq_node != m_curNode)
+            info("已存在动作名：" + new_name);
+        if(new_name == "")
+            info("不能使用空动作名！");
+    }
 }
 
 void MainWindow::addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3)
@@ -599,6 +734,7 @@ void MainWindow::updateVarTable()
 void MainWindow::generateJsonDocument(QFile *file)
 {
     int trigger_num = m_eventTreeModel->m_pRootNode->childs.size();
+    int custom_num = m_customTreeModel->m_pRootNode->childs.size();
     if(trigger_num <= 0)
         return;
 
@@ -621,6 +757,16 @@ void MainWindow::generateJsonDocument(QFile *file)
         evtArray.push_back(trigger);
     }
     object.insert("Event", evtArray);
+
+    QJsonArray actArray;
+    for(int i = 0; i < custom_num; i++)
+    {
+        QJsonObject seq;
+        seq.insert("name", m_customTreeModel->m_pRootNode->childs[i]->text);
+        addActionSeqToJsonObj(m_customTreeModel->m_pRootNode->childs[i], &seq);
+        actArray.push_back(seq);
+    }
+    object.insert("CustomAction", actArray);
 
     QJsonDocument document(object);
     file->write(document.toJson());
@@ -1036,9 +1182,11 @@ bool MainWindow::openJsonFile(QString filePath)
     {
 //        qDebug() << "open json file: " << fileName << "success!" << endl;
 
-        if ( jsonDocument.isObject() ) {
+        if ( jsonDocument.isObject() )
+        {
+            m_eventTreeModel->ClearAllData();
+            m_customTreeModel->ClearAllData();
             QJsonObject jsonObject = jsonDocument.object();
-            m_eventTreeModel->ClearAllEvents();
 
             // 变量
             if(jsonObject.contains("Var") && jsonObject.value("Var").isArray())
@@ -1063,6 +1211,35 @@ bool MainWindow::openJsonFile(QString filePath)
                             if(!parseJsonObj_Event( &eventJsonObj, event_name ))
                                 success = false;
                         }
+                    }
+                    else
+                        success = false;
+                }
+            }
+
+            // 自定义动作
+            if(jsonObject.contains("CustomAction") && jsonObject.value("CustomAction").isArray())
+            {
+                QJsonArray actArray = jsonObject.value("CustomAction").toArray();
+                int n = actArray.size();
+                for(int i = 0; i < n; i++)
+                {
+                    if(actArray.at(i).isObject())
+                    {
+                        QJsonObject jsonObj = actArray.at(i).toObject();
+                        if(jsonObj.contains("name") && jsonObj.contains("SEQUENCE") && jsonObj.value("name").isString() && jsonObj.value("SEQUENCE").isArray())
+                        {
+                            QString name = jsonObj.value("name").toString();
+                            QJsonArray jsonArray = jsonObj.value("SEQUENCE").toArray();
+                            NodeInfo* seq_node = m_customTreeModel->m_pRootNode->addNewChild(SEQUENCE, name);
+                            if(!parseJsonArray_Sequence(&jsonArray, seq_node))
+                            {
+                                m_eventTreeModel->deleteNode(seq_node); //todo 可能内存泄漏
+                                success = false;
+                            }
+                        }
+                        else
+                            success = false;
                     }
                     else
                         success = false;
@@ -1172,7 +1349,7 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
     }
     else
     {
-        m_eventTreeModel->deleteNode(event_node); // todo: 如果 value manager 中有node和对应的value，也要删掉
+        m_eventTreeModel->deleteNode(event_node);
         return false;
     }
     // ui->eventTreeView->expandAll();
@@ -1255,7 +1432,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
                 QJsonArray then_seq = actionJsonObj->value("then").toArray();
                 QJsonArray else_seq = actionJsonObj->value("else").toArray();
 
-                NodeInfo* new_node = m_eventTreeModel->createNode("if", node_type, parent_node);
+                NodeInfo* new_node = parent_node->addNewChild(node_type, "if");
                 if(new_node != nullptr)
                 {
                     if(parseJsonArray_Condition(&if_cond, new_node->childs[0]) &&
@@ -1273,7 +1450,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
             if(actionJsonObj->contains("SEQUENCE") && actionJsonObj->value("SEQUENCE").isArray())
             {
                 QJsonArray loop_seq = actionJsonObj->value("SEQUENCE").toArray();
-                NodeInfo* new_node = m_eventTreeModel->createNode("循环", node_type, parent_node);
+                NodeInfo* new_node = parent_node->addNewChild(node_type, "循环");
                 if(new_node != nullptr)
                 {
                     if(parseJsonArray_Sequence(&loop_seq, new_node->childs[0]))
@@ -1286,7 +1463,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
             break;
         case END:
         {
-            NodeInfo* new_node = m_eventTreeModel->createNode("跳出", node_type, parent_node);
+            NodeInfo* new_node = parent_node->addNewChild(node_type, "跳出");
             if(new_node != nullptr)
                 return true;
         }
@@ -1295,7 +1472,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
             BaseValueClass* v_func = parseJsonObj_Function(actionJsonObj);
             if(v_func != nullptr)
             {
-                NodeInfo* new_node = m_eventTreeModel->createNode("", node_type, parent_node);
+                NodeInfo* new_node = parent_node->addNewChild(node_type, "");
                 if(new_node != nullptr)
                 {
                     m_eventTreeModel->GetValueManager()->UpdateValueOnNode_Function(new_node, v_func);
@@ -1323,7 +1500,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
                     if(var_value != nullptr)
                     {
                         // 给父节点创建 set value 类型的子节点
-                        NodeInfo* new_node = m_eventTreeModel->createNode("", node_type, parent_node);
+                        NodeInfo* new_node = parent_node->addNewChild(node_type, "");
                         if(new_node != nullptr)
                         {
                             new_node->addNewValue(QString::number(var_id));
@@ -1343,7 +1520,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
         {
             if(actionJsonObj->contains("name") && actionJsonObj->value("name").isString())
             {
-                NodeInfo* new_node = m_eventTreeModel->createNode("", node_type, parent_node);
+                NodeInfo* new_node = parent_node->addNewChild(node_type, "");
                 if(new_node != nullptr)
                 {
                     new_node->modifyValue(0, actionJsonObj->value("name").toString());
@@ -1527,6 +1704,9 @@ void MainWindow::generateLuaDocument(QFile *file)
     //writeLuaVariables(file);
     //file->write("\n");
 
+    // 生成自定义动作
+    writeLuaCustomActions(file);
+
     // 生成条件检查函数、动作序列函数
     space_num = 0;
     for(int i = 0; i < trigger_num; i++)
@@ -1584,6 +1764,23 @@ void MainWindow::writeLuaVariables(QFile *file)
         // 用ID生成格式化的变量名
         QString line = QString("local g_var_%1\n").arg(vm->GetIdOfVariable(list[i]));
         file->write(line.toStdString().c_str());
+    }
+}
+
+void MainWindow::writeLuaCustomActions(QFile *file)
+{
+    int n = NodeInfo::GetRootNode_Custom()->childs.size();
+    for(int i = 0; i < n; i++)
+    {
+        NodeInfo* seq_node = NodeInfo::GetRootNode_Custom()->childs[i];
+        MY_ASSERT(seq_node->type = SEQUENCE);
+        QString line = "-- " + seq_node->text + "\nlocal function CustomAction_" + QString::number(i) + "(level)\n";
+        file->write(line.toStdString().c_str());
+        space_num = 4;
+        if(!writeLuaSequence(file, seq_node))
+            info("生成动作序列的Lua函数失败！");
+        file->write("end\n\n");
+        space_num = 0;
     }
 }
 
@@ -1692,7 +1889,23 @@ QString MainWindow::getLuaCallString(BaseValueClass *value_func)
     }
     else if(value_func->GetValueType() == VT_STR)
     {
-        return QString(value_func->GetText());
+        QString lua_str = value_func->GetText();
+
+        if(lua_str.contains("自定义动作："))
+        {
+            lua_str.replace("自定义动作：", "");
+            int n = NodeInfo::GetRootNode_Custom()->childs.size();
+            for(int i = 0; i < n; i++)
+            {
+                if(NodeInfo::GetRootNode_Custom()->childs[i]->text == lua_str)
+                {
+                    lua_str = "CustomAction_" + QString::number(i) + "(level)";
+                    break;
+                }
+            }
+        }
+
+        return lua_str;
     }
     else
     {
@@ -1851,9 +2064,8 @@ bool MainWindow::writeLuaEventActionFunc(QFile *file, NodeInfo *sequence_node)
 
     int id = findLuaIndexOfEvent(sequence_node);
     MY_ASSERT(id != -1);
-    QString index = QString::number(id);
 
-    QString line = "local function Execute_" + index + "(event, level)\n";
+    QString line = "local function Execute_" + QString::number(id) + "(event, level)\n";
     file->write(line.toStdString().c_str());
 
     if(sequence_node->childs.size() <= 0)
@@ -1898,13 +2110,8 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
         {
             ValueManager* vm = m_eventTreeModel->GetValueManager();
             QString str_call = getLuaCallString(vm->GetValueOnNode_Function(node));
-            if(str_call == "")
-                success = false;
-            else
-            {
-                QString line = str_space + str_call + "\n";
-                file->write(line.toStdString().c_str());
-            }
+            QString line = str_space + str_call + "\n";
+            file->write(line.toStdString().c_str());
         }
             break;
         case CHOICE:
@@ -1991,7 +2198,7 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
         case OPEN_EVENT:
         case CLOSE_EVENT:
         {
-            int id = m_eventTreeModel->FindEventPosByName(node->getValue(0));
+            int id = m_eventTreeModel->FindUppestNodePosByName(node->getValue(0));
             if(id == -1)
                 success = false;
             else if(event_pos_in_table.contains(id))
@@ -2090,11 +2297,11 @@ void MainWindow::on_eventTreeView_clicked(const QModelIndex &index)
 {
     if (index.isValid())
     {
-        m_curETNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+        m_curNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
     }
     else
     {
-        m_curETNode = nullptr;
+        m_curNode = nullptr;
     }
 }
 
@@ -2273,11 +2480,18 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
     {
         setWindowTitle("当前关卡：" + level_name);
 
-        m_itemState.clear();
+        m_itemState_Event.clear();
+        m_itemState_Custom.clear();
+
         if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
             ui->eventTreeView->expandAll();
         else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
             ui->eventTreeView->expandToDepth(1);
+
+        if(m_customTreeModel->m_pRootNode->childs.size() <= 5)
+            ui->customTreeView->expandAll();
+        else if(m_customTreeModel->m_pRootNode->childs.size() <= 10)
+            ui->customTreeView->expandToDepth(1);
     }
 }
 
@@ -2691,12 +2905,47 @@ void MainWindow::SaveAllLevels_Lua()
     wait->close();
 }
 
+void MainWindow::setModelForDlg(TreeItemModel* model)
+{
+    m_dlgConditionType->SetModelPointer(model);
+    m_dlgSetVar->SetModel(model);
+    m_dlgEditFunction->SetModel(model);
+    m_dlgManageVar->SetModel(model);
+    m_dlgChoseActionType->SetModel(model);
+}
+
 void MainWindow::updateEventTreeState()
 {
     QMap<QModelIndex, bool>::iterator itr;
-    for(itr = m_itemState.begin(); itr != m_itemState.end(); ++itr)
+    for(itr = m_itemState_Event.begin(); itr != m_itemState_Event.end(); ++itr)
     {
         ui->eventTreeView->setExpanded(itr.key(), itr.value());
     }
+    for(itr = m_itemState_Custom.begin(); itr != m_itemState_Custom.end(); ++itr)
+    {
+        ui->customTreeView->setExpanded(itr.key(), itr.value());
+    }
 }
 
+
+void MainWindow::on_tabWidget_currentChanged(int index)
+{
+    if(index == 0)
+        setModelForDlg(m_eventTreeModel);
+    else if(index == 1)
+        setModelForDlg(m_customTreeModel);
+}
+
+void MainWindow::on_customTreeView_clicked(const QModelIndex &index)
+{
+    if (index.isValid())
+        m_curNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
+    else
+        m_curNode = nullptr;
+}
+
+void MainWindow::on_customTreeView_doubleClicked(const QModelIndex &index)
+{
+    on_eventTreeView_clicked(index);
+    slotEditNode();
+}

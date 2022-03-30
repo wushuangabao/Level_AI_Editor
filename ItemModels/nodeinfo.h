@@ -10,7 +10,7 @@
 class NodeInfo
 {
 public:
-    static NodeInfo* GetRootNode();
+    static NodeInfo* GetRootNode_Event();
     static NodeInfo* GetRootNode_Custom();
     ~NodeInfo();
 

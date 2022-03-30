@@ -30,8 +30,6 @@ void DlgVariableManager::SetModel(TreeItemModel *m)
 {
     if(model == m)
         return;
-    if(model != nullptr)
-        delete model;
     model = m;
     m_dlgEditValue->SetModel(m);
 }

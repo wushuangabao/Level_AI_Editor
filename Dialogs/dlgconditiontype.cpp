@@ -145,6 +145,8 @@ void DlgConditionType::on_buttonBox_accepted()
     // 创建Condition或者Compare节点
     else
     {
+        model->beginResetModel();
+
         if(type == CONDITION_OP::AND)
         {
             NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
@@ -175,6 +177,8 @@ void DlgConditionType::on_buttonBox_accepted()
             new_node->modifyValue(2, m_dlgEditValueRight->GetValueText());
             new_node->UpdateText();
         }
+
+        model->endResetModel();
     }
 }
 

@@ -303,7 +303,7 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     MY_ASSERT(function_node->type == FUNCTION);
 
     node = function_node;
-    value_position = -1; 
+    value_position = -1;
 
     // 初始化value
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_Function(function_node);
@@ -343,8 +343,6 @@ void DlgEditValue::SetModel(TreeItemModel *m)
 {
     if(model == m)
         return;
-    if(model != nullptr)
-        delete model;
     model = m;
 }
 
@@ -415,6 +413,11 @@ void DlgEditValue::on_DlgEditValue_accepted()
     {
         QString str = ui->comboBox_EvtParam->currentText();
         QStringList* event_params = model->GetEventParamsUIOf(node);
+        if(event_params == nullptr)
+        {
+            info("不存在事件参数！");
+            return;
+        }
         QStringList* lua = model->GetEventParamsLuaOf(node);
         int id = event_params->indexOf(str);
         QStringList* params_types = EventType::GetInstance()->GetEventParamTypes(event_params);
@@ -625,7 +628,8 @@ void DlgEditValue::resetFuncComboBox()
         ui->radioFunction->setEnabled(true);
         ui->comboBoxFunction->setEnabled(true);
         ui->lineEdit_Func->setEnabled(true);
-        updateFuncTextUI(getFunctionInfoByUI());
+        ui->comboBoxFunction->setCurrentIndex(-1);
+        on_comboBoxFunction_currentIndexChanged(-1);
     }
 }
 
@@ -701,11 +705,18 @@ int DlgEditValue::findComboBoxFuncId(FunctionClass* f)
 void DlgEditValue::on_comboBoxFunction_currentIndexChanged(int index)
 {
     Q_UNUSED(index);
+    if(index == -1)
+    {
+        clearFuncTextUI();
+        ui->label->setText("");
+    }
+    else
+    {
+        FunctionClass* func = getFunctionInfoByUI();
+        MY_ASSERT(func != nullptr);
 
-    FunctionClass* func = getFunctionInfoByUI();
-    MY_ASSERT(func != nullptr);
-
-    updateFuncTextUI(func);
+        updateFuncTextUI(func);
+    }
 }
 
 void DlgEditValue::onBtnParam_clicked(int idx)

@@ -3,8 +3,17 @@
 TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
     : QAbstractItemModel(parent)
 {
-    m_pRootNode = NodeInfo::GetRootNode();
-    globalValueManager = new ValueManager();
+    globalValueManager = ValueManager::GetValueManager();
+}
+
+void TreeItemModel::beginResetModel()
+{
+    QAbstractItemModel::beginResetModel();
+}
+
+void TreeItemModel::endResetModel()
+{
+    QAbstractItemModel::endResetModel();
 }
 
 // 用于查找树中子项对应的QModelIndex
@@ -121,10 +130,10 @@ QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayR
         NodeInfo* pNode = reinterpret_cast<NodeInfo*>(index.internalPointer());
         if(pNode != nullptr)
         {
-            // 事件及其条件、动作序列、return
-            if(pNode->type == EVENT || (pNode->type == CONDITION && pNode->parent->type == EVENT)
+            // 顶层节点 及事件下的条件、动作序列、return
+            if((pNode->type == CONDITION && pNode->parent->type == EVENT)
                || (pNode->type == SEQUENCE && pNode->parent->type == EVENT)
-               || (pNode->type == ENODE)
+               || (pNode->type == ENODE) || (pNode->parent == m_pRootNode)
                || (pNode->type == END && pNode->IsBreakButNotReturn() == false))
             {
                 color.setRgb(255, 0, 0);
@@ -180,7 +189,7 @@ QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayR
     }
 }
 
-bool TreeItemModel::ClearAllEvents()
+bool TreeItemModel::ClearAllData()
 {
     bool ok = true;
     globalValueManager->ClearData();
@@ -195,12 +204,17 @@ bool TreeItemModel::ClearAllEvents()
 
 bool TreeItemModel::deleteNode(NodeInfo *node)
 {
-    if(node == nullptr || node->parent->parent == m_pRootNode)
+    if(node == nullptr || node->parent == nullptr)
         return false;
 
     if(node->parent->type == COMPARE && node->parent->childs.size() <= 2)
     {
         info("删除失败！比较表达式的子节点必须有2个。");
+        return false;
+    }
+    if(node->type == SEQUENCE && node->parent == NodeInfo::GetRootNode_Custom() && ValueManager::GetValueManager()->CustomSeqNameIsUsed(node->text))
+    {
+        info("删除失败！这个动作还在被使用。");
         return false;
     }
 
@@ -235,13 +249,13 @@ bool TreeItemModel::deleteNode(NodeInfo *node)
 NodeInfo* TreeItemModel::createNode(QString str_data, NODE_TYPE eType, NodeInfo *parent)
 {
     if(parent == nullptr)
-        parent = m_pRootNode;
+        return nullptr;
     if(parent->type == EVENT)
-        parent = parent->childs[2];
+        return nullptr;
     if(parent->type == ETYPE)
-        parent = parent->parent->childs[2];
-    if(isEventCondition(parent) && (eType != CONDITION && eType != COMPARE))
-        parent = parent->parent->childs[2];
+        return nullptr;
+//    if(isEventCondition(parent) && (eType != CONDITION && eType != COMPARE))
+//        parent = parent->parent->childs[2];
 
     beginResetModel();
     NodeInfo* node = parent->addNewChild(eType, str_data);
@@ -263,99 +277,12 @@ NodeInfo *TreeItemModel::findUppestNodeOf(NodeInfo *cur_node)
     return node;
 }
 
-NodeInfo *TreeItemModel::findEvtTypeNodeOf(NodeInfo *cur_node)
-{
-    NodeInfo* ai_node = findUppestNodeOf(cur_node);
-    if(ai_node == nullptr)
-        return nullptr;
-    else
-        return ai_node->childs[0]->childs[0];
-}
-
-NodeInfo *TreeItemModel::findEvtCondNodeOf(NodeInfo *cur_node)
-{
-    NodeInfo* ai_node = findUppestNodeOf(cur_node);
-    if(ai_node == nullptr)
-        return nullptr;
-    else
-        return ai_node->childs[1];
-}
-
-NodeInfo *TreeItemModel::findEvtActNodeOf(NodeInfo *cur_node)
-{
-    NodeInfo* ai_node = findUppestNodeOf(cur_node);
-    if(ai_node == nullptr)
-        return nullptr;
-    else
-        return ai_node->childs[2];
-}
-
-int TreeItemModel::findBelongToWhichNode(NodeInfo *cur_node)
-{
-    if(cur_node == nullptr || cur_node == m_pRootNode || cur_node->parent == m_pRootNode)
-        return -1;
-
-    NodeInfo* node = cur_node;
-    while(node->parent != m_pRootNode)
-    {
-        if(isEventCondition(node))
-        {
-            return 1; //node是事件条件的子节点
-        }
-        else if(isEventActionSeq(node))
-        {
-            return 2; //node是动作队列的子节点
-        }
-        node = node->parent;
-    }
-
-    return 0;
-}
-
-bool TreeItemModel::isEventCondition(NodeInfo *cur_node)
-{
-    if(cur_node == nullptr || cur_node == m_pRootNode || cur_node->parent == m_pRootNode)
-        return false;
-
-    if(cur_node->parent->type == EVENT && cur_node->type == CONDITION)
-        return true;
-    else
-        return false;
-}
-
-bool TreeItemModel::isEventActionSeq(NodeInfo *cur_node)
-{
-    if(cur_node == nullptr || cur_node == m_pRootNode || cur_node->parent == m_pRootNode)
-        return false;
-
-    if(cur_node->parent->type == EVENT && cur_node->type == SEQUENCE)
-        return true;
-    else
-        return false;
-}
-
-QStringList *TreeItemModel::GetEventParamsUIOf(NodeInfo *node)
-{
-    NodeInfo* event_node = findUppestNodeOf(node);
-    MY_ASSERT(event_node != nullptr);
-
-    return globalValueManager->GetEventParamsUI(event_node);
-}
-
-QStringList *TreeItemModel::GetEventParamsLuaOf(NodeInfo *node)
-{
-    NodeInfo* event_node = findUppestNodeOf(node);
-    MY_ASSERT(event_node != nullptr);
-
-    return globalValueManager->GetEventParamsLua(event_node);
-}
-
 ValueManager *TreeItemModel::GetValueManager()
 {
     return globalValueManager;
 }
 
-NodeInfo *TreeItemModel::FindEventByName(QString ename)
+NodeInfo *TreeItemModel::FindUppestNodeByName(QString ename)
 {
     int n = m_pRootNode->childs.size();
     for(int i = 0; i < n; i++)
@@ -368,7 +295,7 @@ NodeInfo *TreeItemModel::FindEventByName(QString ename)
     return nullptr;
 }
 
-int TreeItemModel::FindEventPosByName(QString ename)
+int TreeItemModel::FindUppestNodePosByName(QString ename)
 {
     int n = m_pRootNode->childs.size();
     for(int i = 0; i < n; i++)
@@ -381,7 +308,7 @@ int TreeItemModel::FindEventPosByName(QString ename)
     return -1;
 }
 
-QStringList TreeItemModel::GetEventNames()
+QStringList TreeItemModel::GetUppestNodeNames()
 {
     QStringList enames;
     int n = m_pRootNode->childs.size();
@@ -392,51 +319,24 @@ QStringList TreeItemModel::GetEventNames()
     return enames;
 }
 
-void TreeItemModel::UpdateEventName(NodeInfo *evt_node, QString new_name)
+QStringList TreeItemModel::getEventNames()
 {
-    QString old_name = evt_node->text;
-    evt_node->text = new_name;
-
-    // 更新相关的 OPEN_EVENT 和 CLOSE_EVENT 节点
-    QList<NodeInfo*> node_list;
-    findNodesOpenOrCloseEventIn(m_pRootNode, old_name, node_list);
-    int n = node_list.size();
+    QStringList enames;
+    int n = NodeInfo::GetRootNode_Event()->childs.size();
     for(int i = 0; i < n; i++)
     {
-        node_list[i]->modifyValue(0, new_name);
-        node_list[i]->UpdateText();
+        enames.push_back(NodeInfo::GetRootNode_Event()->childs[i]->text);
     }
+    return enames;
 }
 
-void TreeItemModel::findNodesOpenOrCloseEventIn(NodeInfo *parent_node, QString event_name, QList<NodeInfo *> &node_list)
+QStringList TreeItemModel::getCustActSeqNames()
 {
-    int n = parent_node->childs.size();
+    QStringList names;
+    int n = NodeInfo::GetRootNode_Custom()->childs.size();
     for(int i = 0; i < n; i++)
     {
-        NODE_TYPE t = parent_node->childs[i]->type;
-        if((t == OPEN_EVENT || t == CLOSE_EVENT) && parent_node->childs[i]->getValue(0) == event_name)
-        {
-            node_list.append(parent_node->childs[i]);
-        }
-        else if(t == SEQUENCE || t == LOOP || t == CHOICE || t == EVENT)
-        {
-            findNodesOpenOrCloseEventIn(parent_node->childs[i], event_name, node_list);
-        }
+        names.push_back(NodeInfo::GetRootNode_Custom()->childs[i]->text);
     }
+    return names;
 }
-
-//ValueManager *TreeItemModel::GetValueManagerOf(NodeInfo* node)
-//{
-//     // 和 node 挂钩的 value manager
-//    {
-//        NodeInfo* event_node = findUppestNodeOf(node);
-
-//        QMap<NodeInfo*, ValueManager*>::iterator itr = eventsValueManager.find(event_node);
-//        if(itr != eventsValueManager.end())
-//        {
-//            return itr.value();
-//        }
-//        else
-//            return nullptr;
-//    }
-//}

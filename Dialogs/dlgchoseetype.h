@@ -21,9 +21,13 @@ public:
     void CreateNewEvent();
     void EditEventName(QString name = "");
 
+    void CreateNewCustomSeq();
+    void EditCustomSeqName(QString name = "");
+
     void EditLevelName(const QString& name);
     void EditLevelPrefix(const QString& name);
 
+    int ChoseCustActSeqNameIn(QStringList names);
     int ChoseEventNameIn(QStringList names);
     void EditEventType();
 

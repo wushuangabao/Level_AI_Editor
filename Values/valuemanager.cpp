@@ -7,6 +7,14 @@ ValueManager::~ValueManager()
     ClearData();
 }
 
+ValueManager *ValueManager::GetValueManager()
+{
+    static ValueManager* instance = nullptr;
+    if(instance == nullptr)
+        instance = new ValueManager();
+    return instance;
+}
+
 ValueManager::ValueManager()
 {
     nameList = QStringList();
@@ -429,6 +437,77 @@ QStringList *ValueManager::GetEventParamsLua(NodeInfo *node)
     return EventType::GetInstance()->GetEventParamsLuaAt(eid);
 }
 
+bool ValueManager::CustomSeqNameIsUsed(const QString &name)
+{
+    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
+    {
+        if(itr.value()->GetValueType() == VT_STR)
+        {
+            QString lua_str = itr.value()->GetText();
+            if(lua_str.contains("自定义动作：") && lua_str.contains(name))
+                return true;
+        }
+    }
+    return false;
+}
+
+void ValueManager::UpdateCustomSeqName(const QString &old_name, const QString &new_name)
+{
+    // 更新Function节点上的自定义动作名称
+    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
+    {
+        if(itr.value()->GetValueType() == VT_STR)
+        {
+            QString lua_str = itr.value()->GetText();
+            if(lua_str.contains("自定义动作：") && lua_str.contains(old_name))
+            {
+                lua_str.replace(old_name, new_name);
+                itr.value()->SetLuaStr(lua_str);
+                itr.key()->text = lua_str;
+            }
+        }
+    }
+
+//    if(customSeqNodeMap.contains(old_name))
+//    {
+//        if(customSeqNodeMap.contains(new_name))
+//        {
+//            info(new_name + "已存在");
+//        }
+//        else
+//        {
+//            customSeqNodeMap.insert(new_name, customSeqNodeMap[old_name]);
+//            customSeqNodeMap.remove(old_name);
+//        }
+//    }
+//    else
+//        info(old_name + "不存在");
+}
+
+//void ValueManager::AddNewCustomSequence(const QString &name, NodeInfo *seq_node)
+//{
+//    if(customSeqNodeMap.contains(name))
+//    {
+//        info(name + "已存在");
+//    }
+//    else
+//    {
+//        customSeqNodeMap.insert(name, seq_node);
+//    }
+//}
+
+//void ValueManager::DeleteCustomSequence(const QString &name)
+//{
+//    if(customSeqNodeMap.contains(name))
+//    {
+//        customSeqNodeMap.remove(name);
+//    }
+//    else
+//        info(name + "不存在");
+//}
+
 void ValueManager::updateVarOnNodes(int var_id)
 {
     QString init_var_type = dataList.at(var_id)->GetVarType();
@@ -506,6 +585,7 @@ void ValueManager::ClearData()
     }
     dataList.clear();
     nameList.clear();
+//    customSeqNodeMap.clear();
 
     clearNodeMap(nodeFunctionMap);
     clearNodeMap(nodeSetVarMap);

@@ -34,7 +34,7 @@ void DlgSetVariable::EditSetVarNode(NodeInfo *set_var_node)
 
     if(!initVariableComboBox())
         return;
-    ui->comboBox->setEnabled(false);
+    ui->comboBox->setEnabled(false); //被赋值的是哪个变量，这个暂时禁止修改
 
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_SetVar(node);
     if(v != nullptr)

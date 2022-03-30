@@ -10,8 +10,7 @@ class ValueManager
 {
 public:
     ~ValueManager();
-    ValueManager();
-
+    static ValueManager* GetValueManager();
     void ClearData();
 
     QStringList GetGlobalVarList() const;
@@ -46,7 +45,15 @@ public:
     QStringList* GetEventParamsUI(NodeInfo* node);
     QStringList* GetEventParamsLua(NodeInfo* node);
 
+    // 自定义动作序列
+    bool CustomSeqNameIsUsed(const QString& name);
+    void UpdateCustomSeqName(const QString& old_name, const QString& new_name);
+//    void AddNewCustomSequence(const QString& name, NodeInfo* seq_node);
+//    void DeleteCustomSequence(const QString& name);
+
 private:
+    ValueManager();
+
     void clearNodeMap(QMap<NodeInfo*, BaseValueClass*>& node_map);
     void deleteNodeInMap(QMap<NodeInfo*, BaseValueClass*>& node_map, NodeInfo* node);
 
@@ -61,7 +68,8 @@ private:
     QMap<NodeInfo*, BaseValueClass*> nodeCompareValueLeftMap;
     QMap<NodeInfo*, BaseValueClass*> nodeCompareValueRightMap;
 
-    // LevelClass* lvl; // 对应的关卡
+    // 自定义动作
+//    QMap<QString, NodeInfo*> customSeqNodeMap;
 };
 
 #endif // VALUEMANAGER_H

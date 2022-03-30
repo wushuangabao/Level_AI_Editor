@@ -3,63 +3,34 @@
 TreeItemModel_Custom::TreeItemModel_Custom(QObject *parent)
     :  TreeItemModel(parent)
 {
+    m_pRootNode = NodeInfo::GetRootNode_Custom();
 }
 
-//QVariant TreeItemModel_Custom::headerData(int section, Qt::Orientation orientation, int role) const
-//{
-//    // FIXME: Implement me!
-//}
-
-QModelIndex TreeItemModel_Custom::index(int row, int column, const QModelIndex &parent) const
+QStringList *TreeItemModel_Custom::GetEventParamsUIOf(NodeInfo *node)
 {
-    if (parent.internalPointer() == nullptr)
-    {
-        // 首层节点绑定关系
-        if (m_pRootNode->childs.size() > row)
-            return createIndex(row, column, m_pRootNode->childs[row]);
-    }
-    else
-    {
-        // 其它层节点绑定关系
-        if (parent.internalPointer() != nullptr)
-        {
-            NodeInfo* pNode = reinterpret_cast<NodeInfo*>(parent.internalPointer());
-            if (pNode->childs.size() > row)
-            {
-                return createIndex(row, column, pNode->childs[row]);
-            }
-        }
-    }
-    // 根节点索引
-    return QModelIndex();
+    Q_UNUSED(node);
+    return nullptr;
 }
 
-QModelIndex TreeItemModel_Custom::parent(const QModelIndex &index) const
+QStringList *TreeItemModel_Custom::GetEventParamsLuaOf(NodeInfo *node)
 {
-    // FIXME: Implement me!
+    Q_UNUSED(node);
+    return nullptr;
 }
 
-int TreeItemModel_Custom::rowCount(const QModelIndex &parent) const
+void TreeItemModel_Custom::AddCustomSequence(const QString &name)
 {
-    if (!parent.isValid())
-        return 0;
+    beginResetModel();
+    NodeInfo* node = m_pRootNode->addNewChild(SEQUENCE, name);
+    endResetModel();
 
-    // FIXME: Implement me!
+//    if(node != nullptr)
+//        GetValueManager()->AddNewCustomSequence(name, node);
 }
 
-int TreeItemModel_Custom::columnCount(const QModelIndex &parent) const
+void TreeItemModel_Custom::UpdateCustActSeqName(NodeInfo *node, const QString &name)
 {
-    if (!parent.isValid())
-        return 0;
-
-    // FIXME: Implement me!
+    GetValueManager()->UpdateCustomSeqName(node->text, name);
+    node->text = name;
 }
 
-QVariant TreeItemModel_Custom::data(const QModelIndex &index, int role) const
-{
-    if (!index.isValid())
-        return QVariant();
-
-    // FIXME: Implement me!
-    return QVariant();
-}

@@ -93,9 +93,9 @@
   <widget class="QPushButton" name="btnLoop">
    <property name="geometry">
     <rect>
-     <x>150</x>
+     <x>145</x>
      <y>20</y>
-     <width>101</width>
+     <width>111</width>
      <height>51</height>
     </rect>
    </property>
@@ -193,14 +193,27 @@
   <widget class="QPushButton" name="btnCancel">
    <property name="geometry">
     <rect>
-     <x>280</x>
+     <x>270</x>
      <y>220</y>
-     <width>101</width>
+     <width>111</width>
      <height>31</height>
     </rect>
    </property>
    <property name="text">
     <string>取消</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="btnCustomAction">
+   <property name="geometry">
+    <rect>
+     <x>145</x>
+     <y>180</y>
+     <width>111</width>
+     <height>71</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>自定义动作..</string>
    </property>
   </widget>
  </widget>

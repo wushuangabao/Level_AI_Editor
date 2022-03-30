@@ -23,6 +23,9 @@ public:
     void closeEvent(QCloseEvent* event);
 
     void SetModel(TreeItemModel* m);
+    void BeginResetModel();
+    void EndResetModel();
+
     void CreateActionType(NodeInfo *seq_node);
     NODE_TYPE GetNodeTypeAndText(QString& node_text);
     BaseValueClass* GetValue_SetVar();
@@ -37,6 +40,7 @@ private slots:
     void on_btnCloseEvent_clicked();
     void on_btnOpenEvent_clicked();
     void on_btnCancel_clicked();
+    void on_btnCustomAction_clicked();
 
 private:
     Ui::DlgChoseActionType *ui;

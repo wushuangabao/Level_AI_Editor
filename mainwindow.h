@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 #include "ItemModels/treeitemmodel_event.h"
+#include "ItemModels/treeitemmodel_custom.h"
 
 class QFile;
 class QJsonObject;
@@ -36,13 +37,14 @@ public:
 
 private slots:
     // 弹出菜单
-    void slotTreeMenu(const QPoint &pos);
+    void slotTreeMenu_Event(const QPoint &pos);
+    void slotTreeMenu_Custom(const QPoint &pos);
     // 展开Tree节点
-    void slotTreeMenuExpand(bool b = false);
     void saveEventItemState_Expanded(const QModelIndex &index);
+    void saveCustomItemState_Expanded(const QModelIndex &index);
     // 折叠Tree节点
-    void slotTreeMenuCollapse(bool b = false);
     void saveEventItemState_Collapsed(const QModelIndex &index);
+    void saveCustomItemState_Collapsed(const QModelIndex &index);
 
     // eventTree右键菜单功能：
     void slotEditNode(bool b = false);
@@ -53,10 +55,15 @@ private slots:
     void slotNewEvent(bool b = false);
     void slotNewCondition(bool b = false);
     void slotNewAction(bool b = false);
+    // customTree右键菜单：
+    void slotNewCustomSeq(bool b = false);
 
     // 点击eventTree节点：
     void on_eventTreeView_clicked(const QModelIndex &index);
     void on_eventTreeView_doubleClicked(const QModelIndex &index);
+    // 点击customTree节点：
+    void on_customTreeView_clicked(const QModelIndex &index);
+    void on_customTreeView_doubleClicked(const QModelIndex &index);
 
     // 创建变量
     void on_btnAddVar_clicked();
@@ -86,6 +93,9 @@ private slots:
     void SaveAllLevels_Json();
     void SaveAllLevels_Lua();
 
+    // 切换tab时 切换树模型
+    void on_tabWidget_currentChanged(int index);
+
 private:
     Ui::MainWindow *ui;
 
@@ -96,18 +106,24 @@ private:
     DlgVariableManager* m_dlgManageVar;
     DlgChoseActionType* m_dlgChoseActionType;
 
-    // 中间树形结构
-    NodeInfo* m_curETNode;
+    // 树形结构
+    NodeInfo* m_curNode;
+    void setModelForDlg(TreeItemModel *model);
+    // 事件树
     TreeItemModel_Event* m_eventTreeModel;
-    QMap<QModelIndex, bool> m_itemState;
+    QMap<QModelIndex, bool> m_itemState_Event;
+    QMap<QModelIndex, bool> m_itemState_Custom;
     void updateEventTreeState();
-
     void InitEventTree();
     NodeInfo* createNewEventOnTree(QString event_type, const QString& event_name);
+    // 自定义动作树
+    TreeItemModel_Custom* m_customTreeModel;
+    void InitCustomTree();
 
     void editEventName(NodeInfo* node); //编辑事件名称
     void editEventType(NodeInfo* node); //编辑事件类型
     void editActionNode(NodeInfo* node); //编辑动作节点
+    void editCustActSeqName(NodeInfo* node); //自定义动作序列的名称
 
     // 右侧变量列表
     void addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3);
@@ -140,6 +156,7 @@ private:
     int space_num = 0;
     QMap<int, int> event_pos_in_table;
     void writeLuaVariables(QFile* file);
+    void writeLuaCustomActions(QFile* file);
     void writeLuaVarInitFunc(QFile* file);
     QString getLuaValueString(BaseValueClass* value);
     QString getLuaCallString(BaseValueClass* value_func);

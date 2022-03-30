@@ -33,6 +33,7 @@ void DlgChoseEType::CreateNewEvent()
     ui->comboBox->clear();
     ui->comboBox->addItems(EventType::GetInstance()->GetEventTypeList());
     ui->comboBox->setVisible(true);
+    ui->comboBox->setEnabled(true);
 
     index = 0;
     text = "";
@@ -52,6 +53,48 @@ void DlgChoseEType::EditEventName(QString name)
     event_name = name;
 
     ui->label_name->setText("事件名称：");
+    ui->label_name->setVisible(true);
+
+    ui->comboBox->setVisible(false);
+
+    index = 0;
+    text = "";
+
+    exec();
+}
+
+void DlgChoseEType::CreateNewCustomSeq()
+{
+    setWindowTitle("新建动作序列");
+
+    ui->label->setVisible(false);
+
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText("");
+    event_name = "";
+
+    ui->label_name->setText("动作名称：");
+    ui->label_name->setVisible(true);
+
+    ui->comboBox->setVisible(false);
+
+    index = 0;
+    text = "";
+
+    exec();
+}
+
+void DlgChoseEType::EditCustomSeqName(QString name)
+{
+    setWindowTitle("编辑动作名称");
+
+    ui->label->setVisible(false);
+
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText(name);
+    event_name = name;
+
+    ui->label_name->setText("动作名称：");
     ui->label_name->setVisible(true);
 
     ui->comboBox->setVisible(false);
@@ -104,6 +147,32 @@ void DlgChoseEType::EditLevelPrefix(const QString &name)
     exec();
 }
 
+int DlgChoseEType::ChoseCustActSeqNameIn(QStringList names)
+{
+    setWindowTitle("选择自定义动作");
+
+    ui->label->setText("动作名称：");
+    ui->label->setVisible(true);
+
+    ui->lineEdit->setVisible(false);
+    ui->label_name->setVisible(false);
+
+    ui->comboBox->clear();
+    ui->comboBox->addItems(names);
+    ui->comboBox->setVisible(true);
+    if(names.size() == 0)
+        ui->comboBox->setEnabled(false);
+    else
+        ui->comboBox->setEnabled(true);
+
+    index = 0;
+    text = "";
+    ui->comboBox->setCurrentIndex(0);
+
+    exec();
+    return index;
+}
+
 int DlgChoseEType::ChoseEventNameIn(QStringList enames)
 {
     setWindowTitle("选择事件");
@@ -117,6 +186,10 @@ int DlgChoseEType::ChoseEventNameIn(QStringList enames)
     ui->comboBox->clear();
     ui->comboBox->addItems(enames);
     ui->comboBox->setVisible(true);
+    if(enames.size() == 0)
+        ui->comboBox->setEnabled(false);
+    else
+        ui->comboBox->setEnabled(true);
 
     index = 0;
     text = "";

@@ -92,7 +92,7 @@ NodeInfo *NodeInfo::addNewChildNode_SetVar(QString var_name, QString value_str, 
      return nullptr;
 }
 
-NodeInfo *NodeInfo::GetRootNode()
+NodeInfo *NodeInfo::GetRootNode_Event()
 {
     static NodeInfo* root_node = nullptr;
     if(root_node == nullptr)
@@ -315,7 +315,7 @@ bool NodeInfo::IsBreakButNotReturn()
     bool flag = false;
 
     NodeInfo* cur_node = parent;
-    while(cur_node->type != EVENT)
+    while(cur_node != nullptr && cur_node->type != EVENT)
     {
         if(cur_node->type == LOOP)
         {

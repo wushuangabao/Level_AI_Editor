@@ -48,7 +48,19 @@ background: rgb(28,77,120);
        </attribute>
        <layout class="QVBoxLayout" name="verticalLayout_4">
         <item>
-         <widget class="QTreeView" name="funcTreeView"/>
+         <widget class="QTreeView" name="customTreeView">
+          <property name="styleSheet">
+           <string notr="true">QTreeView::item:selected,QTreeView::branch:selected{
+background: rgb(28,77,120);
+}</string>
+          </property>
+          <property name="expandsOnDoubleClick">
+           <bool>false</bool>
+          </property>
+          <attribute name="headerVisible">
+           <bool>false</bool>
+          </attribute>
+         </widget>
         </item>
        </layout>
       </widget>
