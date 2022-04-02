@@ -1376,6 +1376,13 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
         QJsonArray conditions = eventJsonObj->value("AND").toArray();
         parseJsonArray_Condition(&conditions, condition_node);
     }
+    else if(eventJsonObj->contains("OR") && eventJsonObj->value("OR").isArray())
+    {
+        QJsonArray conditions = eventJsonObj->value("OR").toArray();
+        parseJsonArray_Condition(&conditions, condition_node);
+        condition_node->modifyValue(0, "OR");
+        condition_node->UpdateText();
+    }
     else
         return false;
 
