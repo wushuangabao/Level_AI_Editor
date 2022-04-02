@@ -89,7 +89,8 @@ void DlgSetVariable::on_pushButton_clicked()
         m_dlgEditValue->CreateNewValue(model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText()), node);
     }
 
-    ui->pushButton->setText(m_dlgEditValue->GetValueText());
+    if(m_dlgEditValue->IsAccepted())
+        ui->pushButton->setText(m_dlgEditValue->GetValueText());
 }
 
 bool DlgSetVariable::initVariableComboBox()
@@ -134,9 +135,6 @@ void DlgSetVariable::on_DlgSetVariable_accepted()
 {
     MY_ASSERT(model != nullptr);
 
-    if(ui->comboBox->isEnabled() == false)
-        return;
-
     BaseValueClass* value = m_dlgEditValue->GetValuePointer();
     if(var_type != value->GetVarType() && value->GetValueType() != VT_STR)
     {
@@ -153,7 +151,7 @@ void DlgSetVariable::on_DlgSetVariable_accepted()
                 node->modifyValue(0, QString::number(id_var));
             else
                 node->addNewValue(QString::number(id_var));
-            model->GetValueManager()->UpdateValueOnNode_SetValue(node, GetValuePointer());
+            model->GetValueManager()->UpdateValueOnNode_SetValue(node, value);
             node->text = GetNodeText();
         }
         else
@@ -164,6 +162,8 @@ void DlgSetVariable::on_DlgSetVariable_accepted()
     // 新建 setvar 节点
     else if(node != nullptr && node->type == SEQUENCE)
     {
+        if(ui->comboBox->isEnabled() == false)
+            return;
         is_accepted = true;
     }
 }

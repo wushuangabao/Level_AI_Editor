@@ -16,6 +16,7 @@
 #include "Dialogs/dlgwaiting.h"
 #include "Values/enuminfo.h"
 #include "ItemModels/functioninfo.h"
+#include "nodesclipboard.h"
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
@@ -26,11 +27,9 @@ MainWindow::MainWindow(QWidget *parent) :
     m_curNode = nullptr;
     m_levelPrefix = "Level";
     m_LuaPath = "../../Assets/GameMain/LuaScripts/Module/BattleManager/AILogic/AIConfig/Level/";
-    backupFilePaths.clear();
 
     // 检查config等目录是否存在
-    QString config_path;
-    getConfigPath(config_path);
+    config_path = QCoreApplication::applicationFilePath().replace("LevelEditor.exe", "config/");
     QDir dir_config(config_path.left(config_path.size() - 1));
     if(!dir_config.exists())
     {
@@ -66,6 +65,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     InitEventTree();
     InitCustomTree();
+    NodesClipBoard::GetInstance()->SetTreeItemModel(m_eventTreeModel, m_customTreeModel);
 
     ui->tabWidget->setCurrentIndex(0);
     setModelForDlg(m_eventTreeModel);
@@ -90,23 +90,7 @@ void MainWindow::closeEvent(QCloseEvent *event)
         }
     }
 
-    // 删除所有backup文件
-    QString backup_path;
-    getConfigPath(backup_path);
-    backup_path += "backup";
-    QDir dir(backup_path);
-    if(!dir.exists())
-        return;
-    dir.setFilter(QDir::Files);
-    QStringList file_list = dir.entryList();
-    int file_num = file_list.size();
-    backup_path += "/";
-    for(int i = 0; i < file_num; i++)
-    {
-        QString file_path = backup_path + file_list[i];
-        deleteFile(file_path);
-    }
-
+    deleteAllBackupFiles();
     QMainWindow::closeEvent(event);
 }
 
@@ -127,46 +111,33 @@ void MainWindow::slotTreeMenu_Event(const QPoint &pos)
 
         menu.addAction(QStringLiteral("编辑节点"), this, SLOT(slotEditNode(bool)));
         menu.addSeparator();
-        QAction* actCutNode = menu.addAction(QStringLiteral("剪切"), this, SLOT(slotCutNode(bool)));
+//        QAction* actCutNode = menu.addAction(QStringLiteral("剪切"), this, SLOT(slotCutNode(bool)));
         menu.addAction(QStringLiteral("复制"), this, SLOT(slotCopyNode(bool)));
         menu.addAction(QStringLiteral("粘贴"), this, SLOT(slotPasteNode(bool)));
-        QAction* actDeleteNode = menu.addAction(QStringLiteral("删除"), this, SLOT(slotDeleteNode(bool)));
+        if(m_curNode->parent->parent != m_eventTreeModel->m_pRootNode && m_curNode->type != ETYPE &&
+            !(m_curNode->type == SEQUENCE && (m_curNode->parent->type == LOOP || m_curNode->parent->type == CHOICE)) &&
+            !(m_curNode->type == CONDITION && m_curNode->parent->type == CHOICE) &&
+            !(m_eventTreeModel->m_pRootNode->childs.size() <= 1 && m_curNode->type == EVENT)
+          ) //以上节点不能剪切、删除
+            menu.addAction(QStringLiteral("删除"), this, SLOT(slotDeleteNode(bool)));
         menu.addSeparator();
-
-        if(m_curNode->type == EVENT)
-            menu.addAction(QStringLiteral("新增事件"), this, SLOT(slotNewEvent(bool)));
-        QAction* actCondition = menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
-        QAction* actAddAction = menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
-
-        // 第一层节点不能剪切
-        if(m_curNode->parent == m_eventTreeModel->m_pRootNode)
-        {
-            actCutNode->setEnabled(false);
-        }
-        // 第二层节点不能剪切、删除
-        else if(m_curNode->parent->parent == m_eventTreeModel->m_pRootNode || m_curNode->type == ETYPE)
-        {
-            actCutNode->setEnabled(false);
-            actDeleteNode->setEnabled(false);
-        }
-
-        // 只有 condition 节点可以新增条件
-        if(m_curNode->type != CONDITION)
-        {
-            actCondition->setEnabled(false);
-        }
-
-        // 非动作节点不可以新增动作
-        if(m_curNode->type < SET_VAR)
-        {
-            actAddAction->setEnabled(false);
-        }
+        if(m_curNode->type == CONDITION)
+            menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
+        else if(m_curNode->type == SEQUENCE)
+            menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
+        else if(m_curNode->type >= SET_VAR)
+            menu.addAction(QStringLiteral("插入动作"), this, SLOT(slotNewAction(bool)));
+        else if(m_curNode->type == EVENT)
+            menu.addAction(QStringLiteral("插入新的事件"), this, SLOT(slotNewEvent(bool)));
     }
-    // 空白处点击右键，能新增事件
+    // 空白处点击右键
     else
     {
         menu.addAction(QStringLiteral("新增事件"), this, SLOT(slotNewEvent(bool)));
+        if(NodesClipBoard::GetInstance()->GetTypeOfPasteNode() == INVALID)
+            menu.addAction(QStringLiteral("粘贴事件"), this, SLOT(slotPasteEventOrCustAct(bool)));
     }
+
     menu.exec(QCursor::pos());  //显示菜单
 }
 
@@ -185,31 +156,34 @@ void MainWindow::slotTreeMenu_Custom(const QPoint &pos)
         m_curNode = reinterpret_cast<NodeInfo*>(curIndex.internalPointer());
 
         menu.addAction(QStringLiteral("编辑节点"), this, SLOT(slotEditNode(bool)));
-//        menu.addSeparator();
-        menu.addAction(QStringLiteral("剪切"), this, SLOT(slotCutNode(bool)));
+
+        menu.addSeparator();
+//        menu.addAction(QStringLiteral("剪切"), this, SLOT(slotCutNode(bool)));
         menu.addAction(QStringLiteral("复制"), this, SLOT(slotCopyNode(bool)));
         menu.addAction(QStringLiteral("粘贴"), this, SLOT(slotPasteNode(bool)));
         menu.addAction(QStringLiteral("删除"), this, SLOT(slotDeleteNode(bool)));
+
         menu.addSeparator();
-        menu.addAction(QStringLiteral("新增动作序列"), this, SLOT(slotNewCustomSeq(bool)));
-        QAction* actCondition = menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
-        QAction* actAddAction = menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
+        if(m_curNode->type == CONDITION)
+            menu.addAction(QStringLiteral("新增条件"), this, SLOT(slotNewCondition(bool)));
+        else if(m_curNode->type == SEQUENCE)
+            menu.addAction(QStringLiteral("新增动作"), this, SLOT(slotNewAction(bool)));
+        else if(m_curNode->type >= SET_VAR)
+            menu.addAction(QStringLiteral("插入动作"), this, SLOT(slotNewAction(bool)));
 
-        // 只有 condition 节点可以新增条件
-        if(m_curNode->type != CONDITION)
+        if(m_curNode->parent->type == INVALID && m_curNode->type == SEQUENCE)
         {
-            actCondition->setEnabled(false);
-        }
-
-        // 非动作节点不可以新增动作
-        if(m_curNode->type < SET_VAR)
-        {
-            actAddAction->setEnabled(false);
+            menu.addSeparator();
+            menu.addAction(QStringLiteral("插入自定义动作"), this, SLOT(slotNewCustomSeq(bool)));
         }
     }
     // 空白处点击右键
     else
-        menu.addAction(QStringLiteral("新增动作序列"), this, SLOT(slotNewCustomSeq(bool)));
+    {
+        menu.addAction(QStringLiteral("新建自定义动作"), this, SLOT(slotNewCustomSeq(bool)));
+        if(NodesClipBoard::GetInstance()->GetTypeOfPasteNode() == INVALID)
+            menu.addAction(QStringLiteral("粘贴自定义动作"), this, SLOT(slotPasteEventOrCustAct(bool)));
+    }
 
     menu.exec(QCursor::pos());  //显示菜单
 }
@@ -334,11 +308,70 @@ void MainWindow::slotCutNode(bool b)
 void MainWindow::slotCopyNode(bool b)
 {
     Q_UNUSED(b);
+    NodesClipBoard* clip_board = NodesClipBoard::GetInstance();
+
+    QModelIndexList selects;
+    if(ui->tabWidget->currentIndex() == 0)
+    {
+        clip_board->ClearNodes(0);
+        selects = ui->eventTreeView->selectionModel()->selectedRows(0);
+    }
+    else if(ui->tabWidget->currentIndex() == 1)
+    {
+        clip_board->ClearNodes(1);
+        selects = ui->customTreeView->selectionModel()->selectedRows(0);
+    }
+    else
+        return;
+
+    // 拷贝所有节点（引用node，拷贝value)
+    QList<QModelIndex>::const_iterator cit;
+    for (cit = selects.begin(); cit != selects.end(); ++cit)
+    {
+        QModelIndex temp = *cit;
+        NodeInfo* cur_node = reinterpret_cast<NodeInfo*>(temp.internalPointer());
+        if(!clip_board->AddCopyNode(cur_node))
+        {
+            clip_board->ClearNodes(0);
+            return;
+        }
+    }
 }
 
 void MainWindow::slotPasteNode(bool b)
 {
     Q_UNUSED(b);
+
+    int tree_type = ui->tabWidget->currentIndex();
+
+    if(NodesClipBoard::GetInstance()->PasteToNode(m_curNode, tree_type))
+    {
+        updateEventTreeState();
+        saveBackupJsonFile();
+        updateVarTable();
+    }
+}
+
+void MainWindow::slotPasteEventOrCustAct(bool b)
+{
+    Q_UNUSED(b);
+
+    NodeInfo* root = nullptr;
+    int tree_type = ui->tabWidget->currentIndex();
+
+    if(tree_type == 0)
+        root = m_eventTreeModel->m_pRootNode;
+    else if(tree_type == 1)
+        root = m_customTreeModel->m_pRootNode;
+    else
+        return;
+
+    if(NodesClipBoard::GetInstance()->PasteToNode(root, tree_type))
+    {
+        updateEventTreeState();
+        saveBackupJsonFile();
+        updateVarTable();
+    }
 }
 
 void MainWindow::slotDeleteNode(bool b)
@@ -358,6 +391,7 @@ void MainWindow::slotDeleteNode(bool b)
         if(m_customTreeModel->deleteNode(m_curNode))
         {
             m_curNode = nullptr;
+            updateEventTreeState();
             saveBackupJsonFile();
         }
     }
@@ -525,6 +559,7 @@ void MainWindow::slotNewCustomSeq(bool b)
             {
                 m_customTreeModel->AddCustomSequence(new_name);
                 saveBackupJsonFile();
+                updateEventTreeState();
             }
         }
     }
@@ -554,7 +589,7 @@ NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &ev
         return nullptr;
     }
 
-    NodeInfo* new_node = m_eventTreeModel->createNode(event_name, NODE_TYPE::EVENT, m_eventTreeModel->m_pRootNode);
+    NodeInfo* new_node = m_eventTreeModel->createNode(event_name, NODE_TYPE::EVENT, NodeInfo::GetRootNode_Event());
     if(new_node == nullptr)
         return nullptr;
 
@@ -772,21 +807,14 @@ void MainWindow::generateJsonDocument(QFile *file)
     file->write(document.toJson());
 }
 
-bool MainWindow::saveBackupJsonFile()
+void MainWindow::saveBackupJsonFile(QString& level_name)
 {
-    if(lastLevelIndex == -1)
-        return false;
-    QString level_name = m_levelList[lastLevelIndex];
-
-    QString config_path;
-    getConfigPath(config_path);
     QString file_path = config_path + "backup/" + level_name + "_aoutosaved_" + QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss") + ".json";
-
     QFile file(file_path);
     if(!file.open(QIODevice::ReadWrite))
     {
-        qDebug() << "Bcakup file open error: " << file_path << endl;
-        return false;
+        info(file_path + "备份失败！");
+        return;
     }
     else
     {
@@ -795,42 +823,57 @@ bool MainWindow::saveBackupJsonFile()
         generateJsonDocument(&file);
         file.close();
 
-        // 存在旧的备份文件
-        if(backupFilePaths.contains(level_name))
+        bool is_backup;
+        QString old_file_path = getCurrentLevelFile(level_name, &is_backup);
+        if(!is_backup || !isSameFile(old_file_path, file_path))
         {
-            // 新旧备份文件路径不同，则需存储路径
-            if(backupFilePaths[level_name].last() != file_path)
-            {
-                if(isSameFile(backupFilePaths[level_name].last(), file_path))
-                {
-                    // 如果内容一致，那么删掉原来那个文件，移除它的路径
-                    deleteFile(backupFilePaths[level_name].last());
-                    backupFilePaths[level_name].removeLast();
-                }
-                // 在最后插入新的备份文件路径
-                backupFilePaths[level_name].push_back(file_path);
-            }
-            changeSavedFlag(level_name, isSameFile(config_path + level_name + ".json", file_path));
-            // 路径相同，则内容已经被覆盖了，也无须再存储路径
-            return true;
+            // 存储路径
+            pushNewBackupFileName(level_name, file_path);
+
+            // 设置未保存标记
+            changeSavedFlag(level_name, isSameFile(file_path, config_path + level_name + ".json"));
+
+            // 禁用重做
+            if(backupFilePaths_Redo.contains(level_name))
+                backupFilePaths_Redo[level_name].clear();
+            resetUndoAndRedo(level_name);
         }
-        // 没有旧的备份文件时
+        else
+            deleteFile(file_path);
+    }
+}
+
+void MainWindow::saveBackupWhenInit(const QString &namelvl)
+{
+    if(!backupFilePaths.contains(namelvl) || backupFilePaths[namelvl].isEmpty())
+    {
+        QString file_path = config_path + "backup/" + namelvl + "_aoutosaved_0.json";
+        QFile file(file_path);
+        if(!file.open(QIODevice::WriteOnly))
+        {
+            info(file_path + "备份失败！");
+            return;
+        }
         else
         {
-            // 如果当前备份文件与原关卡文件的内容不同，则存储备份文件路径
-            if(!isSameFile(config_path + level_name + ".json", file_path))
+            file.resize(0);
+
+            // 复制关卡文件
+            QFile file_0(QString(config_path + namelvl + ".json"));
+            if(!file_0.open(QIODevice::ReadOnly))
             {
-                backupFilePaths.insert(level_name, QStringList());
-                backupFilePaths[level_name].push_back(file_path);
-                changeSavedFlag(level_name, false);
-                return true;
+                info(file_path + "备份失败！");
+                return;
             }
-            // 没有改动，删除备份文件
             else
             {
-                deleteFile(file_path);
-                return false;
+                QByteArray b = file_0.readAll();
+                file.write(b);
+                file_0.close();
+                pushNewBackupFileName(namelvl, file_path);
             }
+
+            file.close();
         }
     }
 }
@@ -1254,11 +1297,10 @@ bool MainWindow::openJsonFile(QString filePath)
 
 bool MainWindow::openJsonFile(QListWidgetItem *item, QString& level_name)
 {
-    QString file_path;
-    getConfigPath(file_path);
+    QString file_path = this->config_path;
 
     level_name = getLevelNameOnItem(item);
-    if(backupFilePaths.contains(level_name))
+    if(backupFilePaths.contains(level_name) && !backupFilePaths[level_name].isEmpty())
     {
         file_path = backupFilePaths[level_name].last();
     }
@@ -1419,7 +1461,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
 {
     if(actionJsonObj->contains( "ACTION" ) && actionJsonObj->value( "ACTION" ).isString())
     {
-        NODE_TYPE node_type = getNodeTypeEnum(actionJsonObj->value( "ACTION" ).toString());
+        NODE_TYPE node_type = GetActionNodeTypeEnum(actionJsonObj->value( "ACTION" ).toString());
         switch (node_type)
         {
         case CHOICE:
@@ -2043,7 +2085,7 @@ bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
         {
             QString line = getLuaValueString(v_left) + " " + condition_node->getValue(0) + " " + getLuaValueString(v_right);
             file->write(line.toStdString().c_str());
-            if(v_left->GetVarType() != v_right->GetVarType() && !(v_left->GetValueType() == VT_STR || v_right->GetValueType() == VT_STR))
+            if(!BaseValueClass::AreSameVarType(v_left, v_right))
                 info("Lua提示：比较大小时，左值" + v_left->GetText() + "和右值" + v_right->GetText() + "的数据类型不一致");
         }
         else
@@ -2279,12 +2321,6 @@ int MainWindow::findLuaIndexOfEvent(NodeInfo *node)
     return -1;
 }
 
-void MainWindow::getConfigPath(QString &s)
-{
-    s = QCoreApplication::applicationFilePath();
-    s.replace("LevelEditor.exe", "config/");
-}
-
 QString MainWindow::getTriggerNameAt(int id)
 {
     int event_num = m_eventTreeModel->m_pRootNode->childs.size();
@@ -2320,8 +2356,7 @@ void MainWindow::on_btnAddVar_clicked()
 
 void MainWindow::on_actionSave_triggered()
 {
-    QString file_path;
-    getConfigPath(file_path);
+    QString file_path = this->config_path;
 
     QString level_str = getLevelNameOnItem(ui->levelList->currentItem());
     if(level_str != "" && level_str.contains(m_levelPrefix))
@@ -2338,7 +2373,6 @@ void MainWindow::on_actionSave_triggered()
             file_level.resize(0);
             generateJsonDocument(&file_level);
             file_level.close();
-
             changeSavedFlag(level_str, true);
         }
     }
@@ -2346,8 +2380,7 @@ void MainWindow::on_actionSave_triggered()
 
 void MainWindow::on_actionOpen_triggered()
 {
-    QString file_path;
-    getConfigPath(file_path);
+    QString file_path = this->config_path;
     QString fileName = QFileDialog::getOpenFileName(this, "Open File", file_path, "Json (*.json)");
     if(!fileName.isNull())
     {
@@ -2378,12 +2411,17 @@ void MainWindow::on_actionLua_triggered()
 
 void MainWindow::InitLevelTree()
 {
+    DlgWaiting* wait = new DlgWaiting(this);
+    wait->show();
+
     m_levelList.clear();
     savedOrNot.clear();
     ui->levelList->clear();
-
-    QString config_path;
-    getConfigPath(config_path);
+    backupFilePaths.clear();
+    backupFilePaths_Redo.clear();
+    deleteAllBackupFiles();
+    ui->actionUndo->setEnabled(false);
+    ui->actionRedo->setEnabled(false);
 
     QDir dir(config_path.left(config_path.length() - 1));
     if(!dir.exists())
@@ -2407,19 +2445,17 @@ void MainWindow::InitLevelTree()
             m_levelList.insert(lvl_id - 1, name.left(pos));
     }
 
-    foreach (QString namelvl, m_levelList)
-    {
-        savedOrNot.insert(namelvl, true);
-    }
-
     ui->levelList->addItems(m_levelList);
-
     lastLevelIndex = -1;
+    saveBackupJsonFile();
+
     if(m_levelList.size() > 0)
     {
         ui->levelList->setCurrentRow(0);
         on_levelList_itemClicked(ui->levelList->item(0));
     }
+
+    wait->close();
 }
 
 bool MainWindow::checkNewLevelName()
@@ -2465,11 +2501,58 @@ bool MainWindow::checkLevelPrefix(const QString &str)
     return true;
 }
 
+QString MainWindow::getCurrentLevelFile(const QString &level_name, bool *is_backup)
+{
+    if(backupFilePaths.contains(level_name) && !backupFilePaths[level_name].isEmpty())
+    {
+        if(is_backup != nullptr)
+            *is_backup = true;
+        return backupFilePaths[level_name].last();
+    }
+    else
+    {
+        if(is_backup != nullptr)
+            *is_backup = false;
+        return QString(config_path + level_name + ".json");
+    }
+}
+
+void MainWindow::resetUndoAndRedo(const QString &level_name)
+{
+    // 撤销
+    if(backupFilePaths.contains(level_name) && backupFilePaths[level_name].size() > 1)
+        ui->actionUndo->setEnabled(true);
+    else
+        ui->actionUndo->setEnabled(false);
+
+    // 重做
+    if(backupFilePaths_Redo.contains(level_name) && !backupFilePaths_Redo[level_name].isEmpty())
+        ui->actionRedo->setEnabled(true);
+    else
+        ui->actionRedo->setEnabled(false);
+}
+
+void MainWindow::saveBackupJsonFile()
+{
+    if(lastLevelIndex == -1)
+    {
+        // 生成初始备份文件
+        foreach(QString namelvl, m_levelList)
+        {
+            saveBackupWhenInit(namelvl);
+            savedOrNot.insert(namelvl, true);
+        }
+    }
+    else
+    {
+        // 备份当前关卡
+        QString level_name = m_levelList[lastLevelIndex];
+        saveBackupJsonFile(level_name);
+    }
+}
+
 void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
 {
-    QString file_path;
-    getConfigPath(file_path);
-
     // 存一个备份的文件
     if(lastLevelIndex != -1)
         saveBackupJsonFile();
@@ -2479,19 +2562,8 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
     if(openJsonFile(item, level_name))
     {
         setWindowTitle("当前关卡：" + level_name);
-
-        m_itemState_Event.clear();
-        m_itemState_Custom.clear();
-
-        if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
-            ui->eventTreeView->expandAll();
-        else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
-            ui->eventTreeView->expandToDepth(1);
-
-        if(m_customTreeModel->m_pRootNode->childs.size() <= 5)
-            ui->customTreeView->expandAll();
-        else if(m_customTreeModel->m_pRootNode->childs.size() <= 10)
-            ui->customTreeView->expandToDepth(1);
+        resetTreeSate();
+        resetUndoAndRedo(level_name);
     }
 }
 
@@ -2533,6 +2605,24 @@ void MainWindow::deleteFile(const QString &path)
     fileTemp.remove();
 }
 
+void MainWindow::deleteAllBackupFiles()
+{
+    QString backup_path = this->config_path;
+    backup_path += "backup";
+    QDir dir(backup_path);
+    if(!dir.exists())
+        return;
+    dir.setFilter(QDir::Files);
+    QStringList file_list = dir.entryList();
+    int file_num = file_list.size();
+    backup_path += "/";
+    for(int i = 0; i < file_num; i++)
+    {
+        QString file_path = backup_path + file_list[i];
+        deleteFile(file_path);
+    }
+}
+
 QString MainWindow::getLevelNameOnItem(QListWidgetItem *item)
 {
     QString level_name = item->text();
@@ -2554,6 +2644,34 @@ bool MainWindow::isNeedSave()
         }
     }
     return false;
+}
+
+bool MainWindow::pushNewBackupFileName(const QString &lvl_name, const QString &bk_file_path)
+{
+    bool need_push = true;
+
+    if(!backupFilePaths.contains(lvl_name))
+        backupFilePaths.insert(lvl_name, QStringList());
+    else if(!backupFilePaths[lvl_name].isEmpty())
+    {
+        // 路径相同，则内容已经被覆盖了，无须再存储路径
+        if(backupFilePaths[lvl_name].last() == bk_file_path)
+        {
+            need_push = false;
+        }
+        // 备份文件数量有上限
+        if(backupFilePaths[lvl_name].size() >= MAX_BACKUP_NUM)
+        {
+            deleteFile(backupFilePaths[lvl_name].first());
+            backupFilePaths[lvl_name].removeFirst();
+        }
+    }
+
+    // 保存备份文件路径
+    if(need_push)
+        backupFilePaths[lvl_name].push_back(bk_file_path);
+
+    return need_push;
 }
 
 void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
@@ -2642,8 +2760,7 @@ void MainWindow::CreateNewLevel_CopyCurLvl()
         if(!checkNewLevelName())
             return;
 
-        QString path;
-        getConfigPath(path);
+        QString path = this->config_path;
         QString path1 = path + level_name + ".json";
         QString path2 = path + m_dlgChoseEvtType->event_name + ".json";
         QFile file1(path1);
@@ -2658,6 +2775,7 @@ void MainWindow::CreateNewLevel_CopyCurLvl()
                 file2.resize(0);
                 file2.write(file1.readAll());
                 file2.close();
+                saveBackupWhenInit(level_name);
             }
             else
             {
@@ -2694,14 +2812,15 @@ void MainWindow::CreateNewLevel_EmptyLvl()
         if(!checkNewLevelName())
             return;
 
-        QString path;
-        getConfigPath(path);
+        QString path = this->config_path;
         path = path + m_dlgChoseEvtType->event_name + ".json";
         QFile file(path);
         if(file.open(QIODevice::WriteOnly))
         {
             file.resize(0);
             QString str = "{\n"
+                          "    \"CustomAction\": [\n"
+                          "    ],\n"
                           "    \"Event\": [\n"
                           "        {\n"
                           "            \"AND\": [\n"
@@ -2719,6 +2838,7 @@ void MainWindow::CreateNewLevel_EmptyLvl()
                           "}\n";
             file.write(str.toStdString().c_str());
             file.close();
+            saveBackupWhenInit(m_dlgChoseEvtType->event_name);
 
             savedOrNot.insert(m_dlgChoseEvtType->event_name, true);
 
@@ -2743,8 +2863,7 @@ void MainWindow::DeleteCurrentLevel()
     if (ch != QMessageBox::Yes)
         return;
 
-    QString path;
-    getConfigPath(path);
+    QString path = this->config_path;
     path = path + level_name + ".json";
 
     // 删除文件
@@ -2772,6 +2891,8 @@ void MainWindow::DeleteCurrentLevel()
         lastLevelIndex --;
     else if(lastLevelIndex != -1)
         ui->levelList->setCurrentRow(lastLevelIndex);
+
+    // todo 删除备份文件
 }
 
 void MainWindow::ReloadAllLevels()
@@ -2814,8 +2935,7 @@ void MainWindow::SaveAllLevels_Json()
             if(!openJsonFile(ui->levelList->item(i), old_level_name))
                 continue;
 
-            QString file_path;
-            getConfigPath(file_path);
+            QString file_path = this->config_path;
             file_path = file_path + old_level_name + ".json";
             deleteFile(file_path);
 
@@ -2866,9 +2986,6 @@ void MainWindow::SaveAllLevels_Lua()
 
     DlgWaiting* wait = new DlgWaiting(this);
     wait->show();
-
-    QString config_path;
-    getConfigPath(config_path);
 
     // 先存储当前关卡的备份
     lastLevelIndex = ui->levelList->currentRow();
@@ -2927,6 +3044,21 @@ void MainWindow::updateEventTreeState()
     }
 }
 
+void MainWindow::resetTreeSate()
+{
+    m_itemState_Event.clear();
+    m_itemState_Custom.clear();
+
+    if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
+        ui->eventTreeView->expandAll();
+    else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
+        ui->eventTreeView->expandToDepth(1);
+
+    if(m_customTreeModel->m_pRootNode->childs.size() <= 5)
+        ui->customTreeView->expandAll();
+    else if(m_customTreeModel->m_pRootNode->childs.size() <= 10)
+        ui->customTreeView->expandToDepth(1);
+}
 
 void MainWindow::on_tabWidget_currentChanged(int index)
 {
@@ -2948,4 +3080,62 @@ void MainWindow::on_customTreeView_doubleClicked(const QModelIndex &index)
 {
     on_eventTreeView_clicked(index);
     slotEditNode();
+}
+
+void MainWindow::on_actionUndo_triggered()
+{
+    QString level_name = getLevelNameOnItem(ui->levelList->currentItem());
+    if(!backupFilePaths.contains(level_name) || backupFilePaths[level_name].size() <= 1)
+    {
+        ui->actionUndo->setEnabled(false);
+        info("无备份，不能撤销");
+        return;
+    }
+
+    // 把当前的备份文件路径移到重做里去
+    if(!backupFilePaths_Redo.contains(level_name))
+        backupFilePaths_Redo.insert(level_name, QStringList());
+    backupFilePaths_Redo[level_name].push_back(backupFilePaths[level_name].last());
+    backupFilePaths[level_name].removeLast();
+
+    resetUndoAndRedo(level_name);
+
+    // 重新打开关卡（节点展开状态只能刷新了）
+    QString file_path = this->config_path;
+    file_path = file_path + level_name + ".json";
+    if(!backupFilePaths[level_name].isEmpty())
+    {
+        openJsonFile(backupFilePaths[level_name].last());
+        changeSavedFlag(level_name, isSameFile(backupFilePaths[level_name].last(), file_path));
+    }
+    resetTreeSate();
+}
+
+void MainWindow::on_actionRedo_triggered()
+{
+    QString level_name = getLevelNameOnItem(ui->levelList->currentItem());
+    if(!backupFilePaths_Redo.contains(level_name) || backupFilePaths_Redo[level_name].isEmpty())
+    {
+        info("不能执行重做");
+        return;
+    }
+
+    // 重新打开关卡
+    openJsonFile(backupFilePaths_Redo[level_name].last());
+    QString file_path = this->config_path;
+    file_path = file_path + level_name + ".json";
+    changeSavedFlag(level_name, isSameFile(backupFilePaths_Redo[level_name].last(), file_path));
+    // 刷新节点展开状态
+    resetTreeSate();
+
+    // 把备份文件路径移到撤销里去
+    if(backupFilePaths.contains(level_name))
+    {
+        backupFilePaths[level_name].push_back(backupFilePaths_Redo[level_name].last());
+        backupFilePaths_Redo[level_name].removeLast();
+
+        resetUndoAndRedo(level_name);
+    }
+    else
+        info("backupFilePaths不含" + level_name);
 }

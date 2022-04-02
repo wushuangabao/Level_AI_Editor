@@ -30,6 +30,7 @@ public:
     VALUE_TYPE GetValueType(); //值类型，指值的存储方式，是变量名、函数、lua代码还是其他
     QString GetVarType(); //变量类型，指值在逻辑层面表示哪一类东西，比如数值、点、棋子……
 
+    static bool AreSameVarType(BaseValueClass* v1, BaseValueClass* v2);
     void SetVarType(const QString& t);
 
     void SetVarName(const QString& name, QString var_type, int idx);

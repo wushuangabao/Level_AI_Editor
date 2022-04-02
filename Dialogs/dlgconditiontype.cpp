@@ -193,7 +193,8 @@ void DlgConditionType::on_btnText_1_clicked()
         m_dlgEditValueLeft->ModifyValue(node, 1);
     }
 
-    ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
+    if(m_dlgEditValueLeft->IsAccepted())
+        ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
 }
 
 void DlgConditionType::on_btnText_2_clicked()
@@ -207,7 +208,8 @@ void DlgConditionType::on_btnText_2_clicked()
         m_dlgEditValueRight->ModifyValue(node, 2);
     }
 
-    ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
+    if(m_dlgEditValueRight->IsAccepted())
+        ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
 }
 
 void DlgConditionType::initUI(NODE_TYPE node_type)
@@ -275,20 +277,8 @@ void DlgConditionType::initComparationValues(NodeInfo *node)
 
 bool DlgConditionType::checkCompareValuesType()
 {
-    QString t_left = GetValue_Left()->GetVarType();
-    QString t_right = GetValue_Right()->GetVarType();
-    if(t_left == t_right)
+    if(BaseValueClass::AreSameVarType(GetValue_Left(), GetValue_Right()))
         return true;
-    else if(t_left == "")
-    {
-//        info("无法确定左值的类型！");
-        return true;
-    }
-    else if(t_right == "")
-    {
-//        info("无法确定右值的类型！");
-        return true;
-    }
     else
     {
         info("左右值的类型不一致！");

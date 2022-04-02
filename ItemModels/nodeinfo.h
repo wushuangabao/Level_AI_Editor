@@ -22,6 +22,9 @@ public:
     NodeInfo* addNewChildNode_SetVar(QString var_name, QString value_str, int id_var);
     NodeInfo* addNewChild(NODE_TYPE eType, QString str_data);
     NodeInfo* addNewChild_Compare(QString compare_type, QString left_value, QString right_value);
+    NodeInfo* addNewChild(NodeInfo* chid_node, int pos = -1); // new一个新的节点，新节点的数据复制chid_node
+
+    bool ContainNodeInChildren(NodeInfo* chid_node);
 
     int getValuesCount();
     QString getValue(int id);
@@ -43,6 +46,7 @@ public:
 
 private:
     NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str);
+    NodeInfo(NodeInfo* &o); // 完全拷贝节点o的数据
 
     void updateCompareText();
     void updateCondionText();

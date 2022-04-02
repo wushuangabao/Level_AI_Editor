@@ -76,13 +76,12 @@ DlgEditValue::~DlgEditValue()
     delete ui;
 }
 
-void DlgEditValue::ModifyValue(NodeInfo *node, int node_type)
+void DlgEditValue::ModifyValue(NodeInfo *node, int value_position)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(model != nullptr);
 
     this->node = node;
-    value_position = node_type;
 
     // 初始化value
     BaseValueClass* v = nullptr;
@@ -154,7 +153,6 @@ void DlgEditValue::CreateValueForParentIfNode(NodeInfo *parent_node, const QStri
 {
     MY_ASSERT(model != nullptr);
     node = parent_node;
-    value_position = -1;
 
     initUIforValue(var_type); //还未确定值的变量类型是""
     this->exec();
@@ -164,7 +162,6 @@ void DlgEditValue::CreateNewValue(const QString& var_type, NodeInfo* p_node)
 {
     MY_ASSERT(model != nullptr);
     node = p_node;
-    value_position = -1;
 
     value->SetLuaStr("nil");
     value->SetVarType(var_type);
@@ -303,7 +300,6 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     MY_ASSERT(function_node->type == FUNCTION);
 
     node = function_node;
-    value_position = -1;
 
     // 初始化value
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_Function(function_node);
@@ -372,24 +368,30 @@ void DlgEditValue::on_DlgEditValue_accepted()
     case VT_FUNC:
     {
         FunctionClass* func = getFunctionInfoByUI();
-        MY_ASSERT(func != nullptr);
-        value->SetFunction(func);
-
-        // 将funcParams中的参数值赋值给value的params成员
-        int n = func->GetParamNum();
-        if(n > 0)
+        if(func == nullptr)
         {
-            int dlg_param_id = 0;
-            if(!func->param_is_before_text)
-                dlg_param_id++; //因为这种情况下UI的idx比实际参数的idx多1
-            for(int i = 0; i < n; i++)
-            {
-                value->SetParamAt(i, funcParams[dlg_param_id]);
-                dlg_param_id++;
-            }
+            info("选择了无效函数");
+            is_accepted = false;
+            return;
         }
-
-        MY_ASSERT(value->GetFunctionParamsNum() == func->GetParamNum());
+        else
+        {
+            value->SetFunction(func);
+            // 将funcParams中的参数值赋值给value的params成员
+            int n = func->GetParamNum();
+            if(n > 0)
+            {
+                int dlg_param_id = 0;
+                if(!func->param_is_before_text)
+                    dlg_param_id++; //因为这种情况下UI的idx比实际参数的idx多1
+                for(int i = 0; i < n; i++)
+                {
+                    value->SetParamAt(i, funcParams[dlg_param_id]);
+                    dlg_param_id++;
+                }
+            }
+            MY_ASSERT(value->GetFunctionParamsNum() == func->GetParamNum());
+        }
     }
         break;
     case VT_STR:
@@ -439,40 +441,18 @@ void DlgEditValue::on_DlgEditValue_accepted()
         break;
     }
 
-    // 如果传入了node
-    if(node != nullptr)
+    // ModifyCallNode结束时更新ValueManager
+    if(is_for_function && node != nullptr)
     {
-        // 更新ValueManager
-        if(is_for_function)
+        // function 节点
+        MY_ASSERT(node->type == FUNCTION);
+        if(value_type == VT_FUNC || value_type == VT_STR)
         {
-            // function 节点
-            MY_ASSERT(node->type == FUNCTION);
-            if(value_type == VT_FUNC || value_type == VT_STR)
-            {
-                model->GetValueManager()->UpdateValueOnNode_Function(node, value);
-                node->text = value->GetText();
-            }
-            else
-                info("错误的值类型");
+            model->GetValueManager()->UpdateValueOnNode_Function(node, value);
+            node->text = value->GetText();
         }
         else
-        {
-            if(value_position == 0)
-            {
-                // set_value节点
-                model->GetValueManager()->UpdateValueOnNode_SetValue(node, value);
-            }
-            if(value_position == 1)
-            {
-                // compare节点的左值
-                model->GetValueManager()->UpdateValueOnNode_Compare_Left(node, value);
-            }
-            else if(value_position == 2)
-            {
-                // compare节点的右值
-                model->GetValueManager()->UpdateValueOnNode_Compare_Right(node, value);
-            }
-        }
+            info("错误的值类型");
     }
 
     // 将funcParams还原为初始值
@@ -681,7 +661,8 @@ void DlgEditValue::modifyUIParamValue(int idx)
 FunctionClass *DlgEditValue::getFunctionInfoByUI()
 {
     int idx = ui->comboBoxFunction->currentIndex();
-    MY_ASSERT(vectorFunctionInfo.size() > idx);
+    if(idx < 0)
+        return nullptr;
     return &(FunctionInfo::GetInstance()->infoList[vectorFunctionInfo[idx]]);
 }
 

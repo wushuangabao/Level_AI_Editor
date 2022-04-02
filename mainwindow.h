@@ -5,6 +5,8 @@
 #include "ItemModels/treeitemmodel_event.h"
 #include "ItemModels/treeitemmodel_custom.h"
 
+#define MAX_BACKUP_NUM 16 //最多连续撤销15次
+
 class QFile;
 class QJsonObject;
 class QJsonArray;
@@ -51,6 +53,7 @@ private slots:
     void slotCutNode(bool b = false);
     void slotCopyNode(bool b = false);
     void slotPasteNode(bool b = false);
+    void slotPasteEventOrCustAct(bool b = false);
     void slotDeleteNode(bool b = false);
     void slotNewEvent(bool b = false);
     void slotNewCondition(bool b = false);
@@ -96,6 +99,10 @@ private slots:
     // 切换tab时 切换树模型
     void on_tabWidget_currentChanged(int index);
 
+    // 编辑 - 撤销、重做
+    void on_actionUndo_triggered();
+    void on_actionRedo_triggered();
+
 private:
     Ui::MainWindow *ui;
 
@@ -108,11 +115,12 @@ private:
 
     // 树形结构
     NodeInfo* m_curNode;
+    QMap<QModelIndex, bool> m_itemState_Event;
+    QMap<QModelIndex, bool> m_itemState_Custom;
+    void resetTreeSate();
     void setModelForDlg(TreeItemModel *model);
     // 事件树
     TreeItemModel_Event* m_eventTreeModel;
-    QMap<QModelIndex, bool> m_itemState_Event;
-    QMap<QModelIndex, bool> m_itemState_Custom;
     void updateEventTreeState();
     void InitEventTree();
     NodeInfo* createNewEventOnTree(QString event_type, const QString& event_name);
@@ -169,8 +177,8 @@ private:
     bool writeLuaOpenOrCloseEvent(QFile* file, int event_pos, const QString& pre_str, bool is_open);
     int findLuaIndexOfEvent(NodeInfo* node);
 
-    // 获取exe所在目录中的config目录
-    void getConfigPath(QString& s);
+    // config目录
+    QString config_path;
 
     // 左侧关卡列表
     QString m_levelPrefix;
@@ -179,17 +187,25 @@ private:
     void InitLevelTree();
     bool checkNewLevelName(); //检查新建的关卡名称
     bool checkLevelPrefix(const QString& str);
+    QString getCurrentLevelFile(const QString& level_name, bool* is_backup = nullptr);
+
+    void resetUndoAndRedo(const QString& level_name);
 
     // 备份Json关卡文件
     int lastLevelIndex;
-    QMap<QString, QStringList> backupFilePaths;
     QMap<QString, bool> savedOrNot;
-    bool saveBackupJsonFile();
+    QMap<QString, QStringList> backupFilePaths;
+    QMap<QString, QStringList> backupFilePaths_Redo;
+    void saveBackupJsonFile();
+    void saveBackupJsonFile(QString &level_name);
+    void saveBackupWhenInit(const QString &namelvl);
     void changeSavedFlag(const QString& level_name, bool already_saved);
     bool isSameFile(const QString& path1, const QString& path2);
     void deleteFile(const QString& path);
+    void deleteAllBackupFiles();
     QString getLevelNameOnItem(QListWidgetItem* item);
     bool isNeedSave();
+    bool pushNewBackupFileName(const QString& lvl_name, const QString& bk_file_path); // 在backupFilePaths最后插入新的备份文件路径
 };
 
 #endif // MAINWINDOW_H

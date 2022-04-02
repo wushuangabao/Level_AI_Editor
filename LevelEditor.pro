@@ -41,7 +41,8 @@ SOURCES += \
     Values/enuminfo.cpp \
     Dialogs/dlgwaiting.cpp \
     ItemModels/treeitemmodel_custom.cpp \
-    ItemModels/treeitemmodel_event.cpp
+    ItemModels/treeitemmodel_event.cpp \
+    nodesclipboard.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -61,7 +62,8 @@ HEADERS += \
     Values/enuminfo.h \
     Dialogs/dlgwaiting.h \
     ItemModels/treeitemmodel_custom.h \
-    ItemModels/treeitemmodel_event.h
+    ItemModels/treeitemmodel_event.h \
+    nodesclipboard.h
 
 FORMS += \
         mainwindow.ui \

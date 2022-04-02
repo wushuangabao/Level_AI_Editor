@@ -1,3 +1,4 @@
+#include "../nodesclipboard.h"
 #include "nodeinfo.h"
 
 NodeInfo::NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str)
@@ -6,6 +7,31 @@ NodeInfo::NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str)
       text(str)
 {
     new_child_pos = -1;
+}
+
+NodeInfo::NodeInfo(NodeInfo *&o)
+{
+    parent = nullptr;
+    type = o->type;
+    text = o->text;
+    new_child_pos = -1;
+
+    childs.clear();
+    values.clear();
+
+    int n = o->childs.size();
+    for(int i = 0; i < n; i++)
+    {
+        NodeInfo* child = new NodeInfo(o->childs[i]);
+        child->parent = this;
+        childs.push_back(child);
+    }
+
+    n = o->values.size();
+    for(int i = 0; i < n; i++)
+    {
+        values.push_back(o->values.at(i));
+    }
 }
 
 NodeInfo::~NodeInfo()
@@ -20,9 +46,14 @@ void NodeInfo::clear()
     text.clear();
     for(int i = 0; i < childs.size(); i++)
     {
-        childs[i]->clear();
-        delete childs[i];
-        childs[i] = nullptr;
+        childs[i]->parent = nullptr;
+        // 剪切板中是否存在对childs[i]的引用
+        if(!NodesClipBoard::GetInstance()->HasCopyNode(childs[i]))
+        {
+            // 清除节点数据、子节点数据
+            delete childs[i];
+            childs[i] = nullptr;
+        }
     }
     childs.clear();
     values.clear();
@@ -41,7 +72,6 @@ void NodeInfo::operator=(NodeInfo &obj)
 
     for(int i = 0; i < childs.size(); i++)
     {
-        childs[i]->clear();
         delete childs[i];
     }
 
@@ -191,6 +221,35 @@ NodeInfo *NodeInfo::addNewChild_Compare(QString compare_type, QString left_value
     new_node->updateCompareText();
 
     return new_node;
+}
+
+NodeInfo *NodeInfo::addNewChild(NodeInfo *chid_node, int pos)
+{
+    NodeInfo* new_node = new NodeInfo(chid_node);
+    new_node->parent = this;
+
+    if(pos != -1)
+    {
+        this->childs.insert(pos, new_node);
+    }
+    else
+    {
+        this->childs.push_back(new_node);
+    }
+    return new_node;
+}
+
+bool NodeInfo::ContainNodeInChildren(NodeInfo *chid_node)
+{
+    int n = childs.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(childs.at(i) == chid_node)
+            return true;
+        else if(childs.at(i)->ContainNodeInChildren(chid_node))
+            return true;
+    }
+    return false;
 }
 
 int NodeInfo::getValuesCount()
@@ -352,9 +411,9 @@ void NodeInfo::updateCondionText()
         values.append("AND");
 
     if(values[0] == "AND")
-        text = "条件（and）";
+        text = parent->type == EVENT? "条件（and）" : "AND";
     else if(values[0] == "OR")
-        text = "条件（or）";
+        text = parent->type == EVENT? "条件（or）" : "OR";
     else
         text = "Conditon node value error(" + values[0] + ")";
 }

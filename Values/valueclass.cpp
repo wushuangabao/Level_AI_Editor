@@ -109,6 +109,13 @@ QString BaseValueClass::GetVarType()
     return var_type;
 }
 
+bool BaseValueClass::AreSameVarType(BaseValueClass *v1, BaseValueClass *v2)
+{
+    if((v1->value_type == VT_STR || v2->value_type == VT_STR))
+        return true; // todo: 判断lua_str值的类型
+    return v1->value_type == v2->value_type;
+}
+
 void BaseValueClass::SetVarType(const QString &t)
 {
     var_type = t;
@@ -185,7 +192,7 @@ void BaseValueClass::SetParamAt(int idx, BaseValueClass *v)
 {
     MY_ASSERT(params.size() > idx);
 
-    qDebug() << "set value(" << (uintptr_t)this << ")'s param(" << (uintptr_t)(params[idx]) <<") = " << (uintptr_t)v << endl;
+    //qDebug() << "set value(" << (uintptr_t)this << ")'s param(" << (uintptr_t)(params[idx]) <<") = " << (uintptr_t)v << endl;
 
     *(params[idx]) = *v;
 }

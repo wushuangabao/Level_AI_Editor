@@ -32,6 +32,9 @@
 background: rgb(28,77,120);
 }</string>
           </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::ExtendedSelection</enum>
+          </property>
           <property name="expandsOnDoubleClick">
            <bool>false</bool>
           </property>
@@ -53,6 +56,9 @@ background: rgb(28,77,120);
            <string notr="true">QTreeView::item:selected,QTreeView::branch:selected{
 background: rgb(28,77,120);
 }</string>
+          </property>
+          <property name="selectionMode">
+           <enum>QAbstractItemView::ExtendedSelection</enum>
           </property>
           <property name="expandsOnDoubleClick">
            <bool>false</bool>
@@ -84,7 +90,15 @@ background: rgb(28,77,120);
     <addaction name="actionSave"/>
     <addaction name="actionLua"/>
    </widget>
+   <widget class="QMenu" name="menuEdit">
+    <property name="title">
+     <string>Edit</string>
+    </property>
+    <addaction name="actionUndo"/>
+    <addaction name="actionRedo"/>
+   </widget>
    <addaction name="menuLevelEdit"/>
+   <addaction name="menuEdit"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -207,6 +221,22 @@ background: rgb(28,77,120);
    </property>
    <property name="shortcut">
     <string>Ctrl+D</string>
+   </property>
+  </action>
+  <action name="actionUndo">
+   <property name="text">
+    <string>撤销</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Z</string>
+   </property>
+  </action>
+  <action name="actionRedo">
+   <property name="text">
+    <string>重做</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Y</string>
    </property>
   </action>
  </widget>

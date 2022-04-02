@@ -13,7 +13,8 @@ __attribute__((unused)) static void info(QString info)
 
 enum NODE_TYPE
 {
-    INVALID = -1,
+    NONE = -2,
+    INVALID = -1, //根节点的类型
 
     /////////////////////////////////
     /// 事件
@@ -70,6 +71,8 @@ __attribute__((unused)) static QString getNodeTypeStr(NODE_TYPE v)
     switch (v) {
     case INVALID:
         return "INVALID";
+    case ENODE:
+        return "ENODE";
     case EVENT:
         return "事件";
     case ETYPE:
@@ -101,7 +104,7 @@ __attribute__((unused)) static QString getNodeTypeStr(NODE_TYPE v)
     }
 }
 
-__attribute__((unused)) static NODE_TYPE getNodeTypeEnum(QString str)
+__attribute__((unused)) static NODE_TYPE GetActionNodeTypeEnum(QString str)
 {
     if(str == "SET_VAR")
         return SET_VAR;

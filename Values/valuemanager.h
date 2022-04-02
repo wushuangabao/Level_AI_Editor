@@ -11,6 +11,7 @@ class ValueManager
 public:
     ~ValueManager();
     static ValueManager* GetValueManager();
+    static ValueManager* GetClipBoardValueManager();
     void ClearData();
 
     QStringList GetGlobalVarList() const;
@@ -22,11 +23,13 @@ public:
     bool CheckVarIsUsedOrNot(const QString& var_name);
     bool DeleteVariable(QString name); //删除全局变量
     void DeleteVarAt(int id);
-    void ModifyVarValueAt(int idx, QString name, BaseValueClass* value); //设置全局变量的初始值
+    void ModifyVarValueAt(int idx, QString name, BaseValueClass* value); //修改全局变量的名字和初始值
+    void ModifyInitValueAt(int idx, BaseValueClass* value); //只设置变量的初始值
 
     QString GetVarTypeAt(int idx);
     QString GetVarTypeOf(const QString& name);
     BaseValueClass* GetInitValueOfVar(int idx);
+    BaseValueClass* GetInitValueOfVarByName(const QString& name);
     int FindIdOfVarName(const QString& name);
 
     void UpdateValueOnNode_SetValue(NodeInfo* node, BaseValueClass* value); //setValue节点上的变量

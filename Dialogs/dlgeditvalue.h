@@ -101,8 +101,6 @@ private:
     QVector<int> vectorFunctionInfo;
 
     NodeInfo* node;
-    int value_position;
-
     VALUE_TYPE value_type;
     BaseValueClass* value;
     QString var_type;

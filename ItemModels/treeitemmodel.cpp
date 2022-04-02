@@ -1,3 +1,4 @@
+#include "../nodesclipboard.h"
 #include "treeitemmodel.h"
 
 TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
@@ -218,32 +219,35 @@ bool TreeItemModel::deleteNode(NodeInfo *node)
         return false;
     }
 
-    // 如果 value manager 中有node和对应的value，也要删掉
-    globalValueManager->OnDeleteNode(node);
-
-    // todo: 如果删除的是Event，那么其他事件中的OPEN_EVENT和CLOSE_EVENT节点会失效
-
-    beginResetModel();
-
-    // 清除节点数据、子节点数据
-    node->clear();
-
-    // 然后从父节点中移除
-    for(int i = 0; i < node->parent->childs.size(); i++)
+    // 从父节点中移除
+    bool is_del = false;
+    int n = node->parent->childs.size();
+    for(int i = 0; i < n; i++)
     {
         if(node->parent->childs[i] == node)
         {
+            beginResetModel();
             node->parent->childs.removeAt(i);
             node->parent = nullptr;
-            delete node;
             endResetModel();
-            return true;
+            is_del = true;
+            break;
         }
     }
 
-    qDebug() << "deleteNode fails." << endl;
-    endResetModel();
-    return false;
+    // 剪切板中是否存在对其的引用
+    if(!NodesClipBoard::GetInstance()->HasCopyNode(node))
+    {
+        // 如果 value manager 中有node和对应的value，也要删掉
+        globalValueManager->OnDeleteNode(node);
+        // 清除节点数据、子节点数据
+        delete node;
+        node = nullptr;
+    }
+
+    // todo: 如果删除的是Event，那么其他事件中的OPEN_EVENT和CLOSE_EVENT节点会失效
+
+    return is_del;
 }
 
 NodeInfo* TreeItemModel::createNode(QString str_data, NODE_TYPE eType, NodeInfo *parent)
@@ -270,7 +274,7 @@ NodeInfo *TreeItemModel::findUppestNodeOf(NodeInfo *cur_node)
         return nullptr;
 
     NodeInfo* node = cur_node;
-    while(node->parent != m_pRootNode)
+    while(node->parent != NodeInfo::GetRootNode_Event() && node->parent != NodeInfo::GetRootNode_Custom())
     {
         node = node->parent;
     }

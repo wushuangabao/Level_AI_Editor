@@ -21,7 +21,7 @@ QStringList *TreeItemModel_Custom::GetEventParamsLuaOf(NodeInfo *node)
 void TreeItemModel_Custom::AddCustomSequence(const QString &name)
 {
     beginResetModel();
-    NodeInfo* node = m_pRootNode->addNewChild(SEQUENCE, name);
+    /*NodeInfo* node = */m_pRootNode->addNewChild(SEQUENCE, name);
     endResetModel();
 
 //    if(node != nullptr)

@@ -15,6 +15,14 @@ ValueManager *ValueManager::GetValueManager()
     return instance;
 }
 
+ValueManager *ValueManager::GetClipBoardValueManager()
+{
+    static ValueManager* instance = nullptr;
+    if(instance == nullptr)
+        instance = new ValueManager();
+    return instance;
+}
+
 ValueManager::ValueManager()
 {
     nameList = QStringList();
@@ -69,21 +77,23 @@ bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
     }
     else
     {
+        BaseValueClass* new_value;
+        if(v == nullptr)
+            new_value = new BaseValueClass("nil");
+        else
+            new_value = new BaseValueClass(v);
+
         for(int i = 0; i < nameList.size(); i++)
         {
             if(nameList[i] == "")
             {
                 nameList[i] = name;
-                if(dataList[i] == nullptr)
-                    dataList[i] = new BaseValueClass(v);
-                else
-                    dataList[i] = v;
+                dataList[i] = new_value;
                 return true;
             }
         }
 
         nameList << name;
-        BaseValueClass* new_value = new BaseValueClass(v);
         dataList << new_value;
         return true;
     }
@@ -216,6 +226,18 @@ void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value
     nameList[idx] = name;
 
     updateVarOnNodes(idx);
+}
+
+void ValueManager::ModifyInitValueAt(int idx, BaseValueClass *value)
+{
+    if(idx < 0 || idx >= nameList.size())
+    {
+        info("不存在这个id的变量");
+        return;
+    }
+
+    if(value != nullptr)
+        *(dataList[idx]) = *value;
 }
 
 void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *value)
@@ -397,6 +419,15 @@ QString ValueManager::GetVarTypeOf(const QString &name)
 BaseValueClass* ValueManager::GetInitValueOfVar(int idx)
 {
     return dataList.at(idx);
+}
+
+BaseValueClass *ValueManager::GetInitValueOfVarByName(const QString &name)
+{
+    int idx = nameList.indexOf(name);
+    if(idx == -1)
+        return nullptr;
+    else
+        return dataList.at(idx);
 }
 
 int ValueManager::FindIdOfVarName(const QString &name)
