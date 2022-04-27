@@ -1,12 +1,15 @@
 #include <QDebug>
 #include "../ItemModels/enumdefine.h"
+#include "../ItemModels/nodeinfo.h"
 #include "../ItemModels/functioninfo.h"
 #include "../Values/enuminfo.h"
+#include "../Values/structinfo.h"
+#include "../Values/valuemanager.h"
 #include "valueclass.h"
 
 BaseValueClass::BaseValueClass()
 {
-    params = QVector<BaseValueClass*>();
+    params = QVector<CommonValueClass*>();
     ClearData();
 //    qDebug() << "Create value 1 at" << (uintptr_t)this << endl;
 }
@@ -25,7 +28,12 @@ BaseValueClass::BaseValueClass(BaseValueClass *obj)
     {
         for(int i = 0; i < n; i++)
         {
-            params.append(new BaseValueClass(obj->params[i]));
+            CommonValueClass* v;
+            if(obj->params[i]->GetValueType() < VT_TABLE)
+                v = new BaseValueClass(static_cast<BaseValueClass*>(obj->params[i]));
+            else if(obj->params[i]->GetValueType() == VT_TABLE)
+                v = new StructValueClass(static_cast<StructValueClass*>(obj->params[i]));
+            params.append(v);
         }
     }
 
@@ -34,7 +42,7 @@ BaseValueClass::BaseValueClass(BaseValueClass *obj)
 
 BaseValueClass::BaseValueClass(QString str)
 {
-    params = QVector<BaseValueClass*>();
+    params = QVector<CommonValueClass*>();
     ClearData();
 
     if(str != "")
@@ -82,7 +90,12 @@ void BaseValueClass::operator=(const BaseValueClass &obj)
     {
         for(int i = 0; i < n; i++)
         {
-            params.append(new BaseValueClass(obj.params[i]));
+            CommonValueClass* v;
+            if(obj.params[i]->GetValueType() < VT_TABLE)
+                v = new BaseValueClass(static_cast<BaseValueClass*>(obj.params[i]));
+            else if(obj.params[i]->GetValueType() == VT_TABLE)
+                v = new StructValueClass(static_cast<StructValueClass*>(obj.params[i]));
+            params.append(v);
         }
     }
 }
@@ -99,23 +112,6 @@ QString BaseValueClass::GetText()
         return "ERROR";
 }
 
-VALUE_TYPE BaseValueClass::GetValueType()
-{
-    return value_type;
-}
-
-QString BaseValueClass::GetVarType()
-{
-    return var_type;
-}
-
-bool BaseValueClass::AreSameVarType(BaseValueClass *v1, BaseValueClass *v2)
-{
-    if((v1->value_type == VT_STR || v2->value_type == VT_STR))
-        return true; // todo: 判断lua_str值的类型
-    return v1->var_type == v2->var_type;
-}
-
 void BaseValueClass::SetVarType(const QString &t)
 {
     var_type = t;
@@ -130,6 +126,11 @@ void BaseValueClass::SetVarName(const QString &text, QString type, int idx)
         g_var_id = idx;
     else
         info("未设置变量id！");
+}
+
+void BaseValueClass::ModifyVarName(const QString &name)
+{
+    this->name = name;
 }
 
 void BaseValueClass::SetLuaStr(const QString &text)
@@ -179,22 +180,41 @@ void BaseValueClass::SetFunction(FunctionClass *function_class)
 
     clearFuncParams();
     int n = func->GetParamNum();
-    if(n > 0)
+    for(int i = 0; i < n; i++)
     {
-        for(int i = 0; i < n; i++)
+        if(StructInfo::GetInstance()->CheckIsStruct(func->GetParamTypeAt(i)))
         {
-            params.append(new BaseValueClass("0"));
+            StructValueClass* struct_v = new StructValueClass();
+            struct_v->SetVarType(func->GetParamTypeAt(i));
+            params.append(struct_v);
         }
+        else
+            params.append(new BaseValueClass("nil"));
     }
 }
 
-void BaseValueClass::SetParamAt(int idx, BaseValueClass *v)
+void BaseValueClass::SetParamAt(int idx, CommonValueClass *v)
 {
     MY_ASSERT(params.size() > idx);
+    if(v == nullptr)
+    {
+        info("SetParamAt(" + QString::number(idx) +")参数v为空");
+        return;
+    }
 
-    //qDebug() << "set value(" << (uintptr_t)this << ")'s param(" << (uintptr_t)(params[idx]) <<") = " << (uintptr_t)v << endl;
+    if(params[idx] != nullptr)
+        delete params[idx];
 
-    *(params[idx]) = *v;
+    if(v->GetValueType() < VT_TABLE)
+    {
+        BaseValueClass* bv = static_cast<BaseValueClass*>(v);
+        params[idx] = new BaseValueClass(bv);
+    }
+    else if(v->GetValueType() == VT_TABLE)
+    {
+        StructValueClass* sv = static_cast<StructValueClass*>(v);
+        params[idx] = new StructValueClass(sv);
+    }
 }
 
 QString BaseValueClass::GetFunctionName()
@@ -211,7 +231,7 @@ int BaseValueClass::GetFunctionParamsNum()
     return func->GetParamNum();
 }
 
-BaseValueClass *BaseValueClass::GetFunctionParamAt(int id)
+CommonValueClass *BaseValueClass::GetFunctionParamAt(int id)
 {
     int n = params.size();
     MY_ASSERT(n == func->GetParamNum());
@@ -231,6 +251,74 @@ QString BaseValueClass::GetEventParamInLua()
     if(value_type != VT_PARAM)
         return "";
     return lua_str;
+}
+
+QString BaseValueClass::GetLuaValueString()
+{
+    switch (value_type) {
+    case VT_STR:
+    {
+        QString lua_str = GetText();
+        if(lua_str.contains("自定义动作："))
+        {
+            lua_str.replace("自定义动作：", "");
+            int n = NodeInfo::GetRootNode_Custom()->childs.size();
+            for(int i = 0; i < n; i++)
+            {
+                if(NodeInfo::GetRootNode_Custom()->childs[i]->text == lua_str)
+                {
+                    lua_str = "CustomAction_" + QString::number(i) + "(level)";
+                    break;
+                }
+            }
+        }
+        return lua_str;
+    }
+        break;
+    case VT_VAR:
+    {
+        int id = ValueManager::GetValueManager()->GetIdOfVariable((CommonValueClass*)this);
+        if(id == -1)
+        {
+            info("Lua值错误：找不到" + GetText() + "所使用的变量");
+            return "未知变量";
+        }
+        else
+            return QString("level.%1").arg(ValueManager::GetValueManager()->GetVarNameAt(id));
+    }
+        break;
+    case VT_FUNC:
+    {
+        QString str = GetFunctionName() + "(level.flowController";
+        int n = GetFunctionParamsNum();
+        for(int i = 0; i < n; i++)
+        {
+            str += ", ";
+            CommonValueClass* p = GetFunctionParamAt(i);
+            str = str + p->GetLuaValueString(); // todo 容错处理
+            if(p->GetVarType() != GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
+                info("Lua提示：函数" + GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
+        }
+        str += ")";
+        return str;
+    }
+        break;
+    case VT_PARAM:
+        if(GetEventParamInLua() != "")
+            return QString("event.%1").arg(GetEventParamInLua());
+        else
+        {
+            info("Lua值错误：找不到" + GetText() + "所使用的事件参数");
+            return QString("\"" + GetText() + "\"");
+        }
+        break;
+    case VT_ENUM:
+        return EnumInfo::GetInstance()->GetLuaStr(GetVarType(), GetText());
+        break;
+    default:
+        return "未知的值";
+        break;
+    }
 }
 
 bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const QString &type)
@@ -255,8 +343,8 @@ bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const
         }
         if(!ok)
             info("函数" + GetText() + "的参数类型可能有错误");
-        if(var_type != "" && var_type != type)
-            return false;
+//        if(var_type != "" && var_type != type)
+//            return false;
     }
     else if(value_type == VT_STR)
     {
@@ -276,7 +364,6 @@ bool BaseValueClass::IsUsingVar(const QString &vname)
     case VT_VAR:
         if(name == vname)
         {
-//            info("注意检查：" + GetText());
             return true;
         }
         break;
@@ -289,7 +376,6 @@ bool BaseValueClass::IsUsingVar(const QString &vname)
         {
             if(GetFunctionParamAt(i)->IsUsingVar(vname))
             {
-//                info("注意检查：" + GetText());
                 return true;
             }
         }
@@ -345,4 +431,12 @@ QString BaseValueClass::getFunctionText()
     }
 
     return text;
+}
+
+
+bool CommonValueClass::AreSameVarType(CommonValueClass *v1, CommonValueClass *v2)
+{
+    if((v1->GetValueType() == VT_STR || v2->GetValueType() == VT_STR))
+        return true; // todo: 判断lua_str值的类型
+    return (v1->GetVarType()) == (v2->GetVarType());
 }

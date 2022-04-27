@@ -19,6 +19,8 @@
 #include "nodesclipboard.h"
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "objbase.h"
+#include <QDesktopServices>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -60,8 +62,9 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->eventTreeView->setStyle(QStyleFactory::create("windows"));
     ui->customTreeView->setStyle(QStyleFactory::create("windows"));
 
-    // 自动调整第2列的宽度
+    // 自动调整第2、4列的宽度
     ui->tableWidget->resizeColumnToContents(1);
+    ui->tableWidget->resizeColumnToContents(3);
 
     InitEventTree();
     InitCustomTree();
@@ -463,19 +466,14 @@ void MainWindow::slotNewAction(bool b)
     {
     case SET_VAR:
     {
-        QStringList texts = node_text.split(" = ");
-        if(texts.size() == 2)
-        {
-            int id_var = ValueManager::GetValueManager()->FindIdOfVarName(texts[0]);
-            NodeInfo* new_node = parent_node->addNewChildNode_SetVar(texts[0], texts[1], id_var); //在动作序列中插入新建的setvar节点
-            if(new_node != nullptr && m_dlgChoseActionType->GetValue_SetVar() != nullptr)
-                ValueManager::GetValueManager()->UpdateValueOnNode_SetValue(new_node, m_dlgChoseActionType->GetValue_SetVar());
-            else
-            {
-                info("创建SET_VAR节点失败");
-                success = false;
-            }
-        }
+        int pos = node_text.indexOf(" = ");
+        MY_ASSERT(pos != -1);
+        QString text_name = node_text.left(pos);
+        int id_var = ValueManager::GetValueManager()->FindIdOfVarName(text_name);
+        NodeInfo* new_node = parent_node->addNewChildNode_SetVar(node_text, id_var); //在动作序列中插入新建的setvar节点
+        CommonValueClass* v_pointer = m_dlgChoseActionType->GetValue_SetVar();
+        if(new_node != nullptr && v_pointer != nullptr)
+            ValueManager::GetValueManager()->UpdateValueOnNode_SetValue(new_node, v_pointer);
         else
         {
             info("创建SET_VAR节点失败");
@@ -714,7 +712,7 @@ void MainWindow::editCustActSeqName(NodeInfo *node)
     }
 }
 
-void MainWindow::addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3)
+void MainWindow::addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3, const QString& s4)
 {
     QTableWidgetItem* item;
 
@@ -734,6 +732,10 @@ void MainWindow::addOneRowInTable(unsigned int row, const QString& s1, const QSt
     // 初始值
     item = new QTableWidgetItem(s3, 2);
     ui->tableWidget->setItem(row, 2, item);
+
+    // 关卡目标
+    item = new QTableWidgetItem(s4, 3);
+    ui->tableWidget->setItem(row, 3, item);
 }
 
 void MainWindow::updateVarTable()
@@ -745,19 +747,18 @@ void MainWindow::updateVarTable()
     unsigned int row = 0;
     ValueManager* vm = m_eventTreeModel->GetValueManager();
     int n = vm->GetGlobalVarList().size();
-    if(n > 0)
+    for(int i = 0; i < n; i++)
     {
-        for(int i = 0; i < n; i++)
-        {
-            QString var_name = vm->GetGlobalVarList().at(i);
-            int var_id = vm->GetIdOfVariable(var_name);
-//            if(!varNameIsEventParam(var_name, event_node))
-//            {
-                //                    变量名     变量类型              初始值
-                addOneRowInTable(row, var_name, vm->GetVarTypeAt(var_id), vm->GetInitValueOfVar(var_id)->GetText());
-                row++;
-//            }
-        }
+        QString var_name = vm->GetGlobalVarList().at(i);
+        int var_id = vm->GetIdOfVariable(var_name);
+//        if(!varNameIsEventParam(var_name, event_node))
+//        {
+            //                    变量名     变量类型
+            addOneRowInTable(row, var_name, vm->GetVarTypeAt(var_id),
+                             vm->GetInitValueOfVar(var_id)->GetText(), //初始值
+                             vm->CheckVarIsLevelParam(var_id)? "√" : ""); //关卡目标
+            row++;
+//        }
     }
 
     // 自动调整列的宽度
@@ -978,18 +979,22 @@ void MainWindow::addVariablesToJsonObj(QJsonObject *json)
 
     QJsonArray var_array;
     ValueManager* vm = m_eventTreeModel->GetValueManager();
-    int n = vm->GetGlobalVarList().size();
+    QStringList var_list = vm->GetGlobalVarList();
+    int n = var_list.size();
     if(n > 0)
     {
         for(int i = 0; i < n; i++)
         {
-            QString var_name = vm->GetGlobalVarList().at(i);
+            QString var_name = var_list[i];
             int var_id = vm->GetIdOfVariable(var_name);
+            MY_ASSERT(var_id != -1);
 
             QJsonObject var_obj;
             var_obj.insert("id", var_id);
             var_obj.insert("name", var_name);
             var_obj.insert("type", vm->GetVarTypeAt(var_id));
+            if(vm->CheckVarIsLevelParam(var_id))
+                var_obj.insert("level", true);
 
             QJsonObject value_obj;
             addValueToJsonObj(vm->GetInitValueOfVar(var_id), &value_obj);
@@ -1139,7 +1144,7 @@ void MainWindow::addComparationToJsonArrary(NodeInfo *node, QJsonArray *conditio
     conditions->push_back(comparation);
 }
 
-void MainWindow::addValueToJsonObj(BaseValueClass* value, QJsonObject *json)
+void MainWindow::addValueToJsonObj(CommonValueClass* value, QJsonObject *json)
 {
     MY_ASSERT(value != nullptr);
     MY_ASSERT(json != nullptr);
@@ -1147,7 +1152,7 @@ void MainWindow::addValueToJsonObj(BaseValueClass* value, QJsonObject *json)
     switch (value->GetValueType()) {
     case VT_VAR:
     {
-        int id = m_eventTreeModel->GetValueManager()->GetIdOfVariable(value);
+        int id = m_eventTreeModel->GetValueManager()->GetIdOfVariable(static_cast<BaseValueClass*>(value));
         if(id == -1)
             info("Json提示：找不到变量" + value->GetText());
         else
@@ -1159,9 +1164,9 @@ void MainWindow::addValueToJsonObj(BaseValueClass* value, QJsonObject *json)
     case VT_FUNC:
         {
             QJsonObject function;
-            addFunctionToJsonObj(value, &function);
+            addFunctionToJsonObj(static_cast<BaseValueClass*>(value), &function);
             json->insert("call", function);
-            json->insert("type", value->GetFunctionInfo()->GetReturnTypeAt(0)); //可以是空值""，因为有些函数无返回值
+            json->insert("type", static_cast<BaseValueClass*>(value)->GetFunctionInfo()->GetReturnTypeAt(0)); //可以是空值""，因为有些函数无返回值
         }
         break;
     case VT_STR:
@@ -1173,9 +1178,28 @@ void MainWindow::addValueToJsonObj(BaseValueClass* value, QJsonObject *json)
         json->insert("type", value->GetVarType());
         break;
     case VT_PARAM:
-        json->insert("param", value->GetEventParamInLua());
+        json->insert("param", static_cast<BaseValueClass*>(value)->GetEventParamInLua());
         json->insert("name", value->GetText());
-        json->insert("type", value->GetVarType()); //todo: 似乎应该在EventType管理器中取
+        json->insert("type", value->GetVarType());
+        break;
+    case VT_TABLE:
+    {
+        StructValueClass* s_v = static_cast<StructValueClass*>(value);
+        QJsonObject table;
+        QStringList keys = s_v->GetAllKeys();
+        for(int i = 0; i < keys.size(); i++)
+        {
+            CommonValueClass* v = s_v->GetValueByKey(keys[i]);
+            if(v != nullptr)
+            {
+                QJsonObject vo;
+                addValueToJsonObj(v, &vo);
+                table.insert(keys[i], vo);
+            }
+        }
+        json->insert("table", table);
+        json->insert("type", value->GetVarType());
+    }
         break;
     }
 }
@@ -1332,11 +1356,19 @@ bool MainWindow::parseJsonArray_Var(QJsonArray *varJsonArray)
                     QString name = var.value("name").toString();
                     QString type = var.value("type").toString();
                     QJsonObject init_v = var.value("initValue").toObject();
-                    BaseValueClass* v = parseJsonObj_Value(&init_v);
+                    CommonValueClass* v = parseJsonObj_Value(&init_v);
+                    bool is_level_param = false;
+                    if(var.contains("level") && var.value("level").isBool())
+                    {
+                        is_level_param = var.value("level").toBool();
+                    }
                     if(v != nullptr)
                     {
-                        v->SetVarType(type);
-                        if( !vm->AddNewVarAtPos(name, v, id) )
+                        if(v->GetValueType() < VT_TABLE)
+                            static_cast<BaseValueClass*>(v)->SetVarType(type);
+                        else
+                            static_cast<StructValueClass*>(v)->SetVarType(type);
+                        if( !vm->AddNewVarAtPos(name, v, id, is_level_param) )
                             delete v;
                     }
                     else
@@ -1443,8 +1475,8 @@ bool MainWindow::parseJsonArray_Condition(QJsonArray *conditions, NodeInfo *cond
                 {
                     QJsonObject lv_obj = condition.value("value_left").toObject();
                     QJsonObject rv_obj = condition.value("value_right").toObject();
-                    BaseValueClass* left_value = parseJsonObj_Value(&lv_obj);
-                    BaseValueClass* right_value = parseJsonObj_Value(&rv_obj);
+                    BaseValueClass* left_value = (BaseValueClass*)parseJsonObj_Value(&lv_obj); //暂定只能是BaseValue而非StructValue
+                    BaseValueClass* right_value = (BaseValueClass*)parseJsonObj_Value(&rv_obj); //暂定只能是BaseValue而非StructValue
                     if(left_value != nullptr && right_value != nullptr)
                     {
                         QString compare_type = condition.value("type").toString();
@@ -1545,7 +1577,7 @@ bool MainWindow::parseJsonObj_ActionNode(QJsonObject *actionJsonObj, NodeInfo *p
                 {
                     // 使用 new 创建 value
                     QJsonObject var_obj = actionJsonObj->value("value").toObject();
-                    BaseValueClass* var_value = parseJsonObj_Value(&var_obj);
+                    BaseValueClass* var_value = (BaseValueClass*)parseJsonObj_Value(&var_obj); //暂定只能是BaseValue而非StructValue
                     if(var_value != nullptr)
                     {
                         // 给父节点创建 set value 类型的子节点
@@ -1604,8 +1636,31 @@ bool MainWindow::parseJsonArray_Sequence(QJsonArray *seqJsonArray, NodeInfo *seq
     return true;
 }
 
-BaseValueClass *MainWindow::parseJsonObj_Value(QJsonObject *valueJsonObj)
+CommonValueClass *MainWindow::parseJsonObj_Value(QJsonObject *valueJsonObj)
 {
+    if(valueJsonObj->contains("table") && valueJsonObj->value("table").isObject() &&
+       valueJsonObj->contains("type") && valueJsonObj->value("type").isString())
+    {
+        StructValueClass* value = new StructValueClass();
+        QString type = valueJsonObj->value("type").toString();
+        value->SetVarType(type);
+        QJsonObject table = valueJsonObj->value("table").toObject();
+        QJsonObject::iterator it = table.begin();
+        for(; it != table.end(); ++it)
+        {
+            if(it.value().isObject())
+            {
+                QJsonObject tvobj = it.value().toObject();
+                CommonValueClass* tv = parseJsonObj_Value(&tvobj);
+                if(tv == nullptr)
+                    info("table的值" + it.key() + "解析失败");
+                else
+                    value->UpdateMember_Move(it.key(), tv);
+            }
+        }
+        return value;
+    }
+
     BaseValueClass* value = nullptr;
     if(valueJsonObj->contains("name") && valueJsonObj->value("name").isString() &&
        valueJsonObj->contains("id") && valueJsonObj->value("id").isDouble())
@@ -1691,7 +1746,7 @@ BaseValueClass *MainWindow::parseJsonObj_Function(QJsonObject *func_obj)
                 if(params[i].isObject())
                 {
                     QJsonObject param = params[i].toObject();
-                    BaseValueClass* param_v = parseJsonObj_Value(&param);
+                    CommonValueClass* param_v = parseJsonObj_Value(&param);
                     if(param_v != nullptr)
                     {
                         value->SetParamAt(i, param_v);
@@ -1785,6 +1840,9 @@ void MainWindow::generateLuaDocument(QFile *file)
     // 生成一个Init函数
     writeLuaVarInitFunc(file);
 
+    // 生成一个GetLevelParams函数
+    writeLuaGetParamFunc(file);
+
     // 生成一个Excute函数
     file->write("function levelTable:Execute(event)\n"
                 "    local ret = false\n"
@@ -1810,9 +1868,11 @@ void MainWindow::writeLuaVariables(QFile *file)
     int n = list.size();
     for(int i = 0; i < n; i++)
     {
-        // 用ID生成格式化的变量名
-        QString line = QString("local g_var_%1\n").arg(vm->GetIdOfVariable(list[i]));
-        file->write(line.toStdString().c_str());
+        if(list[i] != "")
+        {
+            QString line = QString("local %1\n").arg(list[i]);
+            file->write(line.toStdString().c_str());
+        }
     }
 }
 
@@ -1842,17 +1902,15 @@ void MainWindow::writeLuaVarInitFunc(QFile *file)
     int n = list.size();
     for(int i = 0; i < n; i++)
     {
-        int var_id = vm->GetIdOfVariable(list[i]);
-        // 格式化变量名
-        QString line = QString("    self.g_var_%1 = ").arg(var_id);
+        QString line = QString("    self.%1 = ").arg(list[i]);
         // 赋值为 initValue
-        line += getLuaValueString(vm->GetInitValueOfVar(var_id));
-        // 注释自定义的变量名、变量类型
+        line += vm->GetInitValueOfVarByName(list[i])->GetLuaValueString();
+        // 注释变量类型
         for(int si = line.length(); si < 24; si++)
         {
             line += " ";
         }
-        line = line + "\t-- " + list.at(i) + "\t" + vm->GetVarTypeAt(var_id) + "\n";
+        line = line + "\t-- " + vm->GetVarTypeOf(list[i]) + "\n";
 
         file->write(line.toStdString().c_str());
     }
@@ -1863,104 +1921,30 @@ void MainWindow::writeLuaVarInitFunc(QFile *file)
         writeLuaOpenOrCloseEvent(file, i, line, true);
     }
 
-    file->write("end\n\n");
+    file->write("    self.bParamsDirty = false\nend\n\n");
 }
 
-QString MainWindow::getLuaValueString(BaseValueClass* value)
+void MainWindow::writeLuaGetParamFunc(QFile *file)
 {
-    VALUE_TYPE vtype = value->GetValueType();
-    switch (vtype) {
-    case VT_STR:
-        return value->GetText();
-        break;
-    case VT_VAR: // todo: 检查变量名是否正确
-    {
-        int id = m_eventTreeModel->GetValueManager()->GetIdOfVariable(value);
-        if(id == -1)
-        {
-            info("Lua值错误：找不到" + value->GetText() + "所使用的变量");
-            return "未知的值";
-        }
-        else
-            return QString("level.g_var_%1").arg(id);
-    }
-        break;
-    case VT_FUNC:
-    {
-        return getLuaCallString(value);
-    }
-        break;
-    case VT_PARAM:
-        if(value->GetEventParamInLua() != "")
-        {
-            return QString("event.%1").arg(value->GetEventParamInLua());
-        }
-        else
-        {
-            info("Lua值错误：找不到" + value->GetText() + "所使用的事件参数");
-            return QString("\""+value->GetText()+"\"");
-        }
-        break;
-    case VT_ENUM:
-    {
-        return EnumInfo::GetInstance()->GetLuaStr(value->GetVarType(), value->GetText());
-    }
-        break;
-    default:
-        return "";
-        break;
-    }
-}
+    file->write("function levelTable:GetLevelParams()\n    return {\n");
 
-QString MainWindow::getLuaCallString(BaseValueClass *value_func)
-{
-    if(value_func == nullptr)
+    QString line;
+    ValueManager* vm = m_eventTreeModel->GetValueManager();
+    QStringList list = vm->GetGlobalVarList();
+    int n = list.size();
+    for(int i = 0; i < n; i++)
     {
-        return "";
-    }
-    if(value_func->GetValueType() == VT_FUNC)
-    {
-        QString str = value_func->GetFunctionName() + "(level.flowController";
-        // value_func->GetFunctionInfo()->GetID();
-
-        int n = value_func->GetFunctionParamsNum();
-        for(int i = 0; i < n; i++)
+        if(vm->CheckVarIsLevelParam(vm->GetIdOfVariable(list[i])))
         {
-            str += ", ";
-            BaseValueClass* p = value_func->GetFunctionParamAt(i);
-            str = str + getLuaValueString(p); // todo 容错处理
-            if(p->GetVarType() != value_func->GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
-                info("Lua提示：函数" + value_func->GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
+            if(i + 1 == n)
+                line = QString("        %1 = self.%2\n").arg(list[i]).arg(list[i]);
+            else
+                line = QString("        %1 = self.%2,\n").arg(list[i]).arg(list[i]);
+            file->write(line.toStdString().c_str());
         }
-
-        str += ")";
-        return str;
     }
-    else if(value_func->GetValueType() == VT_STR)
-    {
-        QString lua_str = value_func->GetText();
 
-        if(lua_str.contains("自定义动作："))
-        {
-            lua_str.replace("自定义动作：", "");
-            int n = NodeInfo::GetRootNode_Custom()->childs.size();
-            for(int i = 0; i < n; i++)
-            {
-                if(NodeInfo::GetRootNode_Custom()->childs[i]->text == lua_str)
-                {
-                    lua_str = "CustomAction_" + QString::number(i) + "(level)";
-                    break;
-                }
-            }
-        }
-
-        return lua_str;
-    }
-    else
-    {
-        info("这个值没有调用Function！");
-        return "";
-    }
+    file->write("    }\nend\n\n");
 }
 
 // {
@@ -2086,13 +2070,13 @@ bool MainWindow::writeLuaCondition(QFile *file, NodeInfo *condition_node)
     {
         MY_ASSERT(condition_node->getValuesCount() == 3);
         ValueManager* vm = m_eventTreeModel->GetValueManager();
-        BaseValueClass* v_left = vm->GetValueOnNode_Compare_Left(condition_node);
-        BaseValueClass* v_right = vm->GetValueOnNode_Compare_Right(condition_node);
+        CommonValueClass* v_left = vm->GetValueOnNode_Compare_Left(condition_node);
+        CommonValueClass* v_right = vm->GetValueOnNode_Compare_Right(condition_node);
         if(v_left != nullptr && v_right != nullptr)
         {
-            QString line = getLuaValueString(v_left) + " " + condition_node->getValue(0) + " " + getLuaValueString(v_right);
+            QString line = v_left->GetLuaValueString() + " " + condition_node->getValue(0) + " " + v_right->GetLuaValueString();
             file->write(line.toStdString().c_str());
-            if(!BaseValueClass::AreSameVarType(v_left, v_right))
+            if(!CommonValueClass::AreSameVarType(v_left, v_right))
                 info("Lua提示：比较大小时，左值" + v_left->GetText() + "和右值" + v_right->GetText() + "的数据类型不一致");
         }
         else
@@ -2158,7 +2142,7 @@ bool MainWindow::writeLuaSequence(QFile *file, NodeInfo *sequence_node)
         case FUNCTION:
         {
             ValueManager* vm = m_eventTreeModel->GetValueManager();
-            QString str_call = getLuaCallString(vm->GetValueOnNode_Function(node));
+            QString str_call = vm->GetValueOnNode_Function(node)->GetLuaValueString();
             QString line = str_space + str_call + "\n";
             file->write(line.toStdString().c_str());
         }
@@ -2274,7 +2258,7 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
     MY_ASSERT(setvar_node->getValuesCount() >= 1);
 
     ValueManager* vm = m_eventTreeModel->GetValueManager();
-    BaseValueClass* value = vm->GetValueOnNode_SetVar(setvar_node);
+    CommonValueClass* value = vm->GetValueOnNode_SetVar(setvar_node);
 
     bool ok = false;
     int id = setvar_node->getValue(0).toInt(&ok);
@@ -2284,10 +2268,11 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
         return false;
     }
 
+    QString var_name = vm->GetVarNameAt(id);
     if(vm->GetVarTypeAt(id) != value->GetVarType() && value->GetValueType() != VT_STR)
-        info("Lua提示：设置变量" + vm->GetVarNameAt(id) + "的类型与值" + value->GetText() + "的类型不一致");
+        info("Lua提示：设置变量" + var_name + "的类型与值" + value->GetText() + "的类型不一致");
 
-    QString str_value = getLuaValueString(value);
+    QString str_value = value->GetLuaValueString();
     if(str_value == "")
         return false;
 
@@ -2296,9 +2281,17 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
     {
         line += " ";
     }
-    line = line + QString("level.g_var_%1").arg(id) + " = " + str_value + "\n";
 
-    file->write(line.toStdString().c_str());
+    QString line_1 = line + QString("level.%1 = %2\n").arg(var_name).arg(str_value);
+    file->write(line_1.toStdString().c_str());
+
+    // level param 变更标记
+    if(vm->CheckVarIsLevelParam(id))
+    {
+        QString line_2 = line + "level.bParamsDirty = true\n";
+        file->write(line_2.toStdString().c_str());
+    }
+
     return true;
 }
 
@@ -2690,6 +2683,8 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
     QAction *copy_act = nullptr;
     QAction *del_act = nullptr;
     static QAction *create_act = nullptr;
+    static QAction *openConfig_act = nullptr;
+    static QAction *openLua_act = nullptr;
     static QAction *reload_act = nullptr;
     static QAction *save_act = nullptr;
     static QAction *lua_act = nullptr;
@@ -2697,6 +2692,16 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
     {
         create_act = new QAction("新建关卡", this);
         connect( create_act, SIGNAL(triggered()), this, SLOT(CreateNewLevel_EmptyLvl()) );
+    }
+    if(openConfig_act == nullptr)
+    {
+        openConfig_act = new QAction("打开编辑文件位置", this);
+        connect( openConfig_act, SIGNAL(triggered()), this, SLOT(OpenConfigFolder()) );
+    }
+    if(openLua_act == nullptr)
+    {
+        openLua_act = new QAction("打开lua文件位置", this);
+        connect( openLua_act, SIGNAL(triggered()), this, SLOT(OpenLuaFolder()) );
     }
     if(reload_act == nullptr)
     {
@@ -2732,6 +2737,9 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
 
     // 添加选项 重载、保存、一键生成Lua
     popMenu->addSeparator();
+
+    popMenu->addAction( openConfig_act );
+    popMenu->addAction( openLua_act );
     popMenu->addAction( reload_act );
     popMenu->addAction( save_act );
     popMenu->addAction( lua_act );
@@ -2751,6 +2759,19 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
         disconnect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
         delete del_act;
     }
+}
+
+void MainWindow::OpenConfigFolder()
+{
+    QDesktopServices::openUrl(QUrl(config_path));
+}
+
+void MainWindow::OpenLuaFolder()
+{
+    QString file_path = QCoreApplication::applicationFilePath();
+    file_path.replace("LevelEditor.exe", m_LuaPath);
+
+    QDesktopServices::openUrl(QUrl(file_path));
 }
 
 void MainWindow::CreateNewLevel_CopyCurLvl()
@@ -3145,4 +3166,30 @@ void MainWindow::on_actionRedo_triggered()
     }
     else
         info("backupFilePaths不含" + level_name);
+}
+
+void MainWindow::on_actionShowLevels_triggered(bool checked)
+{
+    if(checked)
+        ui->listWidget->show();
+    else
+        ui->listWidget->hide();
+}
+
+void MainWindow::on_actionShowVars_triggered(bool checked)
+{
+    if(checked)
+        ui->propertiesWidget->show();
+    else
+        ui->propertiesWidget->hide();
+}
+
+void MainWindow::on_listWidget_visibilityChanged(bool visible)
+{
+    ui->actionShowLevels->setChecked(visible);
+}
+
+void MainWindow::on_propertiesWidget_visibilityChanged(bool visible)
+{
+    ui->actionShowVars->setChecked(visible);
 }

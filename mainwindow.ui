@@ -97,8 +97,16 @@ background: rgb(28,77,120);
     <addaction name="actionUndo"/>
     <addaction name="actionRedo"/>
    </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>View</string>
+    </property>
+    <addaction name="actionShowLevels"/>
+    <addaction name="actionShowVars"/>
+   </widget>
    <addaction name="menuLevelEdit"/>
    <addaction name="menuEdit"/>
+   <addaction name="menuView"/>
   </widget>
   <widget class="QToolBar" name="mainToolBar">
    <attribute name="toolBarArea">
@@ -116,6 +124,12 @@ background: rgb(28,77,120);
      <height>0</height>
     </size>
    </property>
+   <property name="features">
+    <set>QDockWidget::AllDockWidgetFeatures</set>
+   </property>
+   <property name="windowTitle">
+    <string>变量管理</string>
+   </property>
    <attribute name="dockWidgetArea">
     <number>2</number>
    </attribute>
@@ -130,7 +144,7 @@ background: rgb(28,77,120);
         </size>
        </property>
        <attribute name="horizontalHeaderVisible">
-        <bool>false</bool>
+        <bool>true</bool>
        </attribute>
        <attribute name="verticalHeaderVisible">
         <bool>false</bool>
@@ -148,6 +162,11 @@ background: rgb(28,77,120);
        <column>
         <property name="text">
          <string>初始值</string>
+        </property>
+       </column>
+       <column>
+        <property name="text">
+         <string>关卡目标</string>
         </property>
        </column>
       </widget>
@@ -187,6 +206,15 @@ background: rgb(28,77,120);
    </widget>
   </widget>
   <widget class="QDockWidget" name="listWidget">
+   <property name="floating">
+    <bool>false</bool>
+   </property>
+   <property name="features">
+    <set>QDockWidget::AllDockWidgetFeatures</set>
+   </property>
+   <property name="windowTitle">
+    <string>关卡列表</string>
+   </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
    </attribute>
@@ -237,6 +265,22 @@ background: rgb(28,77,120);
    </property>
    <property name="shortcut">
     <string>Ctrl+Y</string>
+   </property>
+  </action>
+  <action name="actionShowLevels">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>关卡列表</string>
+   </property>
+  </action>
+  <action name="actionShowVars">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>变量管理</string>
    </property>
   </action>
  </widget>

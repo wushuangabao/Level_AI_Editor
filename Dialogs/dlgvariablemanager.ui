@@ -114,6 +114,13 @@ text-align: left;</string>
          </property>
         </spacer>
        </item>
+       <item>
+        <widget class="QCheckBox" name="checkBox">
+         <property name="text">
+          <string>是否为关卡目标</string>
+         </property>
+        </widget>
+       </item>
       </layout>
      </item>
     </layout>

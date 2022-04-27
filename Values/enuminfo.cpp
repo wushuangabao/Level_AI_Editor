@@ -1,7 +1,3 @@
-#include <QDir>
-#include <QCoreApplication>
-#include <QTextStream>
-#include "../ItemModels/enumdefine.h"
 #include "enuminfo.h"
 
 EnumInfo::~EnumInfo()

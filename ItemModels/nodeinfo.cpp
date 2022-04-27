@@ -103,9 +103,8 @@ void NodeInfo::FindAndSetNewNodePos(NodeInfo *&parent_node)
     }
 }
 
-NodeInfo *NodeInfo::addNewChildNode_SetVar(QString var_name, QString value_str, int id_var)
+NodeInfo *NodeInfo::addNewChildNode_SetVar(QString node_text, int id_var)
 {
-    QString node_text = var_name + " = " + value_str;
     if(type == SEQUENCE)
     {
         NodeInfo* new_node = new NodeInfo(this, SET_VAR, node_text);

@@ -46,8 +46,8 @@ void DlgConditionType::CreateCondition(NodeInfo* parent, QString default_s)
             break;
         }
 
-    m_dlgEditValueLeft->GetValuePointer()->SetLuaStr("nil");
-    m_dlgEditValueRight->GetValuePointer()->SetLuaStr("nil");
+    m_dlgEditValueLeft->GetValuePointer_Base()->SetLuaStr("nil");
+    m_dlgEditValueRight->GetValuePointer_Base()->SetLuaStr("nil");
     ui->btnText_1->setText(m_dlgEditValueLeft->GetValueText());
     ui->btnText_2->setText(m_dlgEditValueRight->GetValueText());
 
@@ -86,12 +86,12 @@ void DlgConditionType::ModifyCompareNode(NodeInfo *node)
 
 BaseValueClass *DlgConditionType::GetValue_Left()
 {
-    return m_dlgEditValueLeft->GetValuePointer();
+    return m_dlgEditValueLeft->GetValuePointer_Base();
 }
 
 BaseValueClass *DlgConditionType::GetValue_Right()
 {
-    return m_dlgEditValueRight->GetValuePointer();
+    return m_dlgEditValueRight->GetValuePointer_Base();
 }
 
 void DlgConditionType::on_comboBox_currentIndexChanged(int index)
@@ -186,11 +186,11 @@ void DlgConditionType::on_btnText_1_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueLeft->CreateValueForParentIfNode(node, m_dlgEditValueRight->GetValuePointer()->GetVarType()); //这里取的是另一边的变量类型
+        m_dlgEditValueLeft->CreateNewValueForParentNode(m_dlgEditValueRight->GetValuePointer_Base()->GetVarType(), node); //这里取的是另一边的变量类型
     }
     else // 修改Compare节点
     {
-        m_dlgEditValueLeft->ModifyValue(node, 1);
+        m_dlgEditValueLeft->ModifyValueOnNode(node, 1);
     }
 
     if(m_dlgEditValueLeft->IsAccepted())
@@ -201,11 +201,11 @@ void DlgConditionType::on_btnText_2_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
     {
-        m_dlgEditValueRight->CreateValueForParentIfNode(node, m_dlgEditValueLeft->GetValuePointer()->GetVarType()); //这里取的是另一边的变量类型
+        m_dlgEditValueRight->CreateNewValueForParentNode(m_dlgEditValueLeft->GetValuePointer_Base()->GetVarType(), node); //这里取的是另一边的变量类型
     }
     else // 修改Compare节点
     {
-        m_dlgEditValueRight->ModifyValue(node, 2);
+        m_dlgEditValueRight->ModifyValueOnNode(node, 2);
     }
 
     if(m_dlgEditValueRight->IsAccepted())
@@ -262,12 +262,15 @@ void DlgConditionType::initComparationValues(NodeInfo *node)
 
     if(node->type == COMPARE)
     {
-        BaseValueClass* value_left = vm->GetValueOnNode_Compare_Left(node);
-        BaseValueClass* value_right = vm->GetValueOnNode_Compare_Right(node);
+        CommonValueClass* value_left = vm->GetValueOnNode_Compare_Left(node);
+        CommonValueClass* value_right = vm->GetValueOnNode_Compare_Right(node);
+
+        // todo: 兼容 StructValueClass
+
         if(value_left != nullptr)
-            *(m_dlgEditValueLeft->GetValuePointer()) = *value_left;
+            *(m_dlgEditValueLeft->GetValuePointer_Base()) = *((BaseValueClass*)value_left);
         if(value_right != nullptr)
-            *(m_dlgEditValueRight->GetValuePointer()) = *value_right;
+            *(m_dlgEditValueRight->GetValuePointer_Base()) = *((BaseValueClass*)value_right);
     }
     else
     {
@@ -277,7 +280,7 @@ void DlgConditionType::initComparationValues(NodeInfo *node)
 
 bool DlgConditionType::checkCompareValuesType()
 {
-    if(BaseValueClass::AreSameVarType(GetValue_Left(), GetValue_Right()))
+    if(CommonValueClass::AreSameVarType(GetValue_Left(), GetValue_Right()))
         return true;
     else
     {

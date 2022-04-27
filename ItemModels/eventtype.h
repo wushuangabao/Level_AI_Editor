@@ -2,6 +2,7 @@
 #define EVENTTYPE_H
 
 #include <QVector>
+#include <QMap>
 
 class EventType
 {
@@ -31,12 +32,14 @@ public:
     }
 
     int GetIndexOf(const QString &event_id);
+    int GetIndexOfName(const QString &event_name);
 
     QStringList* GetEventParamsUIAt(int idx);
     QStringList* GetEventParamsLuaAt(int idx);
     QStringList* GetEventParamTypes(QStringList* params);
 
-//    QString GetLuaEventParamAt()
+    QStringList GetTagList();
+    bool CheckEventInTag(const QString &etype, const QString &tag);
 
 private:
     EventType();
@@ -46,6 +49,8 @@ private:
 
     void createFakeData();
     bool createDateByConfig(QString path);
+
+    void parseTags(QString str);
 
     // 参数名ui
     QVector<QStringList> paramNamesVector;
@@ -58,6 +63,9 @@ private:
     QVector<QString> eventTypeNameVector;
     // 事件名
     QStringList eventNameVector;
+
+    // 事件标签
+    QMap<QString, QStringList> eventTagMap;
 };
 
 #endif // EVENTTYPE_H

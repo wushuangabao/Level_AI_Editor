@@ -3,6 +3,10 @@
 
 #include <QStringList>
 #include <QMap>
+#include <QDir>
+#include <QCoreApplication>
+#include <QTextStream>
+#include "../ItemModels/enumdefine.h"
 
 class EnumInfo
 {

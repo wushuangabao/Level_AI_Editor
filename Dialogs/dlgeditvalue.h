@@ -4,12 +4,14 @@
 #include <QDialog>
 #include "../Values/valuemanager.h"
 
-const int FUNC_TEXT_NUM = 10;
+#define DEFINE_FUNCTION_ON_CLICKED(i) void onBtnParam##i##_clicked(){onBtnParam_clicked(i-1);}
+const int FUNC_TEXT_NUM = 30;
 
 class FunctionClass;
 class NodeInfo;
 class TreeItemModel;
 class QLabel;
+class DlgEditStructValue;
 
 namespace Ui {
 class DlgEditValue;
@@ -23,19 +25,23 @@ public:
     explicit DlgEditValue(QWidget *parent = 0);
     ~DlgEditValue();
 
-    void ModifyValue(NodeInfo* node, int node_type);
-    void ModifyInitVarValue(BaseValueClass* v, QString var_type);
-    void CreateValueForParentIfNode(NodeInfo* parent_node, const QString &var_type); //给CONDITION节点创建的Compare类型的子节点上的值
-    void CreateNewValue(const QString &var_type, NodeInfo *parent_node);
+    void ModifyValueOnNode(NodeInfo* node, int node_type);
+    void ModifyValue(CommonValueClass *v);
+    void ModifyInitVarValue(BaseValueClass* b_v, StructValueClass* s_v, QString var_type);
+    void CreateNewValueForParentNode(const QString &var_type, NodeInfo *parent_node);
 
     void ModifyCallNode(NodeInfo* function_node);
     void CreateCallNode();
     void SetUpforFunction();
 
     void SetModel(TreeItemModel* m);
+    inline void SetValueType(VALUE_TYPE vt){value_type = vt;}
 
+    void ResetNilValue();
     QString GetValueText();
-    BaseValueClass* GetValuePointer();
+    BaseValueClass *GetValuePointer_Base();
+    StructValueClass *GetValuePointer_Struct();
+    CommonValueClass *GetValuePointer_Common(bool *is_base_v = nullptr);
 
     bool IsAccepted();
 
@@ -55,16 +61,40 @@ private slots:
     void on_lineEdit_Func_textChanged(const QString &arg1);
 
     // 编辑函数的某个参数的值
-    void onBtnParam1_clicked();
-    void onBtnParam2_clicked();
-    void onBtnParam3_clicked();
-    void onBtnParam4_clicked();
-    void onBtnParam5_clicked();
-    void onBtnParam6_clicked();
-    void onBtnParam7_clicked();
-    void onBtnParam8_clicked();
-    void onBtnParam9_clicked();
-    void onBtnParam10_clicked();
+    DEFINE_FUNCTION_ON_CLICKED(1)
+    DEFINE_FUNCTION_ON_CLICKED(2)
+    DEFINE_FUNCTION_ON_CLICKED(3)
+    DEFINE_FUNCTION_ON_CLICKED(4)
+    DEFINE_FUNCTION_ON_CLICKED(5)
+    DEFINE_FUNCTION_ON_CLICKED(6)
+    DEFINE_FUNCTION_ON_CLICKED(7)
+    DEFINE_FUNCTION_ON_CLICKED(8)
+    DEFINE_FUNCTION_ON_CLICKED(9)
+    DEFINE_FUNCTION_ON_CLICKED(10)
+    DEFINE_FUNCTION_ON_CLICKED(11)
+    DEFINE_FUNCTION_ON_CLICKED(12)
+    DEFINE_FUNCTION_ON_CLICKED(13)
+    DEFINE_FUNCTION_ON_CLICKED(14)
+    DEFINE_FUNCTION_ON_CLICKED(15)
+    DEFINE_FUNCTION_ON_CLICKED(16)
+    DEFINE_FUNCTION_ON_CLICKED(17)
+    DEFINE_FUNCTION_ON_CLICKED(18)
+    DEFINE_FUNCTION_ON_CLICKED(19)
+    DEFINE_FUNCTION_ON_CLICKED(20)
+    DEFINE_FUNCTION_ON_CLICKED(21)
+    DEFINE_FUNCTION_ON_CLICKED(22)
+    DEFINE_FUNCTION_ON_CLICKED(23)
+    DEFINE_FUNCTION_ON_CLICKED(24)
+    DEFINE_FUNCTION_ON_CLICKED(25)
+    DEFINE_FUNCTION_ON_CLICKED(26)
+    DEFINE_FUNCTION_ON_CLICKED(27)
+    DEFINE_FUNCTION_ON_CLICKED(28)
+    DEFINE_FUNCTION_ON_CLICKED(29)
+    DEFINE_FUNCTION_ON_CLICKED(30)
+
+    void on_multiComboBox_Func_editTextChanged(const QString &arg1);
+
+    void on_btnEditStructValue_clicked();
 
 private:
     void initEvtParamComboBox();
@@ -74,10 +104,11 @@ private:
 
     void resetFuncComboBox();
 
-    void initUIforValue(const QString &var_type);
-    void initUI_SetInitvalue(BaseValueClass* v);
+    void initUIforValue(const QString &var_type, bool is_init_value = false);
 
-    void setValueAndUI(BaseValueClass* v);
+    void setValueAndUI_Common(CommonValueClass* v);
+    void setValueAndUI_Base(BaseValueClass* v);
+    void setValueAndUI_Struct(StructValueClass* v);
 
     void setUIVisible_Var(bool can_see);
     void setUIVisible_EvtParam(bool can_see);
@@ -85,6 +116,7 @@ private:
 
     void updateValueType();
 
+    void setFuncParamValue(int idx, CommonValueClass* v);
     void onBtnParam_clicked(int idx);
     void clearFuncTextUI();
     void updateFuncTextUI(FunctionClass* func);
@@ -102,14 +134,18 @@ private:
 
     NodeInfo* node;
     VALUE_TYPE value_type;
-    BaseValueClass* value;
     QString var_type;
+
+    BaseValueClass* value_base;
+    StructValueClass* value_struct;
 
     QVector<QPushButton*> funcParamBtns;
     QVector<QLabel*> funcTextLabels;
-    QVector<BaseValueClass*> funcParams;
+    QVector<CommonValueClass*> funcParams_Value;
 
     bool is_accepted;
+
+    DlgEditStructValue* dlgEditStruct;
 };
 
 #endif // DLGEDITVALUE_H

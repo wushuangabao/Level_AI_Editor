@@ -28,7 +28,7 @@ public:
 
     void CreateActionType(NodeInfo *seq_node);
     NODE_TYPE GetNodeTypeAndText(QString& node_text);
-    BaseValueClass* GetValue_SetVar();
+    CommonValueClass *GetValue_SetVar();
     BaseValueClass* GetValue_CallFunc();
 
 private slots:

@@ -10,7 +10,7 @@ class DlgSetVariable;
 class DlgEditValue;
 class TreeItemModel;
 class NodeInfo;
-class BaseValueClass;
+class CommonValueClass;
 
 class DlgSetVariable : public QDialog
 {
@@ -27,7 +27,7 @@ public:
 
     QString GetNodeText();
     QString GetValueName();
-    BaseValueClass* GetValuePointer();
+    CommonValueClass *GetValuePointer();
 
     bool IsAccepted();
 

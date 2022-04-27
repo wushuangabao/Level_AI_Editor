@@ -32,6 +32,15 @@ int EventType::GetIndexOf(const QString& event_id)
     return -1;
 }
 
+int EventType::GetIndexOfName(const QString &event_name)
+{
+    for(int i = 0; i < eventNameVector.size(); i++)
+        if(eventNameVector[i] == event_name)
+            return i;
+
+    return -1;
+}
+
 QStringList *EventType::GetEventParamsUIAt(int idx)
 {
     if(idx < 0 || idx >= paramNamesVector.size())
@@ -58,6 +67,32 @@ QStringList *EventType::GetEventParamTypes(QStringList *params)
     }
 
     return nullptr;
+}
+
+QStringList EventType::GetTagList()
+{
+    QStringList list;
+    list.clear();
+
+    QMap<QString, QStringList>::iterator i = eventTagMap.begin();
+    for(; i != eventTagMap.end(); ++i)
+    {
+        list.append(i.key());
+    }
+
+    return list;
+}
+
+bool EventType::CheckEventInTag(const QString &etype, const QString &tag)
+{
+    if(eventTagMap.contains(tag))
+    {
+        return eventTagMap[tag].contains(etype);
+    }
+    else
+    {
+        return false;
+    }
 }
 
 void EventType::InitEventTypes()
@@ -102,6 +137,7 @@ void EventType::ClearData()
     paramNamesVector.clear();
     eventTypeNameVector.clear();
     eventNameVector.clear();
+    eventTagMap.clear();
 }
 
 void EventType::createFakeData()
@@ -193,15 +229,15 @@ bool EventType::createDateByConfig(QString file_path)
         if(line.left(1) == "#")
             continue;
 
-        QStringList sl = line.split('\t', QString::SkipEmptyParts);
+        QStringList sl = line.split('\t');
         int n = sl.size();
-        if(n < 2)
+        if(n < 3)
             continue;
 
         QStringList params;
         QStringList types;
         QStringList lua;
-        for(int i = 2; i < n; i++)
+        for(int i = 3; i < n; i++)
         {
             QStringList pname_type = sl[i].split('|', QString::SkipEmptyParts);
             if(pname_type.size() == 3)
@@ -221,8 +257,31 @@ bool EventType::createDateByConfig(QString file_path)
         paramNamesVector << params;
         paramTypesVector << types;
         paramNameInLuaVector << lua;
+
+        parseTags(sl[2]);
     }
 
     file.close();
     return true;
+}
+
+void EventType::parseTags(QString str)
+{
+    QRegExp rx("(,|，)");
+    QStringList sl = str.split(rx, QString::SkipEmptyParts);
+    int n = sl.size();
+
+    for(int i = 0; i < n; i++)
+    {
+        sl[i].remove(' ');
+        if(sl[i] == "")
+            continue;
+        if(!eventTagMap.contains(sl[i]))
+        {
+            QStringList v;
+            v.clear();
+            eventTagMap.insert(sl[i], v);
+        }
+        eventTagMap[sl[i]].append(eventTypeNameVector.last());
+    }
 }

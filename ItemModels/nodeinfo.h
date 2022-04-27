@@ -19,7 +19,7 @@ public:
 
     // new 一个新的 NodeInfo
     void FindAndSetNewNodePos(NodeInfo* &parent_node); //找到选择当前节点添加新的动作节点时，实际应该往哪个parent_node的childs中添加节点
-    NodeInfo* addNewChildNode_SetVar(QString var_name, QString value_str, int id_var);
+    NodeInfo* addNewChildNode_SetVar(QString node_text, int id_var);
     NodeInfo* addNewChild(NODE_TYPE eType, QString str_data);
     NodeInfo* addNewChild_Compare(QString compare_type, QString left_value, QString right_value);
     NodeInfo* addNewChild(NodeInfo* chid_node, int pos = -1); // new一个新的节点，新节点的数据复制chid_node

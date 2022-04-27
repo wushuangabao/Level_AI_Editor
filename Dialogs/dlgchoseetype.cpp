@@ -1,3 +1,5 @@
+#include "../ItemModels/eventtype.h"
+#include "multiselectcombobox.h"
 #include "dlgchoseetype.h"
 #include "ui_dlgchoseetype.h"
 
@@ -6,6 +8,9 @@ DlgChoseEType::DlgChoseEType(QWidget *parent) :
     ui(new Ui::DlgChoseEType)
 {
     ui->setupUi(this);
+
+    ui->multiComboBox->addItems(EventType::GetInstance()->GetTagList());
+    ui->multiComboBox->stateChange(0);
 
     // 禁用右上角关闭按钮
 //    setWindowFlag(Qt::WindowCloseButtonHint, false);
@@ -22,6 +27,8 @@ void DlgChoseEType::CreateNewEvent()
 
     ui->label->setText("事件类型：");
     ui->label->setVisible(true);
+    ui->multiComboBox->setVisible(true);
+    ui->multiComboBox->ResetSelection();
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText("");
@@ -31,7 +38,7 @@ void DlgChoseEType::CreateNewEvent()
     ui->label_name->setVisible(true);
 
     ui->comboBox->clear();
-    ui->comboBox->addItems(EventType::GetInstance()->GetEventTypeList());
+    resetETypeComboBox();
     ui->comboBox->setVisible(true);
     ui->comboBox->setEnabled(true);
 
@@ -47,6 +54,7 @@ void DlgChoseEType::EditEventName(QString name)
     setWindowTitle("编辑事件名称");
 
     ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
@@ -68,6 +76,7 @@ void DlgChoseEType::CreateNewCustomSeq()
     setWindowTitle("新建动作序列");
 
     ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText("");
@@ -89,6 +98,7 @@ void DlgChoseEType::EditCustomSeqName(QString name)
     setWindowTitle("编辑动作名称");
 
     ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
@@ -110,6 +120,7 @@ void DlgChoseEType::EditLevelName(const QString& name)
     setWindowTitle("编辑关卡名称");
 
     ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
@@ -131,6 +142,7 @@ void DlgChoseEType::EditLevelPrefix(const QString &name)
     setWindowTitle("关卡文件的前缀");
 
     ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(true);
     ui->lineEdit->setText(name);
@@ -153,6 +165,7 @@ int DlgChoseEType::ChoseCustActSeqNameIn(QStringList names)
 
     ui->label->setText("动作名称：");
     ui->label->setVisible(true);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(false);
     ui->label_name->setVisible(false);
@@ -179,6 +192,7 @@ int DlgChoseEType::ChoseEventNameIn(QStringList enames)
 
     ui->label->setText("事件名称：");
     ui->label->setVisible(true);
+    ui->multiComboBox->setVisible(false);
 
     ui->lineEdit->setVisible(false);
     ui->label_name->setVisible(false);
@@ -205,12 +219,14 @@ void DlgChoseEType::EditEventType()
 
     ui->label->setText("事件类型：");
     ui->label->setVisible(true);
+    ui->multiComboBox->setVisible(true);
+    ui->multiComboBox->ResetSelection();
 
     ui->lineEdit->setVisible(false);
     ui->label_name->setVisible(false);
 
     ui->comboBox->clear();
-    ui->comboBox->addItems(EventType::GetInstance()->GetEventTypeList());
+    resetETypeComboBox();
     ui->comboBox->setCurrentIndex(0);
     ui->comboBox->setVisible(true);
 
@@ -242,8 +258,64 @@ void DlgChoseEType::on_comboBox_currentIndexChanged(int id)
 {
     Q_UNUSED(id);
     text = ui->comboBox->currentText();
-    if(text == "---" || text == "")
-        index = -1;
+    if(ui->multiComboBox->isVisible() == false)
+    {
+        if(text == "---" || text == "")
+            index = -1;
+        else
+            index = ui->comboBox->currentIndex();
+    }
     else
-        index = ui->comboBox->currentIndex();
+    {
+        index = EventType::GetInstance()->GetIndexOfName(text);
+    }
+}
+
+void DlgChoseEType::on_multiComboBox_editTextChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1);
+    resetETypeComboBox();
+}
+
+void DlgChoseEType::resetETypeComboBox()
+{
+    EventType* events = EventType::GetInstance();
+    QStringList etypes = events->GetEventTypeList();
+    QStringList items;
+    QStringList tags = ui->multiComboBox->currentText();
+
+    int n = etypes.size();
+    for(int i = 0; i < n; i++)
+    {
+        bool ok = false;
+
+        // 过滤标签
+        int tags_n = tags.size();
+        if(!(tags_n == 1 && tags[0] == "All"))
+        {
+            for(int j = 0; j < tags_n; j++)
+            {
+                if(events->CheckEventInTag(events->GetEventLuaType(i), tags[j]))
+                {
+                    ok = true;
+                    break;
+                }
+            }
+        }
+        else
+            ok = true;
+
+        if(ok)
+        {
+            items.push_back(events->GetEventNameAt(i));
+        }
+    }
+
+    disconnect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_currentIndexChanged(int)));
+    ui->comboBox->clear();
+    ui->comboBox->addItems(items);
+    connect(ui->comboBox, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_currentIndexChanged(int)));
+
+    ui->comboBox->setCurrentIndex(0);
+    on_comboBox_currentIndexChanged(0);
 }

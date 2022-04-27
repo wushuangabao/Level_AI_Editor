@@ -1,9 +1,11 @@
 #include <QPushButton>
 #include "../Values/enuminfo.h"
+#include "../Values/structinfo.h"
 #include "../ItemModels/nodeinfo.h"
 #include "../ItemModels/treeitemmodel.h"
 #include "../ItemModels/functioninfo.h"
-#include "dlgvariablemanager.h"
+#include "multiselectcombobox.h"
+#include "dlgeditstructvalue.h"
 #include "dlgeditvalue.h"
 #include "ui_dlgeditvalue.h"
 
@@ -16,7 +18,8 @@ DlgEditValue::DlgEditValue(QWidget *parent) :
     model = nullptr;
     node = nullptr;
     is_for_function = false;
-    value = new BaseValueClass("nil");
+    value_base = new BaseValueClass("nil");
+    value_struct = nullptr;
     is_accepted = false;
 
 //    qDebug() << "Create DlgEditValue at" << (uintptr_t)this << endl;
@@ -41,7 +44,7 @@ DlgEditValue::DlgEditValue(QWidget *parent) :
 
         funcParamBtns.append(btnParam);
         funcTextLabels.append(lblText);
-        funcParams.append(new BaseValueClass("nil"));
+        funcParams_Value.append(new BaseValueClass("nil"));
     }
     ui->functionLayout->addStretch();
 
@@ -55,6 +58,31 @@ DlgEditValue::DlgEditValue(QWidget *parent) :
     connect(funcParamBtns[7], SIGNAL(clicked()), this, SLOT(onBtnParam8_clicked()));
     connect(funcParamBtns[8], SIGNAL(clicked()), this, SLOT(onBtnParam9_clicked()));
     connect(funcParamBtns[9], SIGNAL(clicked()), this, SLOT(onBtnParam10_clicked()));
+    connect(funcParamBtns[10], SIGNAL(clicked()), this, SLOT(onBtnParam11_clicked()));
+    connect(funcParamBtns[11], SIGNAL(clicked()), this, SLOT(onBtnParam12_clicked()));
+    connect(funcParamBtns[12], SIGNAL(clicked()), this, SLOT(onBtnParam13_clicked()));
+    connect(funcParamBtns[13], SIGNAL(clicked()), this, SLOT(onBtnParam14_clicked()));
+    connect(funcParamBtns[14], SIGNAL(clicked()), this, SLOT(onBtnParam15_clicked()));
+    connect(funcParamBtns[15], SIGNAL(clicked()), this, SLOT(onBtnParam16_clicked()));
+    connect(funcParamBtns[16], SIGNAL(clicked()), this, SLOT(onBtnParam17_clicked()));
+    connect(funcParamBtns[17], SIGNAL(clicked()), this, SLOT(onBtnParam18_clicked()));
+    connect(funcParamBtns[18], SIGNAL(clicked()), this, SLOT(onBtnParam19_clicked()));
+    connect(funcParamBtns[19], SIGNAL(clicked()), this, SLOT(onBtnParam20_clicked()));
+    connect(funcParamBtns[20], SIGNAL(clicked()), this, SLOT(onBtnParam21_clicked()));
+    connect(funcParamBtns[21], SIGNAL(clicked()), this, SLOT(onBtnParam22_clicked()));
+    connect(funcParamBtns[22], SIGNAL(clicked()), this, SLOT(onBtnParam23_clicked()));
+    connect(funcParamBtns[23], SIGNAL(clicked()), this, SLOT(onBtnParam24_clicked()));
+    connect(funcParamBtns[24], SIGNAL(clicked()), this, SLOT(onBtnParam25_clicked()));
+    connect(funcParamBtns[25], SIGNAL(clicked()), this, SLOT(onBtnParam26_clicked()));
+    connect(funcParamBtns[26], SIGNAL(clicked()), this, SLOT(onBtnParam27_clicked()));
+    connect(funcParamBtns[27], SIGNAL(clicked()), this, SLOT(onBtnParam28_clicked()));
+    connect(funcParamBtns[28], SIGNAL(clicked()), this, SLOT(onBtnParam29_clicked()));
+    connect(funcParamBtns[29], SIGNAL(clicked()), this, SLOT(onBtnParam30_clicked()));
+
+    ui->multiComboBox_Func->addItems(FunctionInfo::GetInstance()->GetTagList());
+    ui->multiComboBox_Func->stateChange(0);
+
+    dlgEditStruct = new DlgEditStructValue(this);
 }
 
 DlgEditValue::~DlgEditValue()
@@ -65,18 +93,26 @@ DlgEditValue::~DlgEditValue()
     {
         delete funcParamBtns[i];
         delete funcTextLabels[i];
-        delete funcParams[i];
+        delete funcParams_Value[i];
     }
     funcParamBtns.clear();
     funcTextLabels.clear();
-    funcParams.clear();
+    funcParams_Value.clear();
 
-    delete value;
-    value = nullptr;
+    if(value_base != nullptr)
+    {
+        delete value_base;
+        value_base = nullptr;
+    }
+    if(value_struct != nullptr)
+    {
+        delete value_struct;
+        value_struct = nullptr;
+    }
     delete ui;
 }
 
-void DlgEditValue::ModifyValue(NodeInfo *node, int value_position)
+void DlgEditValue::ModifyValueOnNode(NodeInfo *node, int value_position)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(model != nullptr);
@@ -84,7 +120,7 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int value_position)
     this->node = node;
 
     // 初始化value
-    BaseValueClass* v = nullptr;
+    CommonValueClass* v = nullptr;
     QString var_type = "";
     if(value_position == 0)
     {
@@ -114,7 +150,7 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int value_position)
     if(v != nullptr)
     {
         initUIforValue(var_type);
-        setValueAndUI(v);
+        setValueAndUI_Common(v);
     }
     else
         info("Modify Value 找不到编辑的值！");
@@ -122,69 +158,90 @@ void DlgEditValue::ModifyValue(NodeInfo *node, int value_position)
     this->exec();
 }
 
-void DlgEditValue::ModifyInitVarValue(BaseValueClass *v, QString var_type)
+void DlgEditValue::ModifyValue(CommonValueClass *v)
 {
     MY_ASSERT(model != nullptr);
+    MY_ASSERT(v != nullptr);
+    this->node = nullptr;
+    initUIforValue(v->GetVarType());
+
+    setValueAndUI_Common(v);
+
+    value_base->SetVarType(var_type);
+    this->exec();
+}
+
+void DlgEditValue::ModifyInitVarValue(BaseValueClass *b_v, StructValueClass *s_v, QString var_type)
+{
+    MY_ASSERT(model != nullptr);
+    MY_ASSERT(b_v != nullptr);
+    MY_ASSERT(s_v != nullptr);
     node = nullptr;
 
-    is_for_function = false;
-    this->var_type = var_type;
+    if(var_type != "" && var_type != b_v->GetVarType())
+        b_v->ClearData();
 
-    if(var_type != "")
-        setWindowTitle("设置变量初始值");
-    else
+    initUIforValue(var_type, true);
+    setValueAndUI_Base(b_v);
+
+    if(StructInfo::GetInstance()->CheckIsStruct(var_type))
     {
-        setWindowTitle("设置" + var_type + "初始值");
-        if(var_type != v->GetVarType())
-        {
-            v->ClearData();
-        }
+        if(s_v->GetVarType() != var_type)
+            s_v->SetVarType(var_type);
+        setValueAndUI_Struct(s_v);
     }
 
-    initVariableComboBox();
-    initPresetComboBox();
-    initFunctionComboBox();
-
-    initUI_SetInitvalue(v);
     this->exec();
 }
 
-void DlgEditValue::CreateValueForParentIfNode(NodeInfo *parent_node, const QString &var_type)
-{
-    MY_ASSERT(model != nullptr);
-    node = parent_node;
-
-    initUIforValue(var_type); //还未确定值的变量类型是""
-    this->exec();
-}
-
-void DlgEditValue::CreateNewValue(const QString& var_type, NodeInfo* p_node)
+void DlgEditValue::CreateNewValueForParentNode(const QString& var_type, NodeInfo* p_node)
 {
     MY_ASSERT(model != nullptr);
     node = p_node;
 
-    value->SetLuaStr("nil");
-    value->SetVarType(var_type);
+    value_base->SetLuaStr("nil");
+    value_base->SetVarType(var_type);
+    if(value_struct == nullptr)
+        value_struct = new StructValueClass();
+    if(StructInfo::GetInstance()->CheckIsStruct(var_type))
+        value_struct->SetVarType(var_type);
 
     initUIforValue(var_type);
     this->exec();
 }
 
-void DlgEditValue::initUIforValue(const QString &var_type)
+void DlgEditValue::initUIforValue(const QString &var_type, bool is_init_value)
 {
     MY_ASSERT(model != nullptr);
 
     is_for_function = false;
     this->var_type = var_type;
 
-    if(var_type != "")
-        setWindowTitle("设置：" + var_type);
+    setUIVisible_EvtParam(!is_init_value);
+    setUIVisible_Var(!is_init_value);
+    if(is_init_value)
+    {
+        if(var_type == "")
+            setWindowTitle("设置变量初始值");
+        else
+            setWindowTitle("设置" + var_type + "初始值");
+    }
     else
-        setWindowTitle("设置：Value");
+    {
+        if(var_type != "")
+            setWindowTitle("设置：" + var_type);
+        else
+            setWindowTitle("设置：Value");
+        initEvtParamComboBox();
+        initVariableComboBox();
+    }
 
-    initEvtParamComboBox();
-    initVariableComboBox();
-    initPresetComboBox();
+    bool is_struct = StructInfo::GetInstance()->CheckIsStruct(var_type);
+    setUIVisible_Enum(!is_struct);
+    if(!is_struct)
+        initPresetComboBox();
+    ui->btnEditStructValue->setVisible(is_struct);
+
     initFunctionComboBox();
 
     if(ui->radioEvtParam->isEnabled())
@@ -201,15 +258,12 @@ void DlgEditValue::initUIforValue(const QString &var_type)
     updateValueType();
 }
 
-void DlgEditValue::initUI_SetInitvalue(BaseValueClass *v)
+void DlgEditValue::setValueAndUI_Common(CommonValueClass *v)
 {
-    setUIVisible_EvtParam(false);
-    setUIVisible_Var(false);
-
-    if(v != nullptr)
-    {
-        setValueAndUI(v);
-    }
+    if(v->GetValueType() < VT_TABLE)
+        setValueAndUI_Base((BaseValueClass*)v);
+    else
+        setValueAndUI_Struct((StructValueClass*)v);
 }
 
 void DlgEditValue::SetUpforFunction()
@@ -263,18 +317,21 @@ void DlgEditValue::updateFuncTextUI(FunctionClass* func)
 
 void DlgEditValue::setUIVisible_Var(bool can_see)
 {
+    ui->radioVariable->setEnabled(can_see);
     ui->radioVariable->setVisible(can_see);
     ui->comboBox_Var->setVisible(can_see);
 }
 
 void DlgEditValue::setUIVisible_EvtParam(bool can_see)
 {
+    ui->radioEvtParam->setEnabled(can_see);
     ui->radioEvtParam->setVisible(can_see);
     ui->comboBox_EvtParam->setVisible(can_see);
 }
 
 void DlgEditValue::setUIVisible_Enum(bool can_see)
 {
+    ui->radioPreset->setEnabled(can_see);
     ui->radioPreset->setVisible(can_see);
     ui->comboBox_Enum->setVisible(can_see);
 }
@@ -284,13 +341,34 @@ void DlgEditValue::updateValueType()
     if(ui->radioEvtParam->isChecked())
         value_type = VT_PARAM;
     else if(ui->radioCustom->isChecked())
-        value_type = VT_STR;
+    {
+        if(StructInfo::GetInstance()->CheckIsStruct(var_type))
+        {
+            QString line = ui->lineEdit->text();
+            line.replace(" ", "");
+            if(line == "nil" || (line.size() >= 2 && line.at(0) == '{'))
+                value_type = VT_TABLE;
+            else
+                value_type = VT_STR;
+        }
+        else
+            value_type = VT_STR;
+    }
     else if(ui->radioPreset->isChecked())
         value_type = VT_ENUM;
     else if(ui->radioVariable->isChecked())
         value_type = VT_VAR;
     else if(ui->radioFunction->isChecked())
         value_type = VT_FUNC;
+}
+
+void DlgEditValue::setFuncParamValue(int idx, CommonValueClass *v)
+{
+    delete funcParams_Value[idx];
+    if(v->GetValueType() < VT_TABLE)
+        funcParams_Value[idx] = new BaseValueClass((BaseValueClass*)v);
+    else if(v->GetValueType() == VT_TABLE)
+        funcParams_Value[idx] = new StructValueClass((StructValueClass*)v);
 }
 
 void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
@@ -307,14 +385,14 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     {
         value_type = v->GetValueType();
         MY_ASSERT(value_type == VT_FUNC || value_type == VT_STR);
-        setValueAndUI(v);
+        setValueAndUI_Base(v);
     }
     else
     {
         value_type = VT_FUNC;
         ui->comboBoxFunction->setCurrentIndex(0);
         on_comboBoxFunction_currentIndexChanged(0);
-        value->SetFunction(getFunctionInfoByUI());
+        value_base->SetFunction(getFunctionInfoByUI());
     }
 
     this->exec();
@@ -330,7 +408,7 @@ void DlgEditValue::CreateCallNode()
     ui->comboBoxFunction->setCurrentIndex(0);
     on_comboBoxFunction_currentIndexChanged(0);
 
-    value->SetFunction(getFunctionInfoByUI());
+    value_base->SetFunction(getFunctionInfoByUI());
 
     this->exec();
 }
@@ -342,14 +420,51 @@ void DlgEditValue::SetModel(TreeItemModel *m)
     model = m;
 }
 
-QString DlgEditValue::GetValueText()
+void DlgEditValue::ResetNilValue()
 {
-    return value->GetText();
+    if(value_struct != nullptr)
+    {
+        delete value_struct;
+        value_struct = nullptr;
+    }
+    value_base->ClearData();
+    setValueAndUI_Base(value_base);
 }
 
-BaseValueClass* DlgEditValue::GetValuePointer()
+QString DlgEditValue::GetValueText()
 {
-    return value;
+    if(value_type < VT_TABLE)
+        return value_base->GetText();
+    else if(value_type == VT_TABLE)
+        return value_struct->GetText();
+}
+
+BaseValueClass *DlgEditValue::GetValuePointer_Base()
+{
+    return value_base;
+}
+
+StructValueClass *DlgEditValue::GetValuePointer_Struct()
+{
+    if(value_struct == nullptr)
+        value_struct = new StructValueClass();
+    return value_struct;
+}
+
+CommonValueClass *DlgEditValue::GetValuePointer_Common(bool* is_base_v)
+{
+    if(value_type == VT_TABLE)
+    {
+        if(is_base_v != nullptr)
+            *is_base_v = false;
+        return value_struct;
+    }
+    else
+    {
+        if(is_base_v != nullptr)
+            *is_base_v = true;
+        return value_base;
+    }
 }
 
 bool DlgEditValue::IsAccepted()
@@ -376,7 +491,7 @@ void DlgEditValue::on_DlgEditValue_accepted()
         }
         else
         {
-            value->SetFunction(func);
+            value_base->SetFunction(func);
             // 将funcParams中的参数值赋值给value的params成员
             int n = func->GetParamNum();
             if(n > 0)
@@ -386,17 +501,17 @@ void DlgEditValue::on_DlgEditValue_accepted()
                     dlg_param_id++; //因为这种情况下UI的idx比实际参数的idx多1
                 for(int i = 0; i < n; i++)
                 {
-                    value->SetParamAt(i, funcParams[dlg_param_id]);
+                    value_base->SetParamAt(i, funcParams_Value[dlg_param_id]);
                     dlg_param_id++;
                 }
             }
-            MY_ASSERT(value->GetFunctionParamsNum() == func->GetParamNum());
+            MY_ASSERT(value_base->GetFunctionParamsNum() == func->GetParamNum());
         }
     }
         break;
     case VT_STR:
     {
-        value->SetLuaStr(ui->lineEdit->text());
+        value_base->SetLuaStr(ui->lineEdit->text());
     }
         break;
     case VT_VAR:
@@ -407,7 +522,7 @@ void DlgEditValue::on_DlgEditValue_accepted()
         if(i != -1)
         {
             QString var_type = vm->GetVarTypeAt(i);
-            value->SetVarName(v_name, var_type, i);
+            value_base->SetVarName(v_name, var_type, i);
         }
     }
         break;
@@ -425,16 +540,21 @@ void DlgEditValue::on_DlgEditValue_accepted()
         QStringList* params_types = EventType::GetInstance()->GetEventParamTypes(event_params);
         if(id != -1 && lua != nullptr && lua->size() > id && params_types != nullptr && params_types->size() > id)
         {
-            value->SetEvtParam(QString(lua->at(id)), str, QString(params_types->at(id)));
+            value_base->SetEvtParam(QString(lua->at(id)), str, QString(params_types->at(id)));
         }
     }
         break;
     case VT_ENUM:
     {
         QString str = ui->comboBox_Enum->currentText();
-        if(value->GetVarType() == "")
-            value->SetVarType(var_type);
-        value->SetEnumValue(str);
+        if(value_base->GetVarType() == "")
+            value_base->SetVarType(var_type);
+        value_base->SetEnumValue(str);
+    }
+        break;
+    case VT_TABLE:
+    {
+        // 什么也不做，让调用方判断IsAccepted之后自己取value_struct的值
     }
         break;
     default:
@@ -448,8 +568,8 @@ void DlgEditValue::on_DlgEditValue_accepted()
         MY_ASSERT(node->type == FUNCTION);
         if(value_type == VT_FUNC || value_type == VT_STR)
         {
-            model->GetValueManager()->UpdateValueOnNode_Function(node, value);
-            node->text = value->GetText();
+            model->GetValueManager()->UpdateValueOnNode_Function(node, value_base);
+            node->text = value_base->GetText();
         }
         else
             info("错误的值类型");
@@ -458,8 +578,8 @@ void DlgEditValue::on_DlgEditValue_accepted()
     // 将funcParams还原为初始值
     for(int i = 0; i < FUNC_TEXT_NUM; i++)
     {
-        funcParams[i]->ClearData();
-        funcParams[i]->SetLuaStr("nil");
+        delete funcParams_Value[i];
+        funcParams_Value[i] = new BaseValueClass("nil");
     }
 
     is_accepted = true;
@@ -500,7 +620,7 @@ void DlgEditValue::initVariableComboBox()
     int n = v_list.size();
     for(int i = 0; i < n; i++)
     {
-        if(vm->GetVarTypeOf(v_list[i]) == var_type || var_type == "")
+        if(var_type == "" || vm->GetVarTypeOf(v_list[i]) == var_type)
             items.append(QString(v_list.at(i)));
     }
     if(items.size() <= 0)
@@ -553,7 +673,7 @@ void DlgEditValue::resetFuncComboBox()
     connect(ui->comboBoxFunction, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBoxFunction_currentIndexChanged(int)));
 
     FunctionInfo* functions = FunctionInfo::GetInstance();
-    int n = functions->infoList.size();
+    int n = functions->GetFunctionInfoCount();
     if(n <= 0)
     {
         info("没有读取到任何函数信息！");
@@ -563,10 +683,11 @@ void DlgEditValue::resetFuncComboBox()
     vectorFunctionInfo.clear();
     QStringList items;
     QStringList filters = ui->lineEdit_Func->text().split(' ', QString::SkipEmptyParts);
+    QStringList tags = ui->multiComboBox_Func->currentText();
 
     for(int i = 0; i < n; i++)
     {
-        FunctionClass* func = &(functions->infoList[i]);
+        FunctionClass* func = functions->GetFunctionInfoAt(i);
         // 编辑 value 节点时，只添加 特定类型返回值 的函数
         // 这就导致 infoList 中函数和 comboBoxFunction 中的函数名不是一一对应的了
         // 所以这里添加函数名时，要记录一下两者的对应关系
@@ -576,14 +697,37 @@ void DlgEditValue::resetFuncComboBox()
             continue;
         if(var_type != "" && func->GetReturnTypeAt(0) != var_type)
             continue;
+
+        // 过滤函数名
         QString func_name = func->GetNameUI();
         bool ok = true;
         for(int j = 0; j < filters.size(); j++)
         {
             if(!func_name.contains(filters[j]))
+            {
                 ok = false;
+                break;
+            }
         }
-        if(ok)
+
+        // 过滤标签
+        int tags_n = tags.size();
+        bool ok_tag = false;
+        if(!(tags_n == 1 && tags[0] == "All"))
+        {
+            for(int j = 0; j < tags_n; j++)
+            {
+                if(FunctionInfo::GetInstance()->CheckFunctionInTag(func, tags[j]))
+                {
+                    ok_tag = true;
+                    break;
+                }
+            }
+        }
+        else
+            ok_tag = true;
+
+        if(ok && ok_tag)
         {
             vectorFunctionInfo.push_back(i);
             items.push_back(func_name);
@@ -627,34 +771,36 @@ void DlgEditValue::addFuncText(QLabel *lbl, FunctionClass *func, int text_id)
 
 void DlgEditValue::modifyUIParamValue(int idx)
 {
-    DlgEditValue* dlg = new DlgEditValue();
-    dlg->SetModel(model);
-    dlg->node = node;
-
     FunctionClass* func = getFunctionInfoByUI();
     if(func == nullptr)
     {
-        delete dlg;
         MY_ASSERT(func != nullptr);
         return;
     }
 
+    QString param_type;
+    if(!func->param_is_before_text)
+        param_type = func->GetParamTypeAt(idx - 1); //因为这种情况下UI的idx比实际参数的idx多1
+    else
+        param_type = func->GetParamTypeAt(idx);
+
+    DlgEditValue* dlg = new DlgEditValue();
+    dlg->SetModel(model);
+    dlg->node = node;
     QPoint widget_pos = this->mapToGlobal(QPoint(0, 0));
     dlg->move(widget_pos.x() + 5, widget_pos.y() + 5);
+    dlg->setWindowTitle("设置：" + param_type);
 
-    int param_id = idx;
-    if(!func->param_is_before_text)
-        param_id--; //因为这种情况下UI的idx比实际参数的idx多1
-    dlg->setWindowTitle("设置：" + func->GetParamTypeAt(param_id));
-
-    BaseValueClass* param = funcParams[idx];
-    param->SetVarType(func->GetParamTypeAt(param_id));
-    *(dlg->value) = *param;
-    dlg->initUIforValue(func->GetParamTypeAt(param_id));
-    dlg->setValueAndUI(param);
+    CommonValueClass* param = funcParams_Value[idx];
+    dlg->initUIforValue(param_type);
+    dlg->ResetNilValue();
+    dlg->setValueAndUI_Common(param);
     dlg->exec();
-    *(funcParams[idx]) = *(dlg->GetValuePointer());
-
+    if(dlg->IsAccepted())
+    {
+        setFuncParamValue(idx, dlg->GetValuePointer_Common());
+        funcParamBtns[idx]->setText(funcParams_Value[idx]->GetText());
+    }
     delete dlg;
 }
 
@@ -663,18 +809,18 @@ FunctionClass *DlgEditValue::getFunctionInfoByUI()
     int idx = ui->comboBoxFunction->currentIndex();
     if(idx < 0)
         return nullptr;
-    return &(FunctionInfo::GetInstance()->infoList[vectorFunctionInfo[idx]]);
+    return FunctionInfo::GetInstance()->GetFunctionInfoAt(vectorFunctionInfo[idx]);
 }
 
 int DlgEditValue::findComboBoxFuncId(FunctionClass* f)
 {
     FunctionInfo* functions = FunctionInfo::GetInstance();
-    int n = functions->infoList.size();
+    int n = functions->GetFunctionInfoCount();
     if(n > 0)
     {
         for(int i = 0; i < vectorFunctionInfo.size(); i++)
         {
-            if( &(functions->infoList[vectorFunctionInfo[i]]) == f)
+            if( functions->GetFunctionInfoAt(vectorFunctionInfo[i]) == f)
             {
                 return i;
             }
@@ -706,22 +852,20 @@ void DlgEditValue::onBtnParam_clicked(int idx)
     MY_ASSERT(idx >= 0);
 
     modifyUIParamValue(idx);
-
-    QString param_text = funcParams[idx]->GetText();
-    funcParamBtns[idx]->setText(param_text);
 }
 
 void DlgEditValue::clearFuncTextUI()
 {
     for(int i = 0; i < FUNC_TEXT_NUM; i++)
     {
-        funcParams[i]->ClearData();
+        delete funcParams_Value[i];
+        funcParams_Value[i] = new BaseValueClass("nil");
         funcParamBtns[i]->setVisible(false);
         funcTextLabels[i]->setVisible(false);
     }
 }
 
-void DlgEditValue::setValueAndUI(BaseValueClass *v)
+void DlgEditValue::setValueAndUI_Base(BaseValueClass *v)
 {
     value_type = v->GetValueType();
     switch (value_type) {
@@ -766,11 +910,11 @@ void DlgEditValue::setValueAndUI(BaseValueClass *v)
                 int param_num = func->GetParamNum();
                 for(int i = 0; i < param_num; i++)
                 {
-                    BaseValueClass* param = v->GetFunctionParamAt(i);
+                    CommonValueClass* param = v->GetFunctionParamAt(i);
                     int id_ui = i;
                     if(!func->param_is_before_text)
                         id_ui++; //这种情况下UI的idx比实际参数的idx多1
-                    *(funcParams[id_ui]) = *param;
+                    setFuncParamValue(id_ui, param);
                     funcParamBtns[id_ui]->setText(param->GetText());
                 }
             }
@@ -815,53 +959,30 @@ void DlgEditValue::setValueAndUI(BaseValueClass *v)
             info("ComboBox_EvtParam里找不到这个值中包含的参数！");
     }
         break;
+    case VT_TABLE:
+    {
+        info("setValueAndUI类型错误");
+        return;
+    }
     default:
         info("未知的值类型！");
         break;
     }
 
-    *value = *v;
+    *value_base = *v;
 }
 
-void DlgEditValue::onBtnParam1_clicked()
+void DlgEditValue::setValueAndUI_Struct(StructValueClass *v)
 {
-    onBtnParam_clicked(0);
-}
-void DlgEditValue::onBtnParam2_clicked()
-{
-    onBtnParam_clicked(1);
-}
-void DlgEditValue::onBtnParam3_clicked()
-{
-    onBtnParam_clicked(2);
-}
-void DlgEditValue::onBtnParam4_clicked()
-{
-    onBtnParam_clicked(3);
-}
-void DlgEditValue::onBtnParam5_clicked()
-{
-    onBtnParam_clicked(4);
-}
-void DlgEditValue::onBtnParam6_clicked()
-{
-    onBtnParam_clicked(5);
-}
-void DlgEditValue::onBtnParam7_clicked()
-{
-    onBtnParam_clicked(6);
-}
-void DlgEditValue::onBtnParam8_clicked()
-{
-    onBtnParam_clicked(7);
-}
-void DlgEditValue::onBtnParam9_clicked()
-{
-    onBtnParam_clicked(8);
-}
-void DlgEditValue::onBtnParam10_clicked()
-{
-    onBtnParam_clicked(9);
+    MY_ASSERT(v->GetValueType() == VT_TABLE);
+
+    ui->lineEdit->setText(v->GetLuaValueString());
+    ui->radioCustom->setChecked(true);
+
+    if(value_struct == nullptr)
+        value_struct = new StructValueClass(v);
+    else
+        *value_struct = *v;
 }
 
 void DlgEditValue::initEvtParamComboBox()
@@ -929,4 +1050,27 @@ void DlgEditValue::on_lineEdit_Func_textChanged(const QString &arg1)
 void DlgEditValue::on_DlgEditValue_rejected()
 {
     is_accepted = false;
+}
+
+void DlgEditValue::on_multiComboBox_Func_editTextChanged(const QString &arg1)
+{
+    Q_UNUSED(arg1);
+    resetFuncComboBox();
+}
+
+void DlgEditValue::on_btnEditStructValue_clicked()
+{
+    dlgEditStruct->SetModelAndNode(model, node);
+    dlgEditStruct->setWindowTitle("设置：" + var_type);
+
+    if(value_struct == nullptr)
+        value_struct = new StructValueClass();
+    value_struct->SetVarType(var_type);
+    dlgEditStruct->EditStructValue(value_struct);
+
+    if(dlgEditStruct->CheckIsAccepted())
+    {
+        *value_struct = *(dlgEditStruct->GetValuePointer());
+        ui->lineEdit->setText(value_struct->GetLuaValueString());
+    }
 }

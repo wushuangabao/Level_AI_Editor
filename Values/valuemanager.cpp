@@ -26,7 +26,21 @@ ValueManager *ValueManager::GetClipBoardValueManager()
 ValueManager::ValueManager()
 {
     nameList = QStringList();
-    dataList = QList<BaseValueClass*>();
+    dataList = QList<CommonValueClass*>();
+}
+
+void ValueManager::insertVarToMap(QMap<NodeInfo *, CommonValueClass *> &node_map, NodeInfo* node, CommonValueClass *value)
+{
+    MY_ASSERT(node != nullptr);
+    MY_ASSERT(value != nullptr);
+
+    if(node_map.contains(node))
+        delete node_map[node];
+
+    if(value->GetValueType() < VT_TABLE)
+        node_map.insert(node, new BaseValueClass((BaseValueClass*)value));
+    else if(value->GetValueType() == VT_TABLE)
+        node_map.insert(node, new StructValueClass((StructValueClass*)value));
 }
 
 
@@ -51,7 +65,7 @@ QString ValueManager::GetVarNameAt(int id)
     return nameList[id];
 }
 
-int ValueManager::GetIdOfVariable(BaseValueClass *v)
+int ValueManager::GetIdOfVariable(CommonValueClass *v)
 {
     if(v->GetValueType() != VT_VAR)
         return -1;
@@ -63,7 +77,7 @@ int ValueManager::GetIdOfVariable(const QString &var_name)
     return nameList.indexOf(var_name);
 }
 
-bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
+bool ValueManager::AddNewVariable(QString name, CommonValueClass* v, bool is_level_param)
 {
     if(nameList.contains(name))
     {
@@ -77,11 +91,13 @@ bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
     }
     else
     {
-        BaseValueClass* new_value;
+        CommonValueClass* new_value;
         if(v == nullptr)
             new_value = new BaseValueClass("nil");
+        else if(v->GetValueType() == VT_TABLE)
+            new_value = new StructValueClass((StructValueClass*)v);
         else
-            new_value = new BaseValueClass(v);
+            new_value = new BaseValueClass((BaseValueClass*)v);
 
         for(int i = 0; i < nameList.size(); i++)
         {
@@ -89,17 +105,22 @@ bool ValueManager::AddNewVariable(QString name, BaseValueClass* v)
             {
                 nameList[i] = name;
                 dataList[i] = new_value;
+                if(is_level_param)
+                    updateLevelParam(i, is_level_param);
                 return true;
             }
         }
 
+        if(is_level_param)
+            updateLevelParam(nameList.size(), is_level_param);
         nameList << name;
         dataList << new_value;
+
         return true;
     }
 }
 
-bool ValueManager::AddNewVarAtPos(QString name, BaseValueClass *v, int pos)
+bool ValueManager::AddNewVarAtPos(QString name, CommonValueClass *v, int pos, bool is_level_param)
 {
     if(nameList.contains(name))
     {
@@ -127,15 +148,19 @@ bool ValueManager::AddNewVarAtPos(QString name, BaseValueClass *v, int pos)
                 dataList << nullptr;
             }
         }
+
+        if(is_level_param)
+            updateLevelParam(nameList.size(), is_level_param);
         nameList << name;
         dataList << v;
+
         return true;
     }
 }
 
 bool ValueManager::CheckVarIsUsedOrNot(const QString &var_name)
 {
-    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    QMap<NodeInfo*, CommonValueClass*>::iterator itr;
 
     // function
     for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
@@ -209,7 +234,7 @@ void ValueManager::DeleteVarAt(int id)
     dataList[id] = nullptr;
 }
 
-void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value)
+void ValueManager::ModifyVarValueAt(int idx, QString name, CommonValueClass *value, bool is_level_param)
 {
     if(name.isEmpty() || name == "")
     {
@@ -222,13 +247,32 @@ void ValueManager::ModifyVarValueAt(int idx, QString name, BaseValueClass *value
         return;
     }
 
-    *(dataList[idx]) = *value;
-    nameList[idx] = name;
+    delete dataList[idx];
+    if(value == nullptr)
+        dataList[idx] = nullptr;
+    else if(value->GetValueType() < VT_TABLE)
+        dataList[idx] = new BaseValueClass((BaseValueClass*)value);
+    else
+        dataList[idx] = new StructValueClass((StructValueClass*)value);
 
+    if(nameList[idx] != name)
+    {
+        // 检测并更新 VT_TABLE 变量中引用到的 old_name
+        int n = dataList.size();
+        for(int i = 0; i < n; i++)
+        {
+            if(dataList[i]->GetValueType() == VT_TABLE)
+                updateVarNameOfInitVar(static_cast<StructValueClass*>(dataList[i]), nameList[idx], name);
+        }
+
+        nameList[idx] = name;
+    }
+
+    updateLevelParam(idx, is_level_param);
     updateVarOnNodes(idx);
 }
 
-void ValueManager::ModifyInitValueAt(int idx, BaseValueClass *value)
+void ValueManager::ModifyInitValueAt(int idx, CommonValueClass *value)
 {
     if(idx < 0 || idx >= nameList.size())
     {
@@ -237,10 +281,24 @@ void ValueManager::ModifyInitValueAt(int idx, BaseValueClass *value)
     }
 
     if(value != nullptr)
-        *(dataList[idx]) = *value;
+    {
+        delete dataList[idx];
+        if(value->GetValueType() < VT_TABLE)
+            dataList[idx] = new BaseValueClass((BaseValueClass*)value);
+        else
+            dataList[idx] = new StructValueClass((StructValueClass*)value);
+    }
 }
 
-void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *value)
+bool ValueManager::CheckVarIsLevelParam(int idx)
+{
+    if(levelParamMap.contains(idx))
+        return levelParamMap[idx];
+    else
+        return false;
+}
+
+void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, CommonValueClass *value)
 {
     MY_ASSERT(node != nullptr);
     if(node->type != SET_VAR)
@@ -249,19 +307,10 @@ void ValueManager::UpdateValueOnNode_SetValue(NodeInfo *node, BaseValueClass *va
         return;
     }
 
-    MY_ASSERT(value != nullptr);
-
-    if(nodeSetVarMap.contains(node))
-    {
-        *(nodeSetVarMap[node]) = *value;
-    }
-    else
-    {
-        nodeSetVarMap.insert(node, new BaseValueClass(value)); // TODO delete
-    }
+    insertVarToMap(nodeSetVarMap, node, value);
 }
 
-BaseValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
+CommonValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
 {
     MY_ASSERT(node != nullptr);
     if(node->type != SET_VAR)
@@ -271,16 +320,12 @@ BaseValueClass *ValueManager::GetValueOnNode_SetVar(NodeInfo* node)
     }
 
     if(nodeSetVarMap.contains(node))
-    {
         return nodeSetVarMap[node];
-    }
     else
-    {
         return nullptr;
-    }
 }
 
-void ValueManager::UpdateValueOnNode_Function(NodeInfo *node, BaseValueClass *value)
+void ValueManager::UpdateValueOnNode_Function(NodeInfo *node, CommonValueClass *value)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(node->type == FUNCTION);
@@ -289,14 +334,7 @@ void ValueManager::UpdateValueOnNode_Function(NodeInfo *node, BaseValueClass *va
     VALUE_TYPE vt = value->GetValueType();
     MY_ASSERT(vt == VT_FUNC || vt == VT_STR);
 
-    if(nodeFunctionMap.contains(node))
-    {
-        *(nodeFunctionMap[node]) = *value;
-    }
-    else
-    {
-        nodeFunctionMap.insert(node, new BaseValueClass(value)); // TODO delete when node remove
-    }
+    insertVarToMap(nodeFunctionMap, node, value);
 }
 
 BaseValueClass *ValueManager::GetValueOnNode_Function(NodeInfo *node)
@@ -305,75 +343,47 @@ BaseValueClass *ValueManager::GetValueOnNode_Function(NodeInfo *node)
     MY_ASSERT(node->type == FUNCTION);
 
     if(nodeFunctionMap.contains(node))
-    {
-        return nodeFunctionMap[node];
-    }
+        return (BaseValueClass*)nodeFunctionMap[node];
     else
-    {
         return nullptr;
-    }
 }
 
-void ValueManager::UpdateValueOnNode_Compare_Left(NodeInfo *node, BaseValueClass *value)
+void ValueManager::UpdateValueOnNode_Compare_Left(NodeInfo *node, CommonValueClass *value)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(value != nullptr);
     MY_ASSERT(node->type == COMPARE);
-
-    if(nodeCompareValueLeftMap.contains(node))
-    {
-        *(nodeCompareValueLeftMap[node]) = *value;
-    }
-    else
-    {
-        nodeCompareValueLeftMap.insert(node, new BaseValueClass(value)); // TODO delete
-    }
+    insertVarToMap(nodeCompareValueLeftMap, node, value);
 }
 
-void ValueManager::UpdateValueOnNode_Compare_Right(NodeInfo *node, BaseValueClass *value)
+void ValueManager::UpdateValueOnNode_Compare_Right(NodeInfo *node, CommonValueClass *value)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(value != nullptr);
     MY_ASSERT(node->type == COMPARE);
-
-    if(nodeCompareValueRightMap.contains(node))
-    {
-        *(nodeCompareValueRightMap[node]) = *value;
-    }
-    else
-    {
-        nodeCompareValueRightMap.insert(node, new BaseValueClass(value)); // TODO delete
-    }
+    insertVarToMap(nodeCompareValueRightMap, node, value);
 }
 
-BaseValueClass *ValueManager::GetValueOnNode_Compare_Left(NodeInfo *node)
+CommonValueClass *ValueManager::GetValueOnNode_Compare_Left(NodeInfo *node)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueLeftMap.contains(node))
-    {
         return nodeCompareValueLeftMap[node];
-    }
     else
-    {
         return nullptr;
-    }
 }
 
-BaseValueClass *ValueManager::GetValueOnNode_Compare_Right(NodeInfo *node)
+CommonValueClass *ValueManager::GetValueOnNode_Compare_Right(NodeInfo *node)
 {
     MY_ASSERT(node != nullptr);
     MY_ASSERT(node->type == COMPARE);
 
     if(nodeCompareValueRightMap.contains(node))
-    {
         return nodeCompareValueRightMap[node];
-    }
     else
-    {
         return nullptr;
-    }
 }
 
 void ValueManager::OnDeleteNode(NodeInfo *node)
@@ -416,12 +426,12 @@ QString ValueManager::GetVarTypeOf(const QString &name)
     }
 }
 
-BaseValueClass* ValueManager::GetInitValueOfVar(int idx)
+CommonValueClass* ValueManager::GetInitValueOfVar(int idx)
 {
     return dataList.at(idx);
 }
 
-BaseValueClass *ValueManager::GetInitValueOfVarByName(const QString &name)
+CommonValueClass *ValueManager::GetInitValueOfVarByName(const QString &name)
 {
     int idx = nameList.indexOf(name);
     if(idx == -1)
@@ -470,7 +480,7 @@ QStringList *ValueManager::GetEventParamsLua(NodeInfo *node)
 
 bool ValueManager::CustomSeqNameIsUsed(const QString &name)
 {
-    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    QMap<NodeInfo*, CommonValueClass*>::iterator itr;
     for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
     {
         if(itr.value()->GetValueType() == VT_STR)
@@ -486,7 +496,7 @@ bool ValueManager::CustomSeqNameIsUsed(const QString &name)
 void ValueManager::UpdateCustomSeqName(const QString &old_name, const QString &new_name)
 {
     // 更新Function节点上的自定义动作名称
-    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    QMap<NodeInfo*, CommonValueClass*>::iterator itr;
     for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
     {
         if(itr.value()->GetValueType() == VT_STR)
@@ -495,7 +505,7 @@ void ValueManager::UpdateCustomSeqName(const QString &old_name, const QString &n
             if(lua_str.contains("自定义动作：") && lua_str.contains(old_name))
             {
                 lua_str.replace(old_name, new_name);
-                itr.value()->SetLuaStr(lua_str);
+                static_cast<BaseValueClass*>(itr.value())->SetLuaStr(lua_str);
                 itr.key()->text = lua_str;
             }
         }
@@ -542,7 +552,7 @@ void ValueManager::UpdateCustomSeqName(const QString &old_name, const QString &n
 void ValueManager::updateVarOnNodes(int var_id)
 {
     QString init_var_type = dataList.at(var_id)->GetVarType();
-    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    QMap<NodeInfo*, CommonValueClass*>::iterator itr;
 
     // function
     for(itr = nodeFunctionMap.begin(); itr != nodeFunctionMap.end(); ++itr)
@@ -560,9 +570,9 @@ void ValueManager::updateVarOnNodes(int var_id)
             itr.key()->modifyValue(0, QString::number(var_id));
             itr.key()->text = nameList[var_id] + " = " + itr.value()->GetText();
         }
-        QString value_var_type = itr.value()->GetVarType();
-        if(init_var_type != value_var_type && value_var_type != "")
-            info(itr.key()->text + "，变量和值的类型不一致");
+//        QString value_var_type = itr.value()->GetVarType();
+//        if(init_var_type != value_var_type && value_var_type != "")
+//            info(itr.key()->text + "，变量和值的类型不一致");
     }
 
     // compare
@@ -583,9 +593,42 @@ void ValueManager::updateVarOnNodes(int var_id)
     }
 }
 
-void ValueManager::clearNodeMap(QMap<NodeInfo *, BaseValueClass *> &node_map)
+void ValueManager::updateVarNameOfInitVar(StructValueClass *v, const QString &old_name, const QString &new_name)
 {
-    QMap<NodeInfo*, BaseValueClass*>::iterator itr;
+    QStringList keys = v->GetAllKeys();
+    int n = keys.size();
+    for(int i = 0; i < n; i++)
+    {
+        CommonValueClass* value = v->GetValueByKey(keys[i]);
+
+        if(value->GetValueType() == VT_VAR)
+        {
+            if(value->GetText() == old_name)
+                static_cast<BaseValueClass*>(value)->ModifyVarName(new_name);
+        }
+        else if(value->GetValueType() == VT_TABLE)
+        {
+            updateVarNameOfInitVar(static_cast<StructValueClass*>(value), old_name, new_name);
+        }
+    }
+}
+
+void ValueManager::updateLevelParam(int var_id, bool is_param)
+{
+
+    if(levelParamMap.contains(var_id))
+    {
+        levelParamMap[var_id] = is_param;
+    }
+    else if(is_param)
+    {
+        levelParamMap.insert(var_id, true);
+    }
+}
+
+void ValueManager::clearNodeMap(QMap<NodeInfo *, CommonValueClass *> &node_map)
+{
+    QMap<NodeInfo*, CommonValueClass*>::iterator itr;
 
     for(itr = node_map.begin(); itr != node_map.end(); ++itr)
     {
@@ -595,7 +638,7 @@ void ValueManager::clearNodeMap(QMap<NodeInfo *, BaseValueClass *> &node_map)
     node_map.clear();
 }
 
-void ValueManager::deleteNodeInMap(QMap<NodeInfo *, BaseValueClass *> &node_map, NodeInfo *node)
+void ValueManager::deleteNodeInMap(QMap<NodeInfo *, CommonValueClass *> &node_map, NodeInfo *node)
 {
     if(node_map.contains(node))
     {
@@ -616,7 +659,7 @@ void ValueManager::ClearData()
     }
     dataList.clear();
     nameList.clear();
-//    customSeqNodeMap.clear();
+    levelParamMap.clear();
 
     clearNodeMap(nodeFunctionMap);
     clearNodeMap(nodeSetVarMap);

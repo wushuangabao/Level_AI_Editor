@@ -111,14 +111,14 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
     return index;
 }
 
-BaseValueClass *DlgChoseActionType::GetValue_SetVar()
+CommonValueClass *DlgChoseActionType::GetValue_SetVar()
 {
     return m_dlgSetVar->GetValuePointer();
 }
 
 BaseValueClass *DlgChoseActionType::GetValue_CallFunc()
 {
-    return m_dlgCallFunc->GetValuePointer();
+    return m_dlgCallFunc->GetValuePointer_Base();
 }
 
 void DlgChoseActionType::on_btnChoice_clicked()

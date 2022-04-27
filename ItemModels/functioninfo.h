@@ -77,9 +77,12 @@ public:
 
     static FunctionInfo* GetInstance();
 
+    int GetFunctionInfoCount();
     FunctionClass* GetFunctionInfoByID(FUNCTION_ID id);
     FunctionClass* GetFunctionInfoAt(int idx);
-    QVector<FunctionClass> infoList;
+
+    QStringList GetTagList();
+    bool CheckFunctionInTag(FunctionClass* func, const QString &tag);
 
 private:
     FunctionInfo();
@@ -91,8 +94,11 @@ private:
     bool createDateByConfig(QString path);
 
     void parseTextsAndParams(FunctionClass* func, QString str);
+    void parseTags(QString str);
 
     static FunctionInfo* data;
+    QVector<FunctionClass> infoList;
+    QMap<QString, QVector<FUNCTION_ID>> tagMap;
 };
 
 #endif // FUNCTIONINFO_H

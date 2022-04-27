@@ -34,7 +34,6 @@ SOURCES += \
     Dialogs/dlgeditvalue.cpp \
     ItemModels/functioninfo.cpp \
     Values/valuemanager.cpp \
-    Values/valueclass.cpp \
     Dialogs/dlgvariablemanager.cpp \
     Dialogs/dlgsetvariable.cpp \
     Dialogs/dlgchoseactiontype.cpp \
@@ -42,7 +41,12 @@ SOURCES += \
     Dialogs/dlgwaiting.cpp \
     ItemModels/treeitemmodel_custom.cpp \
     ItemModels/treeitemmodel_event.cpp \
-    nodesclipboard.cpp
+    nodesclipboard.cpp \
+    Dialogs/multiselectcombobox.cpp \
+    Values/structinfo.cpp \
+    Dialogs/dlgeditstructvalue.cpp \
+    Values/structvalueclass.cpp \
+    Values/valueclass.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -63,7 +67,10 @@ HEADERS += \
     Dialogs/dlgwaiting.h \
     ItemModels/treeitemmodel_custom.h \
     ItemModels/treeitemmodel_event.h \
-    nodesclipboard.h
+    nodesclipboard.h \
+    Dialogs/multiselectcombobox.h \
+    Values/structinfo.h \
+    Dialogs/dlgeditstructvalue.h
 
 FORMS += \
         mainwindow.ui \
@@ -73,4 +80,5 @@ FORMS += \
     Dialogs/dlgvariablemanager.ui \
     Dialogs/dlgsetvariable.ui \
     Dialogs/dlgchoseactiontype.ui \
-    Dialogs/dlgwaiting.ui
+    Dialogs/dlgwaiting.ui \
+    Dialogs/dlgeditstructvalue.ui

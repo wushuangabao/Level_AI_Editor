@@ -107,7 +107,7 @@ bool NodesClipBoard::PasteToNode(NodeInfo *node, int tree_type)
     for(int i = 0; i < var_n; i++)
     {
         // vm中这个变量的类型和剪切板中的不一致
-        if(vm->GetIdOfVariable(var_names[i]) != -1 && !BaseValueClass::AreSameVarType(vm->GetInitValueOfVarByName(var_names[i]), m_valueManager->GetInitValueOfVar(i)))
+        if(vm->GetIdOfVariable(var_names[i]) != -1 && !CommonValueClass::AreSameVarType(vm->GetInitValueOfVarByName(var_names[i]), m_valueManager->GetInitValueOfVar(i)))
         {
             info("存在变量名冲突");
             return false;
@@ -119,7 +119,7 @@ bool NodesClipBoard::PasteToNode(NodeInfo *node, int tree_type)
     {
         if(vm->GetIdOfVariable(var_names[i]) == -1)
         {
-            vm->AddNewVariable(var_names[i], m_valueManager->GetInitValueOfVar(i));
+            vm->AddNewVariable(var_names[i], m_valueManager->GetInitValueOfVar(i), m_valueManager->CheckVarIsLevelParam(i));
         }
     }
 
@@ -215,21 +215,21 @@ void NodesClipBoard::pasteValuesOnNode(NodeInfo *node, NodeInfo* new_node)
     ValueManager* vm = ValueManager::GetValueManager();
     if(node->type == COMPARE)
     {
-        BaseValueClass* v_left = m_valueManager->GetValueOnNode_Compare_Left(node);
-        BaseValueClass* v_right = m_valueManager->GetValueOnNode_Compare_Right(node);
+        CommonValueClass* v_left = m_valueManager->GetValueOnNode_Compare_Left(node);
+        CommonValueClass* v_right = m_valueManager->GetValueOnNode_Compare_Right(node);
         MY_ASSERT(v_left != nullptr && v_right != nullptr);
         vm->UpdateValueOnNode_Compare_Left(new_node, v_left);
         vm->UpdateValueOnNode_Compare_Right(new_node, v_right);
     }
     else if(node->type == FUNCTION)
     {
-        BaseValueClass* v = m_valueManager->GetValueOnNode_Function(node);
+        CommonValueClass* v = m_valueManager->GetValueOnNode_Function(node);
         MY_ASSERT(v != nullptr);
         vm->UpdateValueOnNode_Function(new_node, v);
     }
     else if(node->type == SET_VAR)
     {
-        BaseValueClass* v = m_valueManager->GetValueOnNode_SetVar(node);
+        CommonValueClass* v = m_valueManager->GetValueOnNode_SetVar(node);
         MY_ASSERT(v != nullptr);
         vm->UpdateValueOnNode_SetValue(new_node, v);
 
@@ -252,7 +252,7 @@ void NodesClipBoard::pasteValuesOnNode(NodeInfo *node, NodeInfo* new_node)
 bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
 {
     ValueManager* vm = ValueManager::GetValueManager();
-    BaseValueClass* v = nullptr;
+    CommonValueClass* v = nullptr;
 
     switch(node->type)
     {
@@ -261,11 +261,11 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
         v = vm->GetValueOnNode_Compare_Left(node);
         if(v != nullptr)
         {
-            BaseValueClass* v_2 = vm->GetValueOnNode_Compare_Right(node);
+            CommonValueClass* v_2 = vm->GetValueOnNode_Compare_Right(node);
             if(v_2 != nullptr)
             {
-                BaseValueClass* new_value_1 = tryCopyValue(v);
-                BaseValueClass* new_value_2 = tryCopyValue(v_2);
+                CommonValueClass* new_value_1 = tryCopyValue(v);
+                CommonValueClass* new_value_2 = tryCopyValue(v_2);
                 if(new_value_1 != nullptr && new_value_2 != nullptr)
                 {
                     m_valueManager->UpdateValueOnNode_Compare_Left(node, new_value_1);
@@ -299,7 +299,7 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
         v = vm->GetValueOnNode_SetVar(node);
         if(v != nullptr)
         {
-            BaseValueClass* new_value = tryCopyValue(v);
+            CommonValueClass* new_value = tryCopyValue(v);
             if(new_value != nullptr)
             {
                 m_valueManager->UpdateValueOnNode_SetValue(node, new_value);
@@ -314,7 +314,7 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
         v = vm->GetValueOnNode_Function(node);
         if(v != nullptr)
         {
-            BaseValueClass* new_value = tryCopyValue(v);
+            CommonValueClass* new_value = tryCopyValue(v);
             if(new_value != nullptr)
             {
                 m_valueManager->UpdateValueOnNode_Function(node, new_value);
@@ -342,15 +342,20 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
     return true;
 }
 
-BaseValueClass* NodesClipBoard::tryCopyValue(BaseValueClass *v)
+CommonValueClass* NodesClipBoard::tryCopyValue(CommonValueClass *v)
 {
-    BaseValueClass* new_value = nullptr;
+    CommonValueClass* new_value = nullptr;
     if(checkValueBeforeCopy(v))
-        new_value = new BaseValueClass(v);
+    {
+        if(v->GetValueType() < VT_TABLE)
+            new_value = new BaseValueClass((BaseValueClass*)v);
+        else
+            new_value = new StructValueClass((StructValueClass*)v);
+    }
     return new_value;
 }
 
-bool NodesClipBoard::checkValueBeforeCopy(BaseValueClass *v)
+bool NodesClipBoard::checkValueBeforeCopy(CommonValueClass *v)
 {
     switch (v->GetValueType())
     {
@@ -367,10 +372,11 @@ bool NodesClipBoard::checkValueBeforeCopy(BaseValueClass *v)
         return ( -1 != tryAddNewVar(v->GetText()) );
     case VT_FUNC:
     {
-        int n = v->GetFunctionParamsNum();
+        BaseValueClass* bv = static_cast<BaseValueClass*>(v);
+        int n = bv->GetFunctionParamsNum();
         for(int i = 0; i < n; i++)
         {
-            if(!checkValueBeforeCopy(v->GetFunctionParamAt(i)))
+            if(!checkValueBeforeCopy(bv->GetFunctionParamAt(i)))
                 return false;
         }
     }
@@ -381,6 +387,20 @@ bool NodesClipBoard::checkValueBeforeCopy(BaseValueClass *v)
             //todo: 可以在clipboard中存储使用的自定义动作，一起粘贴。现在暂时不处理。
         }
         break;
+    case VT_TABLE:
+    {
+        StructValueClass* sv = static_cast<StructValueClass*>(v);
+        QStringList keys = sv->GetAllKeys();
+        int n = keys.size();
+        for(int i = 0; i < n; i++)
+        {
+            CommonValueClass* c_v = sv->GetValueByKey(keys[i]);
+            if(c_v == nullptr)
+                continue;
+            if(!checkValueBeforeCopy(c_v))
+                return false;
+        }
+    }
     default:
         break;
     }
@@ -399,8 +419,18 @@ int NodesClipBoard::tryAddNewVar(const QString &var_name)
         }
         else
         {
-            BaseValueClass* init_value = ValueManager::GetValueManager()->GetInitValueOfVar(var_id_in_event);
-            m_valueManager->AddNewVariable(var_name, init_value);
+            CommonValueClass* init_value = ValueManager::GetValueManager()->GetInitValueOfVar(var_id_in_event);
+            if(init_value->GetValueType() == VT_TABLE)
+            {
+                StructValueClass* s_v = static_cast<StructValueClass*>(init_value);
+                QStringList keys = s_v->GetAllKeys();
+                for(int i = 0; i < keys.size(); i++)
+                {
+                    if(s_v->GetValueByKey(keys[i])->GetValueType() == VT_VAR)
+                        tryAddNewVar(s_v->GetValueByKey(keys[i])->GetText());
+                }
+            }
+            m_valueManager->AddNewVariable(var_name, init_value, ValueManager::GetValueManager()->CheckVarIsLevelParam(var_id_in_event));
             pos = m_valueManager->GetIdOfVariable(var_name);
         }
     }

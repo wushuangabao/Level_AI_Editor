@@ -6,13 +6,13 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>463</width>
+    <width>562</width>
     <height>283</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
-    <width>463</width>
+    <width>562</width>
     <height>283</height>
    </size>
   </property>
@@ -82,6 +82,13 @@
        </property>
        <property name="text">
         <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QPushButton" name="btnEditStructValue">
+       <property name="text">
+        <string>编辑</string>
        </property>
       </widget>
      </item>
@@ -179,6 +186,16 @@
       </widget>
      </item>
      <item>
+      <widget class="MultiSelectComboBox" name="multiComboBox_Func">
+       <property name="sizePolicy">
+        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+         <horstretch>0</horstretch>
+         <verstretch>0</verstretch>
+        </sizepolicy>
+       </property>
+      </widget>
+     </item>
+     <item>
       <widget class="QComboBox" name="comboBoxFunction"/>
      </item>
      <item>
@@ -194,43 +211,44 @@
     </layout>
    </item>
    <item>
-    <widget class="QFrame" name="frame">
-     <property name="sizePolicy">
-      <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-       <horstretch>0</horstretch>
-       <verstretch>0</verstretch>
-      </sizepolicy>
-     </property>
+    <widget class="QScrollArea" name="scrollArea">
      <property name="minimumSize">
       <size>
        <width>0</width>
-       <height>60</height>
+       <height>70</height>
       </size>
      </property>
-     <property name="frameShape">
-      <enum>QFrame::StyledPanel</enum>
+     <property name="widgetResizable">
+      <bool>true</bool>
      </property>
-     <property name="frameShadow">
-      <enum>QFrame::Raised</enum>
-     </property>
-     <layout class="QVBoxLayout" name="verticalLayout">
-      <item>
-       <layout class="QHBoxLayout" name="functionLayout"/>
-      </item>
-      <item>
-       <widget class="QLabel" name="label">
-        <property name="sizePolicy">
-         <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
-          <horstretch>0</horstretch>
-          <verstretch>0</verstretch>
-         </sizepolicy>
-        </property>
-        <property name="text">
-         <string/>
-        </property>
-       </widget>
-      </item>
-     </layout>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>542</width>
+        <height>68</height>
+       </rect>
+      </property>
+      <layout class="QVBoxLayout" name="verticalLayout_3">
+       <item>
+        <layout class="QHBoxLayout" name="functionLayout"/>
+       </item>
+       <item>
+        <widget class="QLabel" name="label">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
+         <property name="text">
+          <string/>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
     </widget>
    </item>
    <item>
@@ -261,6 +279,13 @@
    </item>
   </layout>
  </widget>
+ <customwidgets>
+  <customwidget>
+   <class>MultiSelectComboBox</class>
+   <extends>QComboBox</extends>
+   <header location="global">multiselectcombobox.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections>
   <connection>

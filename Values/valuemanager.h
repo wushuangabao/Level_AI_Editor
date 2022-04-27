@@ -16,32 +16,33 @@ public:
 
     QStringList GetGlobalVarList() const;
     QString GetVarNameAt(int id);
-    int GetIdOfVariable(BaseValueClass* v);
+    int GetIdOfVariable(CommonValueClass* v);
     int GetIdOfVariable(const QString& var_name);
-    bool AddNewVariable(QString name, BaseValueClass* v); //新增全局变量（作用域为整个事件）
-    bool AddNewVarAtPos(QString name, BaseValueClass* v, int pos);
+    bool AddNewVariable(QString name, CommonValueClass *v, bool is_level_param = false); //新增全局变量（作用域为整个事件）
+    bool AddNewVarAtPos(QString name, CommonValueClass* v, int pos, bool is_level_param = false);
     bool CheckVarIsUsedOrNot(const QString& var_name);
     bool DeleteVariable(QString name); //删除全局变量
     void DeleteVarAt(int id);
-    void ModifyVarValueAt(int idx, QString name, BaseValueClass* value); //修改全局变量的名字和初始值
-    void ModifyInitValueAt(int idx, BaseValueClass* value); //只设置变量的初始值
+    void ModifyVarValueAt(int idx, QString name, CommonValueClass* value, bool is_level_param = false); //修改全局变量的名字和初始值
+    void ModifyInitValueAt(int idx, CommonValueClass* value); //只设置变量的初始值
+    bool CheckVarIsLevelParam(int idx);
 
     QString GetVarTypeAt(int idx);
     QString GetVarTypeOf(const QString& name);
-    BaseValueClass* GetInitValueOfVar(int idx);
-    BaseValueClass* GetInitValueOfVarByName(const QString& name);
+    CommonValueClass* GetInitValueOfVar(int idx);
+    CommonValueClass* GetInitValueOfVarByName(const QString& name);
     int FindIdOfVarName(const QString& name);
 
-    void UpdateValueOnNode_SetValue(NodeInfo* node, BaseValueClass* value); //setValue节点上的变量
-    BaseValueClass* GetValueOnNode_SetVar(NodeInfo* node);
+    void UpdateValueOnNode_SetValue(NodeInfo* node, CommonValueClass *value); //setValue节点上的变量
+    CommonValueClass* GetValueOnNode_SetVar(NodeInfo* node);
 
-    void UpdateValueOnNode_Function(NodeInfo* node, BaseValueClass* value); //function节点上的变量
+    void UpdateValueOnNode_Function(NodeInfo* node, CommonValueClass *value); //function节点上的变量
     BaseValueClass* GetValueOnNode_Function(NodeInfo* node);
 
-    void UpdateValueOnNode_Compare_Left(NodeInfo* node, BaseValueClass* value); //compare节点上的变量
-    void UpdateValueOnNode_Compare_Right(NodeInfo* node, BaseValueClass* value);
-    BaseValueClass* GetValueOnNode_Compare_Left(NodeInfo* node);
-    BaseValueClass* GetValueOnNode_Compare_Right(NodeInfo* node);
+    void UpdateValueOnNode_Compare_Left(NodeInfo* node, CommonValueClass *value); //compare节点上的变量
+    void UpdateValueOnNode_Compare_Right(NodeInfo* node, CommonValueClass* value);
+    CommonValueClass *GetValueOnNode_Compare_Left(NodeInfo* node);
+    CommonValueClass* GetValueOnNode_Compare_Right(NodeInfo* node);
 
     void OnDeleteNode(NodeInfo* node); //删除节点时更新map
 
@@ -57,19 +58,23 @@ public:
 private:
     ValueManager();
 
-    void clearNodeMap(QMap<NodeInfo*, BaseValueClass*>& node_map);
-    void deleteNodeInMap(QMap<NodeInfo*, BaseValueClass*>& node_map, NodeInfo* node);
+    void insertVarToMap(QMap<NodeInfo*, CommonValueClass*>& node_map, NodeInfo *node, CommonValueClass* value);
+    void clearNodeMap(QMap<NodeInfo*, CommonValueClass*>& node_map);
+    void deleteNodeInMap(QMap<NodeInfo*, CommonValueClass*>& node_map, NodeInfo* node);
 
     void updateVarOnNodes(int var_id); //更新所有变量ID为var_id的value的name（包括函数参数中的value）
+    void updateVarNameOfInitVar(StructValueClass* v, const QString& old_name, const QString& new_name);
+    void updateLevelParam(int var_id, bool is_param);
 
-    QList<BaseValueClass*> dataList; //全局变量表（存放初始值）
+    QList<CommonValueClass*> dataList; //全局变量表（存放初始值）
     QStringList nameList;  //全局变量名表，与dataList变量表一一对应
+    QMap<int, bool> levelParamMap; //指定id的变量是否为关卡参数
 
     // 节点上关联的值
-    QMap<NodeInfo*, BaseValueClass*> nodeFunctionMap;
-    QMap<NodeInfo*, BaseValueClass*> nodeSetVarMap;
-    QMap<NodeInfo*, BaseValueClass*> nodeCompareValueLeftMap;
-    QMap<NodeInfo*, BaseValueClass*> nodeCompareValueRightMap;
+    QMap<NodeInfo*, CommonValueClass*> nodeFunctionMap;
+    QMap<NodeInfo*, CommonValueClass*> nodeSetVarMap;
+    QMap<NodeInfo*, CommonValueClass*> nodeCompareValueLeftMap;
+    QMap<NodeInfo*, CommonValueClass*> nodeCompareValueRightMap;
 
     // 自定义动作
 //    QMap<QString, NodeInfo*> customSeqNodeMap;

@@ -21,6 +21,11 @@ FunctionInfo *FunctionInfo::GetInstance()
     return data;
 }
 
+int FunctionInfo::GetFunctionInfoCount()
+{
+    return infoList.size();
+}
+
 FunctionClass *FunctionInfo::GetFunctionInfoByID(FUNCTION_ID id)
 {
     int n = infoList.size();
@@ -38,6 +43,33 @@ FunctionClass *FunctionInfo::GetFunctionInfoAt(int idx)
     MY_ASSERT(n > idx && idx >= 0);
 
     return &(infoList[idx]);
+}
+
+QStringList FunctionInfo::GetTagList()
+{
+    QStringList list;
+    list.clear();
+
+    QMap<QString, QVector<FUNCTION_ID>>::iterator i = tagMap.begin();
+    for(; i != tagMap.end(); ++i)
+    {
+        list.append(i.key());
+    }
+
+    return list;
+}
+
+bool FunctionInfo::CheckFunctionInTag(FunctionClass *func, const QString &tag)
+{
+    if(tagMap.contains(tag))
+    {
+        return tagMap[tag].contains(func->GetID());
+    }
+    else
+    {
+        info("CheckFunctionInTag Error tag: " + tag);
+        return false;
+    }
 }
 
 FunctionInfo::FunctionInfo()
@@ -78,6 +110,8 @@ void FunctionInfo::ClearData()
             infoList[i].Clear();
         }
     }
+
+    tagMap.clear();
 }
 
 void FunctionInfo::createFakeData()
@@ -102,9 +136,9 @@ bool FunctionInfo::createDateByConfig(QString file_path)
         if(line.left(1) == "#")
             continue;
 
-        QStringList sl = line.split('\t'/*, QString::SkipEmptyParts*/);
+        QStringList sl = line.split('\t');
         int n = sl.size();
-        MY_ASSERT(n == 8);
+        MY_ASSERT(n >= 7);
         FunctionClass func;
 
         // 函数ID
@@ -139,9 +173,16 @@ bool FunctionInfo::createDateByConfig(QString file_path)
             func.can_be_call = true;
 
         // 注释
-        func.note = sl[7];
+        if(n >= 8)
+            func.note = sl[7];
+        else
+            func.note = "";
 
         infoList << func;
+
+        // 标签
+        if(n >= 9)
+            parseTags(sl[8]);
     }
 
     file.close();
@@ -184,5 +225,26 @@ void FunctionInfo::parseTextsAndParams(FunctionClass *func, QString str)
                 func->texts.append(str_list_1[i].mid(pos + 2));
         }
         i++;
+    }
+}
+
+void FunctionInfo::parseTags(QString str)
+{
+    QRegExp rx("(,|，)");
+    QStringList sl = str.split(rx, QString::SkipEmptyParts);
+    int n = sl.size();
+
+    for(int i = 0; i < n; i++)
+    {
+        sl[i].remove(' ');
+        if(sl[i] == "")
+            continue;
+        if(!tagMap.contains(sl[i]))
+        {
+            QVector<FUNCTION_ID> v;
+            v.clear();
+            tagMap.insert(sl[i], v);
+        }
+        tagMap[sl[i]].append(infoList.last().GetID());
     }
 }

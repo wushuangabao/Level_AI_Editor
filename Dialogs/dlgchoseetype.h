@@ -42,9 +42,12 @@ private slots:
     void on_DlgChoseEType_rejected();
 
     void on_comboBox_currentIndexChanged(int index);
+    void on_multiComboBox_editTextChanged(const QString &arg1);
 
 private:
     Ui::DlgChoseEType *ui;
+
+    void resetETypeComboBox();
 };
 
 #endif // DLGCHOSEETYPE_H

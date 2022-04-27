@@ -96,12 +96,21 @@ private slots:
     void SaveAllLevels_Json();
     void SaveAllLevels_Lua();
 
+    void OpenConfigFolder();
+    void OpenLuaFolder();
+
     // 切换tab时 切换树模型
     void on_tabWidget_currentChanged(int index);
 
     // 编辑 - 撤销、重做
     void on_actionUndo_triggered();
     void on_actionRedo_triggered();
+
+    // View - 显示、隐藏
+    void on_actionShowLevels_triggered(bool checked);
+    void on_actionShowVars_triggered(bool checked);
+    void on_listWidget_visibilityChanged(bool visible);
+    void on_propertiesWidget_visibilityChanged(bool visible);
 
 private:
     Ui::MainWindow *ui;
@@ -134,7 +143,7 @@ private:
     void editCustActSeqName(NodeInfo* node); //自定义动作序列的名称
 
     // 右侧变量列表
-    void addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3);
+    void addOneRowInTable(unsigned int row, const QString& s1, const QString& s2, const QString& s3, const QString &s4);
     void updateVarTable();
 
     // 生成Json文件
@@ -145,7 +154,7 @@ private:
     void addActionSeqToJsonObj(NodeInfo* node, QJsonObject* json, QString key_name = "SEQUENCE");
     void addConditionToJsonObj(NodeInfo* node, QJsonObject* json);
     void addComparationToJsonArrary(NodeInfo* node, QJsonArray *conditions);
-    void addValueToJsonObj(BaseValueClass* value, QJsonObject* json);
+    void addValueToJsonObj(CommonValueClass *value, QJsonObject* json);
     void addFunctionToJsonObj(BaseValueClass* value, QJsonObject* json);
 
     // 解析Json文件
@@ -156,7 +165,7 @@ private:
     bool parseJsonArray_Condition(QJsonArray* conditions, NodeInfo* condition_node);
     bool parseJsonObj_ActionNode(QJsonObject* actionJsonObj, NodeInfo* parent_node);
     bool parseJsonArray_Sequence(QJsonArray* seqJsonArray, NodeInfo* seq_node);
-    BaseValueClass* parseJsonObj_Value(QJsonObject* valueJsonObj); //这个函数会new一个BaseValueClass
+    CommonValueClass *parseJsonObj_Value(QJsonObject* valueJsonObj); //这个函数会new一个BaseValueClass
     BaseValueClass* parseJsonObj_Function(QJsonObject* funcJsonObj); //这个函数会new一个BaseValueClass
 
     // 生成Lua文件
@@ -166,8 +175,7 @@ private:
     void writeLuaVariables(QFile* file);
     void writeLuaCustomActions(QFile* file);
     void writeLuaVarInitFunc(QFile* file);
-    QString getLuaValueString(BaseValueClass* value);
-    QString getLuaCallString(BaseValueClass* value_func);
+    void writeLuaGetParamFunc(QFile* file);
     bool writeLuaEventInfo(QFile* file, NodeInfo* event_node);
     bool writeLuaEventCheckFunc(QFile* file, NodeInfo* condition_node);
     bool writeLuaCondition(QFile* file, NodeInfo* condition_node);

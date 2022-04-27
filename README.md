@@ -107,3 +107,7 @@ end
 return levelTable
 
 ```
+
+## 开发环境
+
+在 Windows 上使用 Qt5.10.0 开发，编译器用的 MinGW。

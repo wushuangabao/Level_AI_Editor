@@ -36,7 +36,7 @@ void DlgSetVariable::EditSetVarNode(NodeInfo *set_var_node)
         return;
     ui->comboBox->setEnabled(false); //被赋值的是哪个变量，这个暂时禁止修改
 
-    BaseValueClass* v = model->GetValueManager()->GetValueOnNode_SetVar(node);
+    CommonValueClass* v = model->GetValueManager()->GetValueOnNode_SetVar(node);
     if(v != nullptr)
         ui->pushButton->setText(v->GetText());
 
@@ -51,6 +51,9 @@ void DlgSetVariable::CreateSetVarNode(NodeInfo *seq_node)
     ui->comboBox->setEnabled(true);
     if(!initVariableComboBox())
         return;
+
+    m_dlgEditValue->ResetNilValue();
+    ui->pushButton->setText("nil");
 
     this->exec();
 }
@@ -68,9 +71,9 @@ QString DlgSetVariable::GetValueName()
     return ui->comboBox->currentText();
 }
 
-BaseValueClass *DlgSetVariable::GetValuePointer()
+CommonValueClass *DlgSetVariable::GetValuePointer()
 {
-    return m_dlgEditValue->GetValuePointer();
+    return m_dlgEditValue->GetValuePointer_Common();
 }
 
 bool DlgSetVariable::IsAccepted()
@@ -82,11 +85,11 @@ void DlgSetVariable::on_pushButton_clicked()
 {
     if(node != nullptr && node->type == SET_VAR)
     {
-        m_dlgEditValue->ModifyValue(node, 0);
+        m_dlgEditValue->ModifyValueOnNode(node, 0);
     }
     else if(node != nullptr && node->type == SEQUENCE)
     {
-        m_dlgEditValue->CreateNewValue(model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText()), node);
+        m_dlgEditValue->CreateNewValueForParentNode(model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText()), node);
     }
 
     if(m_dlgEditValue->IsAccepted())
@@ -134,11 +137,15 @@ bool DlgSetVariable::initVariableComboBox()
 void DlgSetVariable::on_DlgSetVariable_accepted()
 {
     MY_ASSERT(model != nullptr);
+    var_type = model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText());
 
-    BaseValueClass* value = m_dlgEditValue->GetValuePointer();
-    if(var_type != value->GetVarType() && value->GetValueType() != VT_STR)
+    CommonValueClass* value = m_dlgEditValue->GetValuePointer_Common();
+    if(var_type != value->GetVarType())
     {
-        info("变量类型和值的类型不匹配！");
+        if(value->GetValueType() != VT_STR)
+            info("变量类型和值的类型不匹配！");
+        else
+            static_cast<BaseValueClass*>(value)->SetVarType(var_type);
     }
 
     // 编辑 setvar 节点

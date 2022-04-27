@@ -36,13 +36,18 @@ private slots:
     void on_comboBox_currentIndexChanged(const QString &arg1);
 
 private:
+    bool isValidVarName(const QString& name);
+
     Ui::DlgVariableManager *ui;
     TreeItemModel* model;
     NodeInfo* node;
     DlgEditValue* m_dlgEditValue;
     BaseValueClass* init_v;
+    StructValueClass* init_v_struct;
     QString var_type;
     int global_var_id;
+    int pos_enum_begin;
+    int pos_struct_begin;
 };
 
 #endif // DLGVARIABLEMANAGER_H
