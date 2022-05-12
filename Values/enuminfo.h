@@ -19,6 +19,7 @@ public:
 
     QString GetLuaStr(const QString& var_type, const QString& s_ui);
 
+    bool CheckVarTypeIsEnum(const QString& type);
 private:
     EnumInfo();
     bool createDateByConfig(const QString& path);

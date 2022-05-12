@@ -11,6 +11,15 @@ __attribute__((unused)) static void info(QString info)
     QMessageBox::information(nullptr, "提示", info);
 }
 
+__attribute__((unused)) static QString GetVarNameInKeyStr(const QString &str)
+{
+    int pos = str.indexOf('.');
+    if(pos == -1)
+        return str;
+    else
+        return str.left(pos);
+}
+
 enum NODE_TYPE
 {
     NONE = -2,

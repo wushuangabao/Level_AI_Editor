@@ -36,6 +36,7 @@ private slots:
     void on_comboBox_currentIndexChanged(const QString &arg1);
 
 private:
+    bool checkVarType(bool &is_base_v);
     bool isValidVarName(const QString& name);
 
     Ui::DlgVariableManager *ui;

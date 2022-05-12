@@ -1,4 +1,5 @@
 #include "../ItemModels/nodeinfo.h"
+#include "structinfo.h"
 #include "valueclass.h"
 #include "valuemanager.h"
 
@@ -21,6 +22,28 @@ ValueManager *ValueManager::GetClipBoardValueManager()
     if(instance == nullptr)
         instance = new ValueManager();
     return instance;
+}
+
+QString ValueManager::GetVarNameInKeyStr(const QString &str, int* pos_)
+{
+    int pos = str.indexOf('.');
+    if(pos_ != nullptr)
+        *pos_ = pos;
+    if(pos == -1)
+        return str;
+    else
+        return str.left(pos);
+}
+
+QString ValueManager::GetKeyNameInKeyStr(const QString &str, int* pos_)
+{
+    int pos = str.lastIndexOf('.');
+    if(pos_ != nullptr)
+        *pos_ = pos;
+    if(pos == -1)
+        return "";
+    else
+        return str.mid(pos + 1);
 }
 
 ValueManager::ValueManager()
@@ -69,12 +92,13 @@ int ValueManager::GetIdOfVariable(CommonValueClass *v)
 {
     if(v->GetValueType() != VT_VAR)
         return -1;
-    return nameList.indexOf(v->GetText());
+    QString var_name = GetVarNameInKeyStr(v->GetText());
+    return nameList.indexOf(var_name);
 }
 
 int ValueManager::GetIdOfVariable(const QString &var_name)
 {
-    return nameList.indexOf(var_name);
+    return nameList.indexOf(GetVarNameInKeyStr(var_name));
 }
 
 bool ValueManager::AddNewVariable(QString name, CommonValueClass* v, bool is_level_param)
@@ -414,8 +438,15 @@ QString ValueManager::GetVarTypeAt(int idx)
     }
 }
 
-QString ValueManager::GetVarTypeOf(const QString &name)
+QString ValueManager::GetVarTypeOf_Table(const QString &a_name)
 {
+    QString name;
+    int pos = a_name.indexOf('.');
+    if(pos != -1)
+        name = a_name.left(pos);
+    else
+        name = a_name;
+
     int i = FindIdOfVarName(name);
     if(i != -1)
         return GetVarTypeAt(i);
@@ -424,6 +455,24 @@ QString ValueManager::GetVarTypeOf(const QString &name)
         info("GetVarTypeOf " + name + "fail.");
         return "";
     }
+}
+
+QString ValueManager::GetVarTypeOf_Key(const QString &name)
+{
+    StructInfo* info = StructInfo::GetInstance();
+    QString type = GetVarTypeOf_Table(name);
+    if(info->CheckIsStruct(type))
+    {
+        QString s = name;
+        int pos = s.indexOf('.');
+        while(pos != -1)
+        {
+            s = s.mid(pos + 1);
+            pos = s.indexOf('.');
+            type = info->GetValueTypeOf(type, pos == -1 ? s : s.left(pos));
+        }
+    }
+    return type;
 }
 
 CommonValueClass* ValueManager::GetInitValueOfVar(int idx)
@@ -564,12 +613,18 @@ void ValueManager::updateVarOnNodes(int var_id)
     // set var
     for(itr = nodeSetVarMap.begin(); itr != nodeSetVarMap.end(); ++itr)
     {
-        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type);
+        bool need_update = false;
+        // 检查变量名
         if(itr.key()->getValue(0).toInt() == var_id)
         {
+            need_update = true;
             itr.key()->modifyValue(0, QString::number(var_id));
-            itr.key()->text = nameList[var_id] + " = " + itr.value()->GetText();
         }
+        // 检查给变量赋的值
+        if(itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type) == false)
+            need_update = true;
+        if(need_update)
+            itr.key()->text = itr.key()->GetVarName_SetVar() + " = " + itr.value()->GetText();
 //        QString value_var_type = itr.value()->GetVarType();
 //        if(init_var_type != value_var_type && value_var_type != "")
 //            info(itr.key()->text + "，变量和值的类型不一致");

@@ -14,6 +14,7 @@ class QJsonParseError;
 class QListWidgetItem;
 class QTableWidgetItem;
 class QModelIndex;
+class QTreeView;
 class BaseValueClass;
 
 class DlgChoseEType;
@@ -60,6 +61,9 @@ private slots:
     void slotNewAction(bool b = false);
     // customTree右键菜单：
     void slotNewCustomSeq(bool b = false);
+    // 展开、折叠事件节点或者自定义动作节点
+    void slotExpandAll(bool b = false);
+    void slotCollapseAll(bool b = false);
 
     // 点击eventTree节点：
     void on_eventTreeView_clicked(const QModelIndex &index);
@@ -123,6 +127,7 @@ private:
     DlgChoseActionType* m_dlgChoseActionType;
 
     // 树形结构
+    QModelIndex m_curModelIndex;
     NodeInfo* m_curNode;
     QMap<QModelIndex, bool> m_itemState_Event;
     QMap<QModelIndex, bool> m_itemState_Custom;
@@ -136,6 +141,9 @@ private:
     // 自定义动作树
     TreeItemModel_Custom* m_customTreeModel;
     void InitCustomTree();
+    // 展开、折叠所有子孙节点
+    void expandAllNodes(QTreeView *tree, TreeItemModel* model, QModelIndex item);
+    void collapseAllNodes(QTreeView* tree, TreeItemModel* model, QModelIndex item);
 
     void editEventName(NodeInfo* node); //编辑事件名称
     void editEventType(NodeInfo* node); //编辑事件类型

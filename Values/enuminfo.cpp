@@ -61,6 +61,17 @@ QString EnumInfo::GetLuaStr(const QString &var_type, const QString &s_ui)
     return dataMapLua[var_type][id];
 }
 
+bool EnumInfo::CheckVarTypeIsEnum(const QString &type)
+{
+    QMap<QString, QStringList>::iterator it;
+    for(it = dataMapLua.begin(); it != dataMapLua.end(); ++it)
+    {
+        if(it.key() == type)
+            return true;
+    }
+    return false;
+}
+
 EnumInfo::EnumInfo()
 {
     QString config_path = QCoreApplication::applicationFilePath();

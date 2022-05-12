@@ -37,7 +37,7 @@ void StructValueClass::operator=(const StructValueClass &obj)
     var_type = obj.var_type;
 }
 
-QString StructValueClass::GetLuaValueString()
+QString StructValueClass::GetLuaValueString(QString var_prefix)
 {
     if(members.size() == 0)
         return "nil";
@@ -47,7 +47,7 @@ QString StructValueClass::GetLuaValueString()
     QMap<QString, CommonValueClass*>::iterator i;
     for(i = members.begin(); i != members.end(); ++i)
     {
-        QString value_text = i.value()->GetLuaValueString();
+        QString value_text = i.value()->GetLuaValueString(var_prefix);
         if(value_text != "nil" && value_text != "" && value_text != "{}")
         {
             if(text != "{")

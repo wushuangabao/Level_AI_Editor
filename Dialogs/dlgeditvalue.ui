@@ -150,7 +150,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QComboBox" name="comboBox_Var"/>
+      <widget class="MultiLevelComboBox" name="comboBox_Var"/>
      </item>
      <item>
       <spacer name="horizontalSpacer_2">
@@ -226,7 +226,7 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>542</width>
+        <width>538</width>
         <height>68</height>
        </rect>
       </property>
@@ -284,6 +284,11 @@
    <class>MultiSelectComboBox</class>
    <extends>QComboBox</extends>
    <header location="global">multiselectcombobox.h</header>
+  </customwidget>
+  <customwidget>
+   <class>MultiLevelComboBox</class>
+   <extends>QComboBox</extends>
+   <header location="global">multilevelcombobox.h</header>
   </customwidget>
  </customwidgets>
  <resources/>

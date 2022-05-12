@@ -1,7 +1,10 @@
+#include <QMenu>
 #include "../Values/valuemanager.h"
+#include "../Values/structinfo.h"
 #include "../ItemModels/treeitemmodel.h"
 #include "dlgeditvalue.h"
 #include "dlgsetvariable.h"
+#include "multilevelcombobox.h"
 #include "ui_dlgsetvariable.h"
 
 DlgSetVariable::DlgSetVariable(QWidget *parent) :
@@ -89,7 +92,9 @@ void DlgSetVariable::on_pushButton_clicked()
     }
     else if(node != nullptr && node->type == SEQUENCE)
     {
-        m_dlgEditValue->CreateNewValueForParentNode(model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText()), node);
+        QString var_text = ui->comboBox->currentText();
+        QString edit_var_type = ValueManager::GetValueManager()->GetVarTypeOf_Key(var_text);
+        m_dlgEditValue->CreateNewValueForParentNode(edit_var_type, node);
     }
 
     if(m_dlgEditValue->IsAccepted())
@@ -120,16 +125,10 @@ bool DlgSetVariable::initVariableComboBox()
     else if(node != nullptr && node->type == SET_VAR)
     {
         // 根据node设置comboBox的初始选项
-        int id = 0;
-        if(node->getValuesCount() > 0)
-        {
-            int var_id = node->getValue(0).toInt();
-            id = ui->comboBox->findText(vm->GetVarNameAt(var_id));
-            if(id == -1)
-                id = 0;
-        }
-        ui->comboBox->setCurrentIndex(id);
-        ui->comboBox->setEnabled(true);
+        QString var_text = vm->GetVarNameAt(node->getValue(0).toInt());
+        for(int i = 1; i < node->getValuesCount(); i++)
+            var_text += QString(".%1").arg(node->getValue(i));
+        ui->comboBox->SetLineText(var_text);
     }
     return true;
 }
@@ -137,7 +136,13 @@ bool DlgSetVariable::initVariableComboBox()
 void DlgSetVariable::on_DlgSetVariable_accepted()
 {
     MY_ASSERT(model != nullptr);
-    var_type = model->GetValueManager()->GetVarTypeOf(ui->comboBox->currentText());
+    QString var_text = ui->comboBox->currentText();
+    if(var_text.isEmpty())
+    {
+        info("没有选择任何变量");
+        return;
+    }
+    var_type = model->GetValueManager()->GetVarTypeOf_Key(var_text);
 
     CommonValueClass* value = m_dlgEditValue->GetValuePointer_Common();
     if(var_type != value->GetVarType())
@@ -179,6 +184,7 @@ void DlgSetVariable::on_comboBox_currentTextChanged(const QString &arg1)
 {
     if(arg1 == "")
         return;
+//    StructInfo* struct_info = StructInfo::GetInstance();
     ValueManager* vm = model->GetValueManager();
-    var_type = vm->GetVarTypeOf(arg1);
+    var_type = vm->GetVarTypeOf_Key(arg1);
 }

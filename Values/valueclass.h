@@ -35,7 +35,7 @@ public:
     virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type) = 0;
     virtual bool IsUsingVar(const QString& vname) = 0;
 
-    virtual QString GetLuaValueString() = 0;
+    virtual QString GetLuaValueString(QString var_prefix) = 0;
 
     static bool AreSameVarType(CommonValueClass* v1, CommonValueClass* v2);
 };
@@ -57,7 +57,7 @@ public:
     inline virtual QString    GetVarType()   {return var_type;}
 
     void SetVarType(const QString& t);
-    void SetVarName(const QString& name, QString var_type, int idx);
+    void SetVarName(const QString& name, QString var_type, int idx, const QString &key);
     void ModifyVarName(const QString& name);
     void SetLuaStr(const QString& lua_str);
     void SetEnumValue(const QString& value_str);
@@ -72,7 +72,7 @@ public:
     FunctionClass* GetFunctionInfo();
 
     QString GetEventParamInLua();
-    virtual QString GetLuaValueString();
+    virtual QString GetLuaValueString(QString var_prefix);
 
     virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type);
     virtual bool IsUsingVar(const QString& vname);
@@ -100,7 +100,7 @@ public:
     ~StructValueClass();
     void operator=(const StructValueClass& obj);
 
-    virtual QString GetLuaValueString();
+    virtual QString GetLuaValueString(QString var_prefix);
     virtual QString GetText();
     inline virtual VALUE_TYPE GetValueType() {return VT_TABLE;}
     inline virtual QString GetVarType() {return var_type;}

@@ -102,14 +102,68 @@ void BaseValueClass::operator=(const BaseValueClass &obj)
 
 QString BaseValueClass::GetText()
 {
-    if(value_type == VT_VAR || value_type == VT_PARAM)
+    if(value_type == VT_PARAM)
         return name;
-    else if(value_type == VT_STR || value_type == VT_ENUM)
+    else if(value_type == VT_VAR)
+        return lua_str == "" ? name : QString("%1.%2").arg(name).arg(lua_str);
+    else if(value_type == VT_ENUM)
         return lua_str;
     else if(value_type == VT_FUNC)
         return getFunctionText();
+    else if(value_type == VT_STR)
+    {
+        if(lua_str == "nil")
+        {
+            return lua_str;
+        }
+        else if(var_type == "number")
+        {
+            bool ok = true;
+            lua_str.toDouble(&ok);
+            if(!ok)
+            {
+                info(lua_str + " 不是number类型的值");
+                return "0";
+            }
+        }
+        else if(var_type == "string")
+        {
+            int pos = lua_str.indexOf('\"');
+            if(pos == -1)
+                lua_str = QString("\"%1\"").arg(lua_str);
+            else
+            {
+                int last_pos = lua_str.lastIndexOf('\"');
+                if(last_pos == pos && !lua_str.contains('\''))
+                    lua_str = QString("\'%1\'").arg(lua_str);
+                else if(pos > 0 || last_pos < lua_str.size() - 1)
+                {
+                    // 检查一下""之外的头尾是否有空格，有的话去掉。如果头尾有非空字符，最外层套上'
+                    bool empty = true;
+                    for(int i = 0; i < pos; i++)
+                        if(lua_str[i] != ' ')
+                        {
+                            empty = false;
+                            break;
+                        }
+                    for(int i = last_pos + 1; i < lua_str.size(); i++)
+                        if(lua_str[i] != ' ')
+                        {
+                            empty = false;
+                            break;
+                        }
+                    if(empty)
+                        lua_str = lua_str.mid(pos, last_pos - pos + 1);
+                    else if(!empty && !lua_str.contains('\''))
+                        lua_str = QString("\'%1\'").arg(lua_str);
+                }
+            }
+        }
+        return lua_str;
+    }
     else
         return "ERROR";
+
 }
 
 void BaseValueClass::SetVarType(const QString &t)
@@ -117,10 +171,11 @@ void BaseValueClass::SetVarType(const QString &t)
     var_type = t;
 }
 
-void BaseValueClass::SetVarName(const QString &text, QString type, int idx)
+void BaseValueClass::SetVarName(const QString &text, QString type, int idx, const QString &key)
 {
     value_type = VT_VAR;
     name = text;
+    lua_str = key;
     var_type = type;
     if(idx != -1)
         g_var_id = idx;
@@ -253,7 +308,7 @@ QString BaseValueClass::GetEventParamInLua()
     return lua_str;
 }
 
-QString BaseValueClass::GetLuaValueString()
+QString BaseValueClass::GetLuaValueString(QString var_prefix)
 {
     switch (value_type) {
     case VT_STR:
@@ -284,18 +339,21 @@ QString BaseValueClass::GetLuaValueString()
             return "未知变量";
         }
         else
-            return QString("level.%1").arg(ValueManager::GetValueManager()->GetVarNameAt(id));
+        {
+            MY_ASSERT(ValueManager::GetValueManager()->GetVarNameAt(id) == name);
+            return QString("%1%2").arg(var_prefix).arg(GetText());
+        }
     }
         break;
     case VT_FUNC:
     {
-        QString str = GetFunctionName() + "(level.flowController";
+        QString str = GetFunctionName() + QString("(%1flowController").arg(var_prefix);
         int n = GetFunctionParamsNum();
         for(int i = 0; i < n; i++)
         {
             str += ", ";
             CommonValueClass* p = GetFunctionParamAt(i);
-            str = str + p->GetLuaValueString(); // todo 容错处理
+            str = str + p->GetLuaValueString(var_prefix); // todo 容错处理
             if(p->GetVarType() != GetFunctionInfo()->GetParamTypeAt(i) && p->GetValueType() != VT_STR)
                 info("Lua提示：函数" + GetFunctionName() + "的第" + QString::number(i) + "个参数" + p->GetText() + "的数据类型不正确");
         }
@@ -343,8 +401,6 @@ bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const
         }
         if(!ok)
             info("函数" + GetText() + "的参数类型可能有错误");
-//        if(var_type != "" && var_type != type)
-//            return false;
     }
     else if(value_type == VT_STR)
     {

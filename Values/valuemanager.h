@@ -12,6 +12,8 @@ public:
     ~ValueManager();
     static ValueManager* GetValueManager();
     static ValueManager* GetClipBoardValueManager();
+    static QString GetVarNameInKeyStr(const QString &str, int *pos = nullptr); //从类似v.x.y这样的字符串中提取出v
+    static QString GetKeyNameInKeyStr(const QString &str, int *pos = nullptr); //从类似v.x.y这样的字符串中提取出y
     void ClearData();
 
     QStringList GetGlobalVarList() const;
@@ -28,7 +30,8 @@ public:
     bool CheckVarIsLevelParam(int idx);
 
     QString GetVarTypeAt(int idx);
-    QString GetVarTypeOf(const QString& name);
+    QString GetVarTypeOf_Table(const QString& name);
+    QString GetVarTypeOf_Key(const QString& name);
     CommonValueClass* GetInitValueOfVar(int idx);
     CommonValueClass* GetInitValueOfVarByName(const QString& name);
     int FindIdOfVarName(const QString& name);

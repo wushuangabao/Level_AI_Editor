@@ -131,16 +131,7 @@ void DlgVariableManager::on_pushButton_clicked()
     MY_ASSERT(vm != nullptr);
 
     bool is_base_v;
-    m_dlgEditValue->GetValuePointer_Common(&is_base_v);
-    if(is_base_v)
-    {
-        if(init_v->GetValueType() != VT_STR && var_type != init_v->GetVarType())
-            info("变量类型与初始值的类型不一致！");
-        else if(init_v->GetValueType() == VT_STR)
-            // 强行断定lua_str值的变量类型吧。。
-            init_v->SetVarType(var_type);
-    }
-
+    checkVarType(is_base_v);
     CommonValueClass* value;
     if(is_base_v)
         value = init_v;
@@ -204,6 +195,31 @@ void DlgVariableManager::on_comboBox_currentIndexChanged(const QString &arg1)
         init_v_struct->SetVarType(var_type);
         ui->pushButton_2->setText(init_v_struct->GetText());
         //        info("初始值已重置！");
+    }
+}
+
+bool DlgVariableManager::checkVarType(bool &is_base_v)
+{
+    m_dlgEditValue->GetValuePointer_Common(&is_base_v);
+    if(is_base_v)
+    {
+        if(init_v->GetValueType() != VT_STR && var_type != init_v->GetVarType())
+        {
+            info("变量类型与初始值的类型不一致！");
+            return false;
+        }
+        else if(init_v->GetValueType() == VT_STR)
+            // 强行断定lua_str值的变量类型吧。。
+            init_v->SetVarType(var_type);
+    }
+    else
+    {
+        QString struct_type = init_v_struct->GetVarType();
+        if(var_type != struct_type)
+        {
+            info("变量类型与初始值的类型不一致！");
+            return false;
+        }
     }
 }
 

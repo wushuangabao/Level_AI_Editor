@@ -38,6 +38,7 @@ public:
     void UpdateEventType(int event_idx);
 
     bool IsBreakButNotReturn();
+    QString GetVarName_SetVar();
 
     NodeInfo* parent;          // 父节点
     NODE_TYPE type;            // 节点类型

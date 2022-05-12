@@ -5,6 +5,7 @@
 #include "../ItemModels/treeitemmodel.h"
 #include "../ItemModels/functioninfo.h"
 #include "multiselectcombobox.h"
+#include "multilevelcombobox.h"
 #include "dlgeditstructvalue.h"
 #include "dlgeditvalue.h"
 #include "ui_dlgeditvalue.h"
@@ -437,6 +438,11 @@ QString DlgEditValue::GetValueText()
         return value_base->GetText();
     else if(value_type == VT_TABLE)
         return value_struct->GetText();
+    else
+    {
+        info("GetValueText: value_type error!");
+        return "nil";
+    }
 }
 
 BaseValueClass *DlgEditValue::GetValuePointer_Base()
@@ -517,12 +523,18 @@ void DlgEditValue::on_DlgEditValue_accepted()
     case VT_VAR:
     {
         QString v_name = ui->comboBox_Var->currentText();
+        if(v_name.isEmpty())
+        {
+            info("你没有选择任何变量");
+            return;
+        }
         ValueManager* vm = model->GetValueManager();
-        int i = vm->FindIdOfVarName(v_name);
+        QString var_name = ValueManager::GetVarNameInKeyStr(v_name);
+        int i = vm->FindIdOfVarName(var_name);
         if(i != -1)
         {
-            QString var_type = vm->GetVarTypeAt(i);
-            value_base->SetVarName(v_name, var_type, i);
+            QString var_type = vm->GetVarTypeOf_Key(v_name);
+            value_base->SetVarName(var_name, var_type, i, ValueManager::GetKeyNameInKeyStr(v_name));
         }
     }
         break;
@@ -620,7 +632,8 @@ void DlgEditValue::initVariableComboBox()
     int n = v_list.size();
     for(int i = 0; i < n; i++)
     {
-        if(var_type == "" || vm->GetVarTypeOf(v_list[i]) == var_type)
+        QString my_var_type = vm->GetVarTypeOf_Key(v_list[i]);
+        if(var_type == "" || my_var_type == var_type || StructInfo::GetInstance()->CheckIsStruct(my_var_type))
             items.append(QString(v_list.at(i)));
     }
     if(items.size() <= 0)
@@ -630,9 +643,8 @@ void DlgEditValue::initVariableComboBox()
     }
     else
     {
-//        disconnect(ui->comboBox_Var, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_Var_currentIndexChanged(int)));
+        ui->comboBox_Var->SetVarType(var_type);
         ui->comboBox_Var->clear();
-//        connect(ui->comboBox_Var, SIGNAL(currentIndexChanged(int)), this, SLOT(on_comboBox_Var_currentIndexChanged(int)));
         ui->comboBox_Var->addItems(items);
         ui->comboBox_Var->setEnabled(true);
         ui->radioVariable->setEnabled(true);
@@ -872,26 +884,7 @@ void DlgEditValue::setValueAndUI_Base(BaseValueClass *v)
     case VT_VAR:
     {
         ui->radioVariable->setChecked(true);
-        int idx = ui->comboBox_Var->findText(v->GetText());
-        if(idx != -1)
-        {
-            ui->comboBox_Var->setCurrentIndex(idx);
-        }
-        else
-        {
-            info("ComboBoxVar里找不到变量" + v->GetText());
-            if(ui->comboBox_Var->count() > 0)
-            {
-                ui->comboBox_Var->setCurrentIndex(0);
-            }
-            else
-            {
-                info("没有可选的变量！");
-                ui->radioFunction->setChecked(true);
-                ui->radioVariable->setCheckable(false);
-                ui->comboBox_Var->setDisabled(true);
-            }
-        }
+        ui->comboBox_Var->SetLineText(v->GetText());
         break;
     }
     case VT_FUNC:
@@ -976,7 +969,7 @@ void DlgEditValue::setValueAndUI_Struct(StructValueClass *v)
 {
     MY_ASSERT(v->GetValueType() == VT_TABLE);
 
-    ui->lineEdit->setText(v->GetLuaValueString());
+    ui->lineEdit->setText(v->GetLuaValueString(""));
     ui->radioCustom->setChecked(true);
 
     if(value_struct == nullptr)
@@ -1071,6 +1064,6 @@ void DlgEditValue::on_btnEditStructValue_clicked()
     if(dlgEditStruct->CheckIsAccepted())
     {
         *value_struct = *(dlgEditStruct->GetValuePointer());
-        ui->lineEdit->setText(value_struct->GetLuaValueString());
+        ui->lineEdit->setText(value_struct->GetLuaValueString(""));
     }
 }

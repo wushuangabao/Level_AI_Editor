@@ -116,6 +116,16 @@ NodeInfo *NodeInfo::addNewChildNode_SetVar(QString node_text, int id_var)
         }
         else
             childs.push_back(new_node);
+        int pos = node_text.indexOf(" = ");
+        if(pos != -1)
+        {
+            QStringList s_l = node_text.left(pos).split('.', QString::SkipEmptyParts);
+            if(s_l.size() > 1)
+            {
+                for(int i = 1; i < s_l.size(); i++)
+                    new_node->addNewValue(s_l[i]);
+            }
+        }
         return new_node;
     }
      return nullptr;
@@ -383,6 +393,22 @@ bool NodeInfo::IsBreakButNotReturn()
         cur_node = cur_node->parent;
     }
     return flag;
+}
+
+QString NodeInfo::GetVarName_SetVar()
+{
+    MY_ASSERT(type == SET_VAR);
+    MY_ASSERT(!values.isEmpty());
+    bool ok = true;
+    int id = values[0].toInt(&ok);
+    MY_ASSERT(ok);
+    QString var_name = ValueManager::GetValueManager()->GetVarNameAt(id);
+    int n = values.size();
+    for(int i = 1; i < n; i++)
+    {
+        var_name += QString(".%1").arg(values[i]);
+    }
+    return var_name;
 }
 
 void NodeInfo::updateCompareText()

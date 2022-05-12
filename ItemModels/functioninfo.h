@@ -3,14 +3,14 @@
 
 #include <QVector>
 
-#define FUNCTION_ID int
+#define FUNCTION_POS int
 
 class FunctionClass
 {
 private:
     friend class FunctionInfo;
 
-    FUNCTION_ID id;
+    FUNCTION_POS id;
 
     QString name_lua;   // 函数名（lua）
     QString name_ui;    // 函数名（UI显示）
@@ -19,13 +19,12 @@ private:
     QStringList values; // 返回值的类型
     bool can_be_call;   // 是否可被用于Call Function
     QString note;       // 注释，在UI中显示
-
 public:
     bool param_is_before_text;
 
     inline void Clear()
     {
-        id = 0;
+        id = -1;
         name_lua.clear();
         name_ui.clear();
         texts.clear();
@@ -36,7 +35,7 @@ public:
         can_be_call = false;
     }
 
-    inline FUNCTION_ID GetID() { return id; }
+    inline FUNCTION_POS GetID() { return id; }
     inline QString GetNameLua() { return name_lua; }
     inline QString GetNameUI() { return name_ui; }
     inline QString GetNote() { return note; }
@@ -78,7 +77,7 @@ public:
     static FunctionInfo* GetInstance();
 
     int GetFunctionInfoCount();
-    FunctionClass* GetFunctionInfoByID(FUNCTION_ID id);
+    FunctionClass* GetFunctionInfoByLuaName(const QString& name);
     FunctionClass* GetFunctionInfoAt(int idx);
 
     QStringList GetTagList();
@@ -92,13 +91,17 @@ private:
 
     void createFakeData();
     bool createDateByConfig(QString path);
-
+    bool createDataByLuaFile(const QString& lua_path);
+    bool parseLuaLine(FunctionClass* func, QString line);
     void parseTextsAndParams(FunctionClass* func, QString str);
-    void parseTags(QString str);
+    void parseTags(QString str, int func_id);
+
+    QString config_path;
+    QString parse_flag;
 
     static FunctionInfo* data;
     QVector<FunctionClass> infoList;
-    QMap<QString, QVector<FUNCTION_ID>> tagMap;
+    QMap<QString, QVector<FUNCTION_POS>> tagMap;
 };
 
 #endif // FUNCTIONINFO_H
