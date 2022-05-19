@@ -76,6 +76,17 @@ QString StructInfo::GetValueTypeOf(QString name, QString key)
     return "";
 }
 
+QString StructInfo::GetValueTypeOfKeyLua(const QString &name, const QString &key_lua)
+{
+    if(dataMapVType.contains(name))
+    {
+        int i = dataMapKeyLua[name].indexOf(key_lua);
+        if(i != -1)
+            return dataMapVType[name][i];
+    }
+    return "";
+}
+
 QString StructInfo::GetKeyInLua(QString name, QString key)
 {
     if(dataMapKeyLua.contains(name))

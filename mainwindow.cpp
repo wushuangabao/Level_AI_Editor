@@ -3270,3 +3270,84 @@ void MainWindow::on_propertiesWidget_visibilityChanged(bool visible)
 {
     ui->actionShowVars->setChecked(visible);
 }
+
+void MainWindow::on_action_ExpandAllNodes_triggered()
+{
+    int i_type = ui->tabWidget->currentIndex();
+    if(i_type == 0)
+    {
+        QModelIndex root_item = ui->eventTreeView->rootIndex();
+        int n = m_eventTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            expandAllNodes(ui->eventTreeView, m_eventTreeModel, m_eventTreeModel->index(i, 0, root_item));
+    }
+    else if(i_type == 1)
+    {
+        QModelIndex root_item = ui->customTreeView->rootIndex();
+        int n = m_customTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            expandAllNodes(ui->customTreeView, m_customTreeModel, m_customTreeModel->index(i, 0, root_item));
+    }
+}
+
+void MainWindow::on_action_CollapseAllNodes_triggered()
+{
+    int i_type = ui->tabWidget->currentIndex();
+    if(i_type == 0)
+    {
+        QModelIndex root_item = ui->eventTreeView->rootIndex();
+        int n = m_eventTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            collapseAllNodes(ui->eventTreeView, m_eventTreeModel, m_eventTreeModel->index(i, 0, root_item));
+    }
+    else if(i_type == 1)
+    {
+        QModelIndex root_item = ui->customTreeView->rootIndex();
+        int n = m_customTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            collapseAllNodes(ui->customTreeView, m_customTreeModel, m_customTreeModel->index(i, 0, root_item));
+    }
+}
+
+void MainWindow::on_action_CollapseAllEvents_triggered()
+{
+    int i_type = ui->tabWidget->currentIndex();
+    if(i_type == 0)
+    {
+        QModelIndex root_item = ui->eventTreeView->rootIndex();
+        int n = m_eventTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            ui->eventTreeView->collapse(m_eventTreeModel->index(i, 0, root_item));
+    }
+    else if(i_type == 1)
+    {
+        QModelIndex root_item = ui->customTreeView->rootIndex();
+        int n = m_customTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            ui->eventTreeView->collapse(m_eventTreeModel->index(i, 0, root_item));
+    }
+}
+
+void MainWindow::on_action_ExpandAllEvents_triggered()
+{
+    int i_type = ui->tabWidget->currentIndex();
+    if(i_type == 0)
+    {
+        QModelIndex root_item = ui->eventTreeView->rootIndex();
+        int n = m_eventTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+        {
+            QModelIndex event_item = m_eventTreeModel->index(i, 0, root_item);
+            ui->eventTreeView->expand(event_item);
+            ui->eventTreeView->expand(m_eventTreeModel->index(0, 0, event_item));
+            expandAllNodes(ui->eventTreeView, m_eventTreeModel, m_eventTreeModel->index(1, 0, event_item));
+        }
+    }
+    else if(i_type == 1)
+    {
+        QModelIndex root_item = ui->customTreeView->rootIndex();
+        int n = m_customTreeModel->m_pRootNode->childs.size();
+        for(int i = 0; i < n; i++)
+            ui->eventTreeView->expand(m_eventTreeModel->index(i, 0, root_item));
+    }
+}

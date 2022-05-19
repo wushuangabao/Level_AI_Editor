@@ -59,7 +59,7 @@ public:
     void SetVarType(const QString& t);
     void SetVarName(const QString& name, QString var_type, int idx, const QString &key);
     void ModifyVarName(const QString& name);
-    void SetLuaStr(const QString& lua_str);
+    void SetLuaStr(const QString& lua_str, const QString &type_text = "");
     void SetEnumValue(const QString& value_str);
     void SetEvtParam(const QString& lua_str, const QString& ui_str, QString var_type);
 
@@ -87,6 +87,8 @@ private:
     QVector<CommonValueClass*> params; //函数参数
     void clearFuncParams();
     QString getFunctionText();
+
+    bool checkLuaStrAndVarType(QString &str, const QString &var_t);
 
     int g_var_id;
 };

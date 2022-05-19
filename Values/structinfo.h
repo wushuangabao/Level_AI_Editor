@@ -18,6 +18,7 @@ public:
     QStringList GetValueTypesOf(QString name);
 
     QString GetValueTypeOf(QString name, QString key);
+    QString GetValueTypeOfKeyLua(const QString &name, const QString &key_lua);
     QString GetKeyInLua(QString name, QString key);
 
 private:

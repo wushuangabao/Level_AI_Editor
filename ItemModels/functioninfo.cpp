@@ -47,6 +47,19 @@ FunctionClass *FunctionInfo::GetFunctionInfoAt(int idx)
     return &(infoList[idx]);
 }
 
+int FunctionInfo::CheckFunctionNameLuaExist(const QString &name)
+{
+    int n = infoList.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(infoList[i].GetNameLua() == name)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
 QStringList FunctionInfo::GetTagList()
 {
     QStringList list;

@@ -517,7 +517,7 @@ void DlgEditValue::on_DlgEditValue_accepted()
         break;
     case VT_STR:
     {
-        value_base->SetLuaStr(ui->lineEdit->text());
+        value_base->SetLuaStr(ui->lineEdit->text(), var_type);
     }
         break;
     case VT_VAR:
@@ -827,15 +827,11 @@ FunctionClass *DlgEditValue::getFunctionInfoByUI()
 int DlgEditValue::findComboBoxFuncId(FunctionClass* f)
 {
     FunctionInfo* functions = FunctionInfo::GetInstance();
-    int n = functions->GetFunctionInfoCount();
-    if(n > 0)
+    for(int i = 0; i < vectorFunctionInfo.size(); i++)
     {
-        for(int i = 0; i < vectorFunctionInfo.size(); i++)
+        if( functions->GetFunctionInfoAt(vectorFunctionInfo[i]) == f)
         {
-            if( functions->GetFunctionInfoAt(vectorFunctionInfo[i]) == f)
-            {
-                return i;
-            }
+            return i;
         }
     }
     return -1;
@@ -968,6 +964,7 @@ void DlgEditValue::setValueAndUI_Base(BaseValueClass *v)
 void DlgEditValue::setValueAndUI_Struct(StructValueClass *v)
 {
     MY_ASSERT(v->GetValueType() == VT_TABLE);
+    value_type = VT_TABLE;
 
     ui->lineEdit->setText(v->GetLuaValueString(""));
     ui->radioCustom->setChecked(true);

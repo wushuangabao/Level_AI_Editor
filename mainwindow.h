@@ -115,6 +115,11 @@ private slots:
     void on_actionShowVars_triggered(bool checked);
     void on_listWidget_visibilityChanged(bool visible);
     void on_propertiesWidget_visibilityChanged(bool visible);
+    // View - 展开、折叠节点
+    void on_action_ExpandAllNodes_triggered();
+    void on_action_CollapseAllNodes_triggered();
+    void on_action_ExpandAllEvents_triggered();
+    void on_action_CollapseAllEvents_triggered();
 
 private:
     Ui::MainWindow *ui;

@@ -16,10 +16,10 @@ public:
 
     QStringList GetEnumsOfType(const QString& var_type);
     QStringList GetAllTypes();
+    bool CheckVarTypeIsEnum(const QString& var_type);
+    bool CheckValueIsEnumOfType(const QString& v_str, const QString& var_type);
 
     QString GetLuaStr(const QString& var_type, const QString& s_ui);
-
-    bool CheckVarTypeIsEnum(const QString& type);
 private:
     EnumInfo();
     bool createDateByConfig(const QString& path);

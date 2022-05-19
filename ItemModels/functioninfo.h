@@ -79,6 +79,7 @@ public:
     int GetFunctionInfoCount();
     FunctionClass* GetFunctionInfoByLuaName(const QString& name);
     FunctionClass* GetFunctionInfoAt(int idx);
+    int CheckFunctionNameLuaExist(const QString& name);
 
     QStringList GetTagList();
     bool CheckFunctionInTag(FunctionClass* func, const QString &tag);
