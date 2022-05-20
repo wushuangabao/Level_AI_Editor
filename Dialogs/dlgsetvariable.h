@@ -26,7 +26,7 @@ public:
     void CreateSetVarNode(NodeInfo *seq_node);
 
     QString GetNodeText();
-    QString GetValueName();
+    QString GetCurVarName();
     CommonValueClass *GetValuePointer();
 
     bool IsAccepted();

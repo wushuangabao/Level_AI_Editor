@@ -295,11 +295,12 @@ bool FunctionInfo::createDataByLuaFile(const QString &lua_path)
     return true;
 }
 
-//
-//-- can_be_call
+// 这是开始解析function_info的标志，写在函数定义之前：
+//-- This function will be parsed by LevelAIEditor --
+//-- can_be_call 表示可以在call function动作中调用，不填的话就不行
 //-- type: 返回值类型，不填表示没有返回值
-//-- name: 直接播放机关（无状态）
-//-- desc: 机关timeline资源id{{number}}
+//-- name: 函数名称（UI中显示的）
+//-- desc: 函数描述以及参数，{{n}}可表示{{number}}，{{s}}可表示{{string}}。
 //-- notes: 写点注释，给策划看的
 bool FunctionInfo::parseLuaLine(FunctionClass *func, QString line)
 {
@@ -312,7 +313,7 @@ bool FunctionInfo::parseLuaLine(FunctionClass *func, QString line)
         {
             func->values.append(line); //返回值类型目前只1个，以后可能多个
         }
-        else
+        else if(line != "")
         {
             info(line + "不是合法的返回值类型");
             return false;

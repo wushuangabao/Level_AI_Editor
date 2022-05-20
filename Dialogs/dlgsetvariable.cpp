@@ -69,9 +69,13 @@ QString DlgSetVariable::GetNodeText()
     return s;
 }
 
-QString DlgSetVariable::GetValueName()
+QString DlgSetVariable::GetCurVarName()
 {
-    return ui->comboBox->currentText();
+    QString text = ui->comboBox->currentText();
+    int pos = text.indexOf('.');
+    if(pos != -1)
+        text = text.left(pos);
+    return text;
 }
 
 CommonValueClass *DlgSetVariable::GetValuePointer()
@@ -156,7 +160,7 @@ void DlgSetVariable::on_DlgSetVariable_accepted()
     // 编辑 setvar 节点
     if(node != nullptr && node->type == SET_VAR)
     {
-        int id_var = model->GetValueManager()->FindIdOfVarName(GetValueName());
+        int id_var = model->GetValueManager()->FindIdOfVarName(GetCurVarName());
         if(id_var != -1)
         {
             if(node->getValuesCount() > 0)

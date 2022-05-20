@@ -50,6 +50,7 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers);
     ui->tableWidget->setSelectionBehavior(QAbstractItemView::SelectRows);
     ui->tableWidget->setSelectionMode(QAbstractItemView::SingleSelection);
+    ui->tableWidget->horizontalHeader()->setVisible(true);
 
     m_dlgChoseEvtType = new DlgChoseEType(this);
     m_dlgConditionType = new DlgConditionType(this);
@@ -69,6 +70,7 @@ MainWindow::MainWindow(QWidget *parent) :
 
     InitEventTree();
     InitCustomTree();
+//    setTreeViewExpandSlots(true);
     NodesClipBoard::GetInstance()->SetTreeItemModel(m_eventTreeModel, m_customTreeModel);
 
     ui->tabWidget->setCurrentIndex(0);
@@ -207,12 +209,13 @@ void MainWindow::saveEventItemState_Expanded(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState_Event.contains(index))
+        QString item_code = getItemCodeOf(0, index);
+        if(m_itemState_Event.contains(item_code))
         {
-            m_itemState_Event[index] = true;
+            m_itemState_Event[item_code] = true;
         }
         else
-            m_itemState_Event.insert(index, true);
+            m_itemState_Event.insert(item_code, true);
     }
 }
 
@@ -220,12 +223,13 @@ void MainWindow::saveCustomItemState_Expanded(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState_Custom.contains(index))
+        QString item_code = getItemCodeOf(1, index);
+        if(m_itemState_Custom.contains(item_code))
         {
-            m_itemState_Custom[index] = true;
+            m_itemState_Custom[item_code] = true;
         }
         else
-            m_itemState_Custom.insert(index, true);
+            m_itemState_Custom.insert(item_code, true);
     }
 }
 
@@ -233,12 +237,13 @@ void MainWindow::saveEventItemState_Collapsed(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState_Event.contains(index))
+        QString item_code = getItemCodeOf(0, index);
+        if(m_itemState_Event.contains(item_code))
         {
-            m_itemState_Event[index] = false;
+            m_itemState_Event[item_code] = false;
         }
         else
-            m_itemState_Event.insert(index, false);
+            m_itemState_Event.insert(item_code, false);
     }
 }
 
@@ -246,12 +251,13 @@ void MainWindow::saveCustomItemState_Collapsed(const QModelIndex &index)
 {
     if(index.isValid())
     {
-        if(m_itemState_Custom.contains(index))
+        QString item_code = getItemCodeOf(1, index);
+        if(m_itemState_Custom.contains(item_code))
         {
-            m_itemState_Custom[index] = false;
+            m_itemState_Custom[item_code] = false;
         }
         else
-            m_itemState_Custom.insert(index, false);
+            m_itemState_Custom.insert(item_code, false);
     }
 }
 
@@ -361,7 +367,7 @@ void MainWindow::slotPasteNode(bool b)
 
     if(NodesClipBoard::GetInstance()->PasteToNode(m_curNode, tree_type))
     {
-        updateEventTreeState();
+        updateTreeViewState();
         saveBackupJsonFile();
         updateVarTable();
     }
@@ -383,7 +389,7 @@ void MainWindow::slotPasteEventOrCustAct(bool b)
 
     if(NodesClipBoard::GetInstance()->PasteToNode(root, tree_type))
     {
-        updateEventTreeState();
+        updateTreeViewState();
         saveBackupJsonFile();
         updateVarTable();
     }
@@ -397,7 +403,7 @@ void MainWindow::slotDeleteNode(bool b)
         if(m_eventTreeModel->deleteNode(m_curNode))
         {
             m_curNode = nullptr;
-            updateEventTreeState();
+            updateTreeViewState();
             saveBackupJsonFile();
         }
     }
@@ -406,7 +412,7 @@ void MainWindow::slotDeleteNode(bool b)
         if(m_customTreeModel->deleteNode(m_curNode))
         {
             m_curNode = nullptr;
-            updateEventTreeState();
+            updateTreeViewState();
             saveBackupJsonFile();
         }
     }
@@ -432,6 +438,7 @@ void MainWindow::slotNewEvent(bool b)
                 if(EventType::GetInstance()->GetCount() > m_dlgChoseEvtType->index)
                 {
                     createNewEventOnTree(EventType::GetInstance()->GetEventLuaType(m_dlgChoseEvtType->index), new_name);
+                    updateTreeViewState();
                     saveBackupJsonFile();
                 }
                 else
@@ -448,7 +455,7 @@ void MainWindow::slotNewCondition(bool b)
     {
         m_dlgConditionType->CreateCondition(m_curNode, "AND");
 
-        updateEventTreeState();
+        updateTreeViewState();
 
         saveBackupJsonFile();
     }
@@ -546,7 +553,7 @@ void MainWindow::slotNewAction(bool b)
     m_dlgChoseActionType->EndResetModel();
 
     // 重新展开到原来的形状
-    updateEventTreeState();
+    updateTreeViewState();
 
     if(success)
     {
@@ -574,7 +581,7 @@ void MainWindow::slotNewCustomSeq(bool b)
             {
                 m_customTreeModel->AddCustomSequence(new_name);
                 saveBackupJsonFile();
-                updateEventTreeState();
+                updateTreeViewState();
             }
         }
     }
@@ -612,8 +619,6 @@ void MainWindow::InitEventTree()
 
     ui->eventTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->eventTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Event);
-    connect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
-    connect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
 }
 
 NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &event_name)
@@ -629,9 +634,6 @@ NodeInfo* MainWindow::createNewEventOnTree(QString event_type, const QString &ev
         return nullptr;
 
     new_node->childs[0]->childs[0]->UpdateEventType(EventType::GetInstance()->GetIndexOf(event_type));
-
-    updateEventTreeState();
-
     return new_node;
 }
 
@@ -642,8 +644,6 @@ void MainWindow::InitCustomTree()
 
     ui->customTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->customTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Custom);
-    connect(ui->customTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveCustomItemState_Collapsed(const QModelIndex&)));
-    connect(ui->customTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveCustomItemState_Expanded(const QModelIndex&)));
 }
 
 void MainWindow::expandAllNodes(QTreeView* tree, TreeItemModel* model, QModelIndex item)
@@ -679,6 +679,24 @@ void MainWindow::collapseAllNodes(QTreeView* tree, TreeItemModel* model, QModelI
         }
     }
     tree->collapse(item);
+}
+
+void MainWindow::setTreeViewExpandSlots(bool ok)
+{
+    if(ok)
+    {
+        connect(ui->customTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveCustomItemState_Collapsed(const QModelIndex&)));
+        connect(ui->customTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveCustomItemState_Expanded(const QModelIndex&)));
+        connect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
+        connect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
+    }
+    else
+    {
+        disconnect(ui->customTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveCustomItemState_Collapsed(const QModelIndex&)));
+        disconnect(ui->customTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveCustomItemState_Expanded(const QModelIndex&)));
+        disconnect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
+        disconnect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
+    }
 }
 
 void MainWindow::editEventName(NodeInfo *node)
@@ -1505,7 +1523,6 @@ bool MainWindow::parseJsonObj_Event(QJsonObject *eventJsonObj, QString event_nam
         m_eventTreeModel->deleteNode(event_node);
         return false;
     }
-    // ui->eventTreeView->expandAll();
     return true;
 }
 
@@ -2635,13 +2652,25 @@ void MainWindow::on_levelList_itemClicked(QListWidgetItem *item)
         saveBackupJsonFile();
     lastLevelIndex = ui->levelList->currentRow();
 
+    setTreeViewExpandSlots(false);
+
     QString level_name;
     if(openJsonFile(item, level_name))
     {
-        setWindowTitle("当前关卡：" + level_name);
-        resetTreeSate();
+        QString title = windowTitle();
+        QString new_title = QString("当前关卡：%1").arg(level_name);
+        if(title != new_title)
+        {
+            setWindowTitle(new_title);
+            QString c_lvl_id = level_name.mid(m_levelPrefix.length());
+            resetTreeViewSate(c_lvl_id);
+        }
+        else
+            updateTreeViewState(false);
         resetUndoAndRedo(level_name);
     }
+
+    setTreeViewExpandSlots(true);
 }
 
 void MainWindow::on_btnDeleteVar_clicked()
@@ -2983,6 +3012,9 @@ void MainWindow::DeleteCurrentLevel()
     ui->levelList->removeItemWidget(item); //这个删除不彻底，还要delete
     delete item; item = nullptr;
 
+    // 清理相关的节点展开状态
+    clearTreeViewState(level_name.mid(m_levelPrefix.length()));
+
     // 刷新UI选择的项
     if(lastLevelIndex == pos)
     {
@@ -3136,33 +3168,60 @@ void MainWindow::setModelForDlg(TreeItemModel* model)
     m_dlgChoseActionType->SetModel(model);
 }
 
-void MainWindow::updateEventTreeState()
+void MainWindow::updateTreeViewState(bool default_state)
 {
-    QMap<QModelIndex, bool>::iterator itr;
+    int prefix_num = m_levelPrefix.length();
+    QString c_lvl_id = getLevelNameOnItem(ui->levelList->currentItem()).mid(prefix_num);
+
+    QMap<QString, bool>::iterator itr;
     for(itr = m_itemState_Event.begin(); itr != m_itemState_Event.end(); ++itr)
     {
-        ui->eventTreeView->setExpanded(itr.key(), itr.value());
+        int pos = itr.key().indexOf(':');
+        if(pos == -1) continue;
+        if(itr.key().left(pos) != c_lvl_id)
+            continue;
+
+        QModelIndex index = getModelIndexBy(itr.key().mid(pos + 1));
+        if(index.isValid())
+            ui->eventTreeView->setExpanded(index, itr.value());
+        else
+            itr.value() = default_state; //如果没有这个code对应的QModelIndex，说明这个节点被删了，那就重置成默认的状态
     }
     for(itr = m_itemState_Custom.begin(); itr != m_itemState_Custom.end(); ++itr)
     {
-        ui->customTreeView->setExpanded(itr.key(), itr.value());
+        int pos = itr.key().indexOf(':');
+        if(pos == -1) continue;
+        if(itr.key().left(pos) != c_lvl_id)
+            continue;
+
+        QModelIndex index = getModelIndexBy(itr.key());
+        if(index.isValid())
+            ui->customTreeView->setExpanded(index, itr.value());
+        else
+            itr.value() = default_state; //如果没有这个code对应的QModelIndex，说明这个节点被删了，那就重置成默认的状态
     }
 }
 
-void MainWindow::resetTreeSate()
+void MainWindow::resetTreeViewSate(const QString &level_flag)
 {
-    m_itemState_Event.clear();
-    m_itemState_Custom.clear();
+    // 检查标记：是否打开过
+    if(m_itemState_Event.contains(level_flag) && m_itemState_Event[level_flag])
+    {
+        updateTreeViewState();
+        return;
+    }
 
-    if(m_eventTreeModel->m_pRootNode->childs.size() <= 3)
-        ui->eventTreeView->expandAll();
-    else if(m_eventTreeModel->m_pRootNode->childs.size() <= 8)
-        ui->eventTreeView->expandToDepth(1);
+    // 默认新打开时展开全部（updateTreeViewState的default_state默认也是true）
+    setTreeViewExpandSlots(true);
+    ui->eventTreeView->expandAll();
+    ui->customTreeView->expandAll();
+    setTreeViewExpandSlots(false); //不关的话会connect两次，触发两次槽函数
 
-    if(m_customTreeModel->m_pRootNode->childs.size() <= 5)
-        ui->customTreeView->expandAll();
-    else if(m_customTreeModel->m_pRootNode->childs.size() <= 10)
-        ui->customTreeView->expandToDepth(1);
+    // 设置标记
+    if(m_itemState_Event.contains(level_flag))
+        m_itemState_Event[level_flag] = true;
+    else
+        m_itemState_Event.insert(level_flag, true);
 }
 
 void MainWindow::on_tabWidget_currentChanged(int index)
@@ -3213,7 +3272,8 @@ void MainWindow::on_actionUndo_triggered()
         openJsonFile(backupFilePaths[level_name].last());
         changeSavedFlag(level_name, isSameFile(backupFilePaths[level_name].last(), file_path));
     }
-    resetTreeSate();
+//    resetTreeSate();
+    updateTreeViewState();
 }
 
 void MainWindow::on_actionRedo_triggered()
@@ -3231,7 +3291,8 @@ void MainWindow::on_actionRedo_triggered()
     file_path = file_path + level_name + ".json";
     changeSavedFlag(level_name, isSameFile(backupFilePaths_Redo[level_name].last(), file_path));
     // 刷新节点展开状态
-    resetTreeSate();
+//    resetTreeSate();
+    updateTreeViewState();
 
     // 把备份文件路径移到撤销里去
     if(backupFilePaths.contains(level_name))
@@ -3324,8 +3385,74 @@ void MainWindow::on_action_CollapseAllEvents_triggered()
         QModelIndex root_item = ui->customTreeView->rootIndex();
         int n = m_customTreeModel->m_pRootNode->childs.size();
         for(int i = 0; i < n; i++)
-            ui->eventTreeView->collapse(m_eventTreeModel->index(i, 0, root_item));
+            ui->customTreeView->collapse(m_customTreeModel->index(i, 0, root_item));
     }
+}
+
+QString MainWindow::getItemCodeOf(int tree_type, const QModelIndex &index)
+{
+    int prefix_num = m_levelPrefix.length();
+    QString s_num = getLevelNameOnItem(ui->levelList->currentItem()).mid(prefix_num);
+
+    return QString("%1:%2%3").arg(s_num).arg(QString::number(tree_type)).arg(index.data(Qt::UserRole).toString());
+}
+
+QModelIndex MainWindow::getModelIndexBy(const QString &code)
+{
+    QStringList sl = code.split('.', QString::SkipEmptyParts);
+    int n = sl.size();
+    QModelIndex index;
+    TreeItemModel* m = nullptr;
+    if(sl[0] == "0")
+        m = m_eventTreeModel;
+    else if(sl[0] == "1")
+        m = m_customTreeModel;
+    else
+    {
+        info("非法的code: " + code);
+        return index;
+    }
+
+    index = (m == m_eventTreeModel ? ui->eventTreeView->rootIndex() : ui->customTreeView->rootIndex());
+    for(int i = 1; i < n; i++)
+    {
+        int row = sl[i].toInt();
+        index = m->index(row, 0, index);
+    }
+    return index;
+}
+
+void MainWindow::clearTreeViewState(const QString &lvl_id)
+{
+    if(!m_itemState_Event.contains(lvl_id))
+        return;
+
+    QStringList to_remove_list;
+    QMap<QString, bool>::iterator itr;
+    for(itr = m_itemState_Event.begin(); itr != m_itemState_Event.end(); ++itr)
+    {
+        int pos = itr.key().indexOf(':');
+        if(pos == -1) continue;
+        if(itr.key().left(pos) == lvl_id)
+            to_remove_list.append(itr.key());
+    }
+    int n = to_remove_list.size();
+    for(int i = 0; i < n; i++)
+        m_itemState_Event.remove(to_remove_list[i]);
+
+    to_remove_list.clear();
+    for(itr = m_itemState_Custom.begin(); itr != m_itemState_Custom.end(); ++itr)
+    {
+        int pos = itr.key().indexOf(':');
+        if(pos == -1) continue;
+        if(itr.key().left(pos) != lvl_id)
+            to_remove_list.append(itr.key());
+    }
+    n = to_remove_list.size();
+    for(int i = 0; i < n; i++)
+        m_itemState_Custom.remove(to_remove_list[i]);
+
+    m_itemState_Event.remove(lvl_id);
 }
 
 void MainWindow::on_action_ExpandAllEvents_triggered()
@@ -3341,6 +3468,7 @@ void MainWindow::on_action_ExpandAllEvents_triggered()
             ui->eventTreeView->expand(event_item);
             ui->eventTreeView->expand(m_eventTreeModel->index(0, 0, event_item));
             expandAllNodes(ui->eventTreeView, m_eventTreeModel, m_eventTreeModel->index(1, 0, event_item));
+            ui->eventTreeView->collapse(m_eventTreeModel->index(2, 0, event_item));
         }
     }
     else if(i_type == 1)
@@ -3348,6 +3476,6 @@ void MainWindow::on_action_ExpandAllEvents_triggered()
         QModelIndex root_item = ui->customTreeView->rootIndex();
         int n = m_customTreeModel->m_pRootNode->childs.size();
         for(int i = 0; i < n; i++)
-            ui->eventTreeView->expand(m_eventTreeModel->index(i, 0, root_item));
+            ui->customTreeView->expand(m_customTreeModel->index(i, 0, root_item));
     }
 }

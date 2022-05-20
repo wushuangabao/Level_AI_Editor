@@ -28,13 +28,7 @@ QStringList StructInfo::GetAllStructNames()
 
 bool StructInfo::CheckIsStruct(QString name)
 {
-    QMap<QString, QStringList>::iterator i;
-    for(i = dataMapKeyName.begin(); i != dataMapKeyName.end(); ++i)
-    {
-        if(i.key() == name)
-            return true;
-    }
-    return false;
+    return dataMapKeyName.contains(name);
 }
 
 int StructInfo::GetKeyNumberOf(QString name)
@@ -64,7 +58,7 @@ QStringList StructInfo::GetValueTypesOf(QString name)
     return list;
 }
 
-QString StructInfo::GetValueTypeOf(QString name, QString key)
+QString StructInfo::GetValueTypeOf(QString name, QString key, bool no_info)
 {
     if(dataMapVType.contains(name))
     {
@@ -72,7 +66,8 @@ QString StructInfo::GetValueTypeOf(QString name, QString key)
         if(i != -1)
             return dataMapVType[name][i];
     }
-    info("GetValueType发生错误");
+    if(!no_info)
+        info("GetValueType发生错误");
     return "";
 }
 

@@ -614,20 +614,29 @@ void ValueManager::updateVarOnNodes(int var_id)
     for(itr = nodeSetVarMap.begin(); itr != nodeSetVarMap.end(); ++itr)
     {
         bool need_update = false;
-        // 检查变量名
+        // 检查（等号左边的）变量名
         if(itr.key()->getValue(0).toInt() == var_id)
         {
             need_update = true;
             itr.key()->modifyValue(0, QString::number(var_id));
         }
-        // 检查给变量赋的值
-        if(itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type) == false)
-            need_update = true;
+        // 更新Node附带的values并检查是否合法
+        QString left_var_type;
+        QString left_var_text = itr.key()->GetVarName_SetVar();
+        if(need_update && itr.key()->CheckLeftText_SetVar(left_var_type) == false)
+        {
+            info("set var 节点中的" + left_var_text + "不合法，请删除");
+            continue;
+        }
+        // 检查（等号右边的）给变量赋的值
+        itr.value()->UpdateVarNameAndType(var_id, nameList[var_id], init_var_type, &need_update);
+        // 更新UI显示
         if(need_update)
-            itr.key()->text = itr.key()->GetVarName_SetVar() + " = " + itr.value()->GetText();
-//        QString value_var_type = itr.value()->GetVarType();
-//        if(init_var_type != value_var_type && value_var_type != "")
-//            info(itr.key()->text + "，变量和值的类型不一致");
+            itr.key()->text = left_var_text + " = " + itr.value()->GetText();
+        // 检查左右值的类型是否一致
+        QString right_var_type = itr.value()->GetVarType();
+        if(left_var_type != right_var_type && right_var_type != "")
+            info(itr.key()->text + "，变量和值的类型不一致，请处理");
     }
 
     // compare

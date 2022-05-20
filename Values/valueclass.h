@@ -32,7 +32,7 @@ public:
     // 用于编辑器中显示
     virtual QString GetText() {return "nil";}
     // 随变量修改而更新
-    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type) = 0;
+    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type, bool *need_update = nullptr) = 0;
     virtual bool IsUsingVar(const QString& vname) = 0;
 
     virtual QString GetLuaValueString(QString var_prefix) = 0;
@@ -74,7 +74,7 @@ public:
     QString GetEventParamInLua();
     virtual QString GetLuaValueString(QString var_prefix);
 
-    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type);
+    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type, bool *need_update = nullptr); //函数的返回值表示类型是否出错，need_update表示数据是否有更新
     virtual bool IsUsingVar(const QString& vname);
 
 private:
@@ -89,6 +89,7 @@ private:
     QString getFunctionText();
 
     bool checkLuaStrAndVarType(QString &str, const QString &var_t);
+    bool checkVarType(const QString& type); //检查VT_VAR变量的变量类型是否为type
 
     int g_var_id;
 };
@@ -108,7 +109,7 @@ public:
     inline virtual QString GetVarType() {return var_type;}
     void SetVarType(QString name);
 
-    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type);
+    virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type, bool *need_update = nullptr); //函数的返回值表示类型是否出错，need_update表示数据是否有更新
     virtual bool IsUsingVar(const QString& vname);
 
     CommonValueClass *GetValueByKey(QString name);

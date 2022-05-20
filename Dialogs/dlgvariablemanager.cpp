@@ -57,13 +57,15 @@ void DlgVariableManager::CreateVar()
     MY_ASSERT(model != nullptr);
 
     node = nullptr;
-    if(ui->comboBox->currentIndex() != pos_enum_begin && ui->comboBox->currentIndex() != pos_struct_begin)
-        var_type = ui->comboBox->currentText();
-    else
-        var_type = "";
+    var_type = QStringLiteral("number");
+    init_v->SetLuaStr("0", var_type);
+    init_v_struct->InitWithType("");
+    m_dlgEditValue->SetValueType(VT_STR);
 
-    init_v->SetVarType(var_type);
     this->setWindowTitle("创建新变量");
+    ui->comboBox->setCurrentIndex(0); // 默认选择number
+    ui->lineEdit->setText(QStringLiteral(""));
+    ui->pushButton_2->setText(QStringLiteral("0"));
     ui->checkBox->setChecked(false);
 
     exec();
@@ -188,13 +190,13 @@ void DlgVariableManager::on_comboBox_currentIndexChanged(const QString &arg1)
         init_v->ClearData();
         init_v->SetVarType(var_type);
         ui->pushButton_2->setText(init_v->GetText());
-//        info("初始值已重置！");
+        m_dlgEditValue->SetValueType(init_v->GetValueType());
     }
     else if(cur_id > pos_struct_begin && init_v_struct->GetVarType() != var_type)
     {
         init_v_struct->SetVarType(var_type);
         ui->pushButton_2->setText(init_v_struct->GetText());
-        //        info("初始值已重置！");
+        m_dlgEditValue->SetValueType(init_v_struct->GetValueType());
     }
 }
 
@@ -221,6 +223,7 @@ bool DlgVariableManager::checkVarType(bool &is_base_v)
             return false;
         }
     }
+    return true;
 }
 
 bool DlgVariableManager::isValidVarName(const QString &name)

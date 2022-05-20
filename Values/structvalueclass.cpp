@@ -106,16 +106,20 @@ void StructValueClass::SetVarType(QString name)
     }
 }
 
-bool StructValueClass::UpdateVarNameAndType(int var_id, const QString &name, const QString &type)
+bool StructValueClass::UpdateVarNameAndType(int var_id, const QString &name, const QString &type, bool *need_update)
 {
-    bool ok = true;
+    bool is_modify = false;
     QMap<QString, CommonValueClass*>::iterator i;
     for(i = members.begin(); i != members.end(); ++i)
     {
-        if(i.value()->UpdateVarNameAndType(var_id, name, type) == false)
-            ok = false;
+        i.value()->UpdateVarNameAndType(var_id, name, type, &is_modify);
     }
-    return ok;
+    if(need_update != nullptr)
+        *need_update = is_modify;
+    if(is_modify && var_type != "" && var_type != type)
+        return false;
+    else
+        return true;
 }
 
 bool StructValueClass::IsUsingVar(const QString &vname)
@@ -177,6 +181,8 @@ bool StructValueClass::InitWithType(QString var_type)
 {
     clearMembers();
     this->var_type = var_type;
+    if(var_type == "")
+        return true;
     StructInfo* struct_info = StructInfo::GetInstance();
     if(struct_info->CheckIsStruct(var_type))
     {

@@ -42,10 +42,10 @@ private slots:
     // 弹出菜单
     void slotTreeMenu_Event(const QPoint &pos);
     void slotTreeMenu_Custom(const QPoint &pos);
-    // 展开Tree节点
+    // 展开Tree节点时触发
     void saveEventItemState_Expanded(const QModelIndex &index);
     void saveCustomItemState_Expanded(const QModelIndex &index);
-    // 折叠Tree节点
+    // 折叠Tree节点时触发
     void saveEventItemState_Collapsed(const QModelIndex &index);
     void saveCustomItemState_Collapsed(const QModelIndex &index);
 
@@ -134,13 +134,17 @@ private:
     // 树形结构
     QModelIndex m_curModelIndex;
     NodeInfo* m_curNode;
-    QMap<QModelIndex, bool> m_itemState_Event;
-    QMap<QModelIndex, bool> m_itemState_Custom;
-    void resetTreeSate();
+    QMap<QString, bool> m_itemState_Event; //存储事件TreeView的展开状态
+    QMap<QString, bool> m_itemState_Custom; //存储自定义动作TreeView的展开状态
+    QString getItemCodeOf(int tree_type, const QModelIndex& index);
+    QModelIndex getModelIndexBy(const QString& code);
+    void clearTreeViewState(const QString& lvl_id); //删除关卡时清数据
+    void resetTreeViewSate(const QString& lvl_id); //每次打开新的关卡时，都会初始化TreeView上的节点状态
+    void updateTreeViewState(bool default_state = true); //根据存储的展开状态进行刷新
+    void setTreeViewExpandSlots(bool ok); //是否存储节点的展开、折叠状态
     void setModelForDlg(TreeItemModel *model);
     // 事件树
     TreeItemModel_Event* m_eventTreeModel;
-    void updateEventTreeState();
     void InitEventTree();
     NodeInfo* createNewEventOnTree(QString event_type, const QString& event_name);
     // 自定义动作树
@@ -149,7 +153,6 @@ private:
     // 展开、折叠所有子孙节点
     void expandAllNodes(QTreeView *tree, TreeItemModel* model, QModelIndex item);
     void collapseAllNodes(QTreeView* tree, TreeItemModel* model, QModelIndex item);
-
     void editEventName(NodeInfo* node); //编辑事件名称
     void editEventType(NodeInfo* node); //编辑事件类型
     void editActionNode(NodeInfo* node); //编辑动作节点

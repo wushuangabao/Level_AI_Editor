@@ -89,7 +89,11 @@ int TreeItemModel::columnCount(const QModelIndex &parent /*= QModelIndex()*/) co
 QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayRole*/) const
 {
     if(!index.isValid())
+    {
+        if(role == Qt::UserRole)
+            return QStringLiteral("");
         return QVariant();
+    }
 
     switch (role) {
     case Qt::TextAlignmentRole:
@@ -183,6 +187,9 @@ QVariant TreeItemModel::data(const QModelIndex &index, int role /*= Qt::DisplayR
         }
         return QBrush(color);
     }
+        break;
+    case Qt::UserRole:
+        return QString("%1.%2").arg(index.parent().data(Qt::UserRole).toString()).arg(QString::number(index.row()));
         break;
     default:
         return QVariant();

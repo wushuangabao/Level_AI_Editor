@@ -195,6 +195,7 @@ void BaseValueClass::SetLuaStr(const QString &text, const QString &type_text)
     var_type = type_text;
 
     // string类型的加上引号
+    /*
     if(var_type == "string")
     {
         lua_str.remove('"');
@@ -202,6 +203,7 @@ void BaseValueClass::SetLuaStr(const QString &text, const QString &type_text)
         lua_str.push_back('"');
         return;
     }
+    */
 
     // 检测一下lua_str是否合法
     if(var_type != "")
@@ -394,15 +396,24 @@ QString BaseValueClass::GetLuaValueString(QString var_prefix)
     }
 }
 
-bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const QString &type)
+bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const QString &type, bool *need_update)
 {
+    bool is_modify = false;
     if(value_type == VT_VAR)
     {
         if(g_var_id == var_id)
         {
-            this->name = name;
-            if(var_type != "" && var_type != type)
+            if(this->name != name)
+            {
+                this->name = name;
+                is_modify = true;
+            }
+            if(!checkVarType(type))
+            {
+                if(need_update != nullptr)
+                    *need_update = is_modify;
                 return false;
+            }
         }
     }
     else if(value_type == VT_FUNC && params.size() > 0)
@@ -411,22 +422,29 @@ bool BaseValueClass::UpdateVarNameAndType(int var_id, const QString &name, const
         bool ok = true;
         for(int i = 0; i < n; i++)
         {
-            if(!params[i]->UpdateVarNameAndType(var_id, name, type))
+            if(!params[i]->UpdateVarNameAndType(var_id, name, type, &is_modify))
                 ok = false;
         }
         if(!ok)
-            info("函数" + GetText() + "的参数类型可能有错误");
+            info(GetText() + " 参数类型有误");
     }
     else if(value_type == VT_STR)
     {
         if(lua_str.contains(name))
         {
             info("注意修改自定义值：" + lua_str);
+            if(var_type != "" && var_type != type)
+                return false;
+            else
+                return true;
         }
-        if(var_type != "" && var_type != type)
-            return false;
     }
-    return true;
+    if(need_update != nullptr)
+        *need_update = is_modify;
+    if(is_modify && var_type != "" && var_type != type)
+        return false;
+    else
+        return true;
 }
 
 bool BaseValueClass::IsUsingVar(const QString &vname)
@@ -668,6 +686,29 @@ bool BaseValueClass::checkLuaStrAndVarType(QString &lua_str, const QString &var_
     return true;
 }
 
+bool BaseValueClass::checkVarType(const QString &type)
+{
+    MY_ASSERT(value_type == VT_VAR);
+    QString _var_type_ = ValueManager::GetValueManager()->GetVarTypeAt(g_var_id);
+    if(!lua_str.isEmpty())
+    {
+        // 检查_var_type_.key1.key2.key3这样的变量名是否合法
+        StructInfo* info = StructInfo::GetInstance();
+        QStringList sl = lua_str.split('.', QString::SkipEmptyParts);
+        sl.push_front(_var_type_);
+        int n = sl.size();
+        for(int i = 1; i < n; i++)
+        {
+            QString next_var_type = info->GetValueTypeOf(sl[i-1], sl[i], true);
+            if(next_var_type == "")
+                return false;
+            else
+                sl[i] = next_var_type;
+        }
+        _var_type_ = sl[n - 1];
+    }
+    return _var_type_ == type;
+}
 
 bool CommonValueClass::AreSameVarType(CommonValueClass *v1, CommonValueClass *v2)
 {

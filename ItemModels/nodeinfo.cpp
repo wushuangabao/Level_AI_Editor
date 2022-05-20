@@ -1,4 +1,5 @@
 #include "../nodesclipboard.h"
+#include "../Values/structinfo.h"
 #include "nodeinfo.h"
 
 NodeInfo::NodeInfo(NodeInfo* p, NODE_TYPE nt, QString str)
@@ -409,6 +410,62 @@ QString NodeInfo::GetVarName_SetVar()
         var_name += QString(".%1").arg(values[i]);
     }
     return var_name;
+}
+
+bool NodeInfo::CheckLeftText_SetVar(QString& var_type, bool should_update)
+{
+    MY_ASSERT(type == SET_VAR);
+    MY_ASSERT(!values.isEmpty());
+    bool ok = true;
+    int var_id = values[0].toInt(&ok);
+    MY_ASSERT(ok);
+
+    var_type = ValueManager::GetValueManager()->GetVarTypeAt(var_id);
+    int n = values.size();
+    if(n == 1)
+        return true;
+
+    // 依次检查每个Key是否合法
+    StructInfo* table_info = StructInfo::GetInstance();
+    int i = 0;
+    for(; i < n; i++)
+    {
+        if(table_info->CheckIsStruct(var_type))
+        {
+            // 检查values[i]是否合法
+            QString type_at_i = table_info->GetValueTypeOf(var_type, values[i], true);
+            if(type_at_i == "")
+            {
+                ok = false;
+                break;
+            }
+            else
+                var_type = type_at_i;
+        }
+        else
+            break;
+    }
+    // 这时values[i]和后面的values都不合法
+    if(!ok)
+    {
+        if(should_update)
+        {
+            for(int j = i; j < n; j++)
+                values.removeLast();
+        }
+        return false;
+    }
+    // 这时values[i]合法，后面的values不合法
+    if(ok && i < n - 1)
+    {
+        if(should_update)
+        {
+            for(int j = i + 1; j < n; j++)
+                values.removeLast();
+        }
+        return false;
+    }
+    return true;
 }
 
 void NodeInfo::updateCompareText()
