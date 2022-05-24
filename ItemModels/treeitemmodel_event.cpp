@@ -1,3 +1,4 @@
+#include "../mainwindow.h"
 #include "treeitemmodel_event.h"
 
 TreeItemModel_Event::TreeItemModel_Event(QObject *parent)
@@ -108,6 +109,78 @@ void TreeItemModel_Event::UpdateEventName(NodeInfo *evt_node, QString new_name)
         node_list[i]->modifyValue(0, new_name);
         node_list[i]->UpdateText();
     }
+}
+
+// 参考 https://blog.csdn.net/weixin_43435307/article/details/109469207
+bool TreeItemModel_Event::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent)
+{
+    Q_UNUSED(action);
+    Q_UNUSED(row);
+    Q_UNUSED(column);
+
+    QByteArray array = data->data(QString("hehe"));
+    QDataStream stream(&array, QIODevice::ReadOnly);
+    qint64 p;
+    stream >> p;
+    QModelIndex* index = (QModelIndex*)p;
+
+    NodeInfo* begin_node = static_cast<NodeInfo*>(index->internalPointer());
+    NodeInfo* end_node = static_cast<NodeInfo*>(parent.internalPointer());
+    int begin_pos = m_pRootNode->GetPosOfChildNode(begin_node);
+    int end_pos = m_pRootNode->GetPosOfChildNode(end_node);
+
+    // 插入到end_pos位置
+    beginResetModel();
+    m_pRootNode->childs.insert(end_pos, begin_node);
+    if(begin_pos < end_pos)
+        m_pRootNode->childs.removeAt(begin_pos);
+    else if(begin_pos > end_pos)
+        m_pRootNode->childs.removeAt(begin_pos + 1);
+    endResetModel();
+
+    // 刷新节点的展开状态
+    MainWindow* main_win = getMainWindow();
+    MY_ASSERT(main_win != nullptr);
+    main_win->OnMoveEventNode(begin_pos, end_pos);
+
+    delete index;
+    return true;
+}
+
+Qt::DropActions TreeItemModel_Event::supportedDropActions() const
+{
+    return Qt::MoveAction;
+}
+
+QMimeData* TreeItemModel_Event::mimeData(const QModelIndexList & indexes) const
+{
+    QMimeData* mimeData = QAbstractItemModel::mimeData(indexes);
+    for (int i = 0; i < indexes.count(); i++)
+    {
+        QModelIndex index = indexes[i];
+        QModelIndex* p = new QModelIndex(index);
+        QByteArray array;
+        QDataStream stream(&array, QIODevice::WriteOnly);
+        stream << (qint64)p;
+        mimeData->setData(QString("hehe"), array);
+
+        return mimeData; //只取第一个节点的数据
+    }
+    return mimeData;
+}
+
+Qt::ItemFlags TreeItemModel_Event::flags(const QModelIndex &index) const
+{
+    if (!index.isValid())
+        return Qt::NoItemFlags;
+
+    NodeInfo* item = (NodeInfo*)index.internalPointer();
+    Qt::ItemFlags flag = QAbstractItemModel::flags(index);
+
+    if(item->type == EVENT)
+        return flag | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+    else
+        return flag;
 }
 
 void TreeItemModel_Event::findNodesOpenOrCloseEventIn(NodeInfo *parent_node, QString event_name, QList<NodeInfo *> &node_list)

@@ -1,6 +1,7 @@
 #ifndef TREEITEMMODEL_EVENT_H
 #define TREEITEMMODEL_EVENT_H
 
+#include <QMimeData>
 #include "treeitemmodel.h"
 
 class TreeItemModel_Event : public TreeItemModel
@@ -27,6 +28,12 @@ public:
     virtual QStringList* GetEventParamsLuaOf(NodeInfo* node) override;
 
     void UpdateEventName(NodeInfo* evt_node, QString new_name);
+
+    // 节点拖拽
+    virtual bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) override;
+    Qt::DropActions supportedDropActions() const override;
+    virtual QMimeData *mimeData(const QModelIndexList &indexes) const override;
+    Qt::ItemFlags flags(const QModelIndex& index) const override;
 
 private:
     // 找出parent_node的子节点中，所有与监听事件event_name有关的节点

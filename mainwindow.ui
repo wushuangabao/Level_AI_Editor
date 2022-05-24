@@ -89,6 +89,9 @@ background: rgb(28,77,120);
     </property>
     <addaction name="actionSave"/>
     <addaction name="actionLua"/>
+    <addaction name="action_Reload"/>
+    <addaction name="action_SaveAllLevel"/>
+    <addaction name="action_jsonTolua"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -319,6 +322,21 @@ background: rgb(28,77,120);
    </property>
    <property name="shortcut">
     <string>2</string>
+   </property>
+  </action>
+  <action name="action_Reload">
+   <property name="text">
+    <string>重载所有关卡</string>
+   </property>
+  </action>
+  <action name="action_SaveAllLevel">
+   <property name="text">
+    <string>保存所有关卡</string>
+   </property>
+  </action>
+  <action name="action_jsonTolua">
+   <property name="text">
+    <string>全部json转lua</string>
    </property>
   </action>
  </widget>

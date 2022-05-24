@@ -25,6 +25,7 @@ public:
     NodeInfo* addNewChild(NodeInfo* chid_node, int pos = -1); // new一个新的节点，新节点的数据复制chid_node
 
     bool ContainNodeInChildren(NodeInfo* chid_node);
+    int GetPosOfChildNode(NodeInfo* child_node);
 
     int getValuesCount();
     QString getValue(int id);

@@ -262,6 +262,17 @@ bool NodeInfo::ContainNodeInChildren(NodeInfo *chid_node)
     return false;
 }
 
+int NodeInfo::GetPosOfChildNode(NodeInfo *child_node)
+{
+    int n = childs.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(childs.at(i) == child_node)
+            return i;
+    }
+    return -1;
+}
+
 int NodeInfo::getValuesCount()
 {
     return values.size();
@@ -550,11 +561,11 @@ bool NodeInfo::tryAddChoice(NodeInfo *new_node)
 
 void NodeInfo::initEventMembers()
 {
-    this->addNewChild(ENODE, "事件");
+    this->addNewChild(ENODE, "触发节点");
 
-    NodeInfo* new_node = new NodeInfo(this, CONDITION, "条件（and）");
+    NodeInfo* new_node = new NodeInfo(this, CONDITION, "判断条件（and）");
     new_node->addNewValue(AND);
     this->childs.append(new_node);
 
-    this->addNewChild(SEQUENCE, "动作序列");
+    this->addNewChild(SEQUENCE, "执行行为");
 }

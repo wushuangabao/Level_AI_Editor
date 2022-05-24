@@ -13,7 +13,7 @@ public:
     virtual QStringList* GetEventParamsUIOf(NodeInfo* node) override;
     virtual QStringList* GetEventParamsLuaOf(NodeInfo* node) override;
 
-    void AddCustomSequence(const QString& name);
+    NodeInfo *AddCustomSequence(const QString& name);
     void UpdateCustActSeqName(NodeInfo* node, const QString& name);
 };
 

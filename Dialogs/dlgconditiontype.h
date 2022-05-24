@@ -26,6 +26,7 @@ public:
     void SetModelPointer(TreeItemModel* m);
 
     void CreateCondition(NodeInfo* parent_node, QString default_s);
+    NodeInfo* GetNewNode();
 
     void ModifyCondition(NodeInfo* node);
     void ModifyCompareNode(NodeInfo* node);

@@ -18,14 +18,12 @@ QStringList *TreeItemModel_Custom::GetEventParamsLuaOf(NodeInfo *node)
     return nullptr;
 }
 
-void TreeItemModel_Custom::AddCustomSequence(const QString &name)
+NodeInfo* TreeItemModel_Custom::AddCustomSequence(const QString &name)
 {
     beginResetModel();
-    /*NodeInfo* node = */m_pRootNode->addNewChild(SEQUENCE, name);
+    NodeInfo* node = m_pRootNode->addNewChild(SEQUENCE, name);
     endResetModel();
-
-//    if(node != nullptr)
-//        GetValueManager()->AddNewCustomSequence(name, node);
+    return node;
 }
 
 void TreeItemModel_Custom::UpdateCustActSeqName(NodeInfo *node, const QString &name)

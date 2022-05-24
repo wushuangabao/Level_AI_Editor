@@ -38,6 +38,9 @@ public:
 
     void closeEvent(QCloseEvent *e);
 
+    // 将事件节点从begin_pos到end_pos（只允许被m_eventTreeModel调用）
+    void OnMoveEventNode(int begin_pos, int end_pos);
+
 private slots:
     // 弹出菜单
     void slotTreeMenu_Event(const QPoint &pos);
@@ -96,9 +99,9 @@ private slots:
     // 删除当前选中的关卡
     void DeleteCurrentLevel();
     // 针对所有关卡的操作
-    void ReloadAllLevels();
-    void SaveAllLevels_Json();
-    void SaveAllLevels_Lua();
+    void on_action_Reload_triggered();
+    void on_action_SaveAllLevel_triggered();
+    void on_action_jsonTolua_triggered();
 
     void OpenConfigFolder();
     void OpenLuaFolder();
@@ -138,10 +141,15 @@ private:
     QMap<QString, bool> m_itemState_Custom; //存储自定义动作TreeView的展开状态
     QString getItemCodeOf(int tree_type, const QModelIndex& index);
     QModelIndex getModelIndexBy(const QString& code);
+    void moveBackItemStateOf(const QString& code_before, int brothers_size = -1); //code_before对应的节点往后移动（在其后的兄弟节点也都要后移）
+    void moveForwardItemStateOf(const QString& code_before, int front_id = 1); //code_before对应的节点往前移动（在其之前的数个兄弟节点也都要前移）
+    void replaceItemStateInMap(const QString& code_before, const QString& code_after, QStringList& to_do_list, QMap<QString, bool>* info_map, bool do_replace = true); //moveBackItemStateOf的辅助函数
     void clearTreeViewState(const QString& lvl_id); //删除关卡时清数据
     void resetTreeViewSate(const QString& lvl_id); //每次打开新的关卡时，都会初始化TreeView上的节点状态
     void updateTreeViewState(bool default_state = true); //根据存储的展开状态进行刷新
     void setTreeViewExpandSlots(bool ok); //是否存储节点的展开、折叠状态
+    void setNewCurModelIndex(QModelIndex parent_index, int child_pos); //更新m_curModelIndex，变成parent_index的第child_pos个子节点
+    void selectTreeViewItem(const QModelIndex& index); //选择TreeView上的index节点
     void setModelForDlg(TreeItemModel *model);
     // 事件树
     TreeItemModel_Event* m_eventTreeModel;

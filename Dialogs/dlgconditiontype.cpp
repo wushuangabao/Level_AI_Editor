@@ -54,6 +54,11 @@ void DlgConditionType::CreateCondition(NodeInfo* parent, QString default_s)
     exec();
 }
 
+NodeInfo *DlgConditionType::GetNewNode()
+{
+    return node;
+}
+
 void DlgConditionType::ModifyCondition(NodeInfo *node)
 {
     MY_ASSERT(node != nullptr);
@@ -119,6 +124,7 @@ void DlgConditionType::on_comboBox_currentIndexChanged(int index)
 void DlgConditionType::on_buttonBox_rejected()
 {
     type = CONDITION_OP::INVALID_CONDITION;
+    node = nullptr;
 }
 
 void DlgConditionType::on_buttonBox_accepted()
@@ -145,16 +151,17 @@ void DlgConditionType::on_buttonBox_accepted()
     // 创建Condition或者Compare节点
     else
     {
+        NodeInfo* new_node = nullptr;
         if(type == CONDITION_OP::AND)
         {
-            NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
+            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
             MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::AND);
             new_node->UpdateText();
         }
         else if(type == CONDITION_OP::OR)
         {
-            NodeInfo* new_node = model->createNode("", NODE_TYPE::CONDITION, node);
+            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
             MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(CONDITION_OP::OR);
             new_node->UpdateText();
@@ -163,7 +170,7 @@ void DlgConditionType::on_buttonBox_accepted()
         {
             if(!checkCompareValuesType())
                 return;
-            NodeInfo* new_node = model->createNode("", NODE_TYPE::COMPARE, node);
+            new_node = model->createNode("", NODE_TYPE::COMPARE, node);
             MY_ASSERT(new_node != nullptr);
             new_node->modifyValue(type);
 
@@ -175,6 +182,7 @@ void DlgConditionType::on_buttonBox_accepted()
             new_node->modifyValue(2, m_dlgEditValueRight->GetValueText());
             new_node->UpdateText();
         }
+        node = new_node; //让GetNewNode可以取到新建的节点
     }
 }
 

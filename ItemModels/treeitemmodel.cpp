@@ -1,3 +1,5 @@
+#include "qapplication.h"
+#include "../mainwindow.h"
 #include "../nodesclipboard.h"
 #include "treeitemmodel.h"
 
@@ -5,6 +7,14 @@ TreeItemModel::TreeItemModel(QObject *parent /*= 0*/)
     : QAbstractItemModel(parent)
 {
     globalValueManager = ValueManager::GetValueManager();
+}
+
+MainWindow *TreeItemModel::getMainWindow()
+{
+    foreach (QWidget *w, qApp->topLevelWidgets())
+        if (MainWindow* mainWin = qobject_cast<MainWindow*>(w))
+            return mainWin;
+    return nullptr;
 }
 
 void TreeItemModel::beginResetModel()

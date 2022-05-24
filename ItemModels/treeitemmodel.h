@@ -5,10 +5,14 @@
 #include "nodeinfo.h"
 #include "Values/valuemanager.h"
 
+class MainWindow;
+
 class TreeItemModel : public QAbstractItemModel
 {
 public:
     explicit TreeItemModel(QObject *parent = 0);
+
+    MainWindow* getMainWindow();
 
     void beginResetModel();
     void endResetModel();

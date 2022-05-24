@@ -100,6 +100,65 @@ void MainWindow::closeEvent(QCloseEvent *event)
     QMainWindow::closeEvent(event);
 }
 
+void MainWindow::OnMoveEventNode(int begin_pos, int end_pos)
+{
+    // 找到被移动的节点及其子节点temp_codes
+    QStringList temp_codes;
+    QString begin_code = getItemCodeOf(0, m_eventTreeModel->index(begin_pos, 0));
+    replaceItemStateInMap(begin_code, "", temp_codes, &m_itemState_Event, false);
+
+    // 删除被temp_codes的展开状态，不过先存储一个临时副本temp_states
+    QMap<QString, bool> temp_states;
+    int n = temp_codes.size();
+    for(int i = 0; i < n; i++)
+    {
+        if(m_itemState_Event.contains(temp_codes[i]))
+        {
+            temp_states.insert(temp_codes[i], m_itemState_Event[temp_codes[i]]);
+            m_itemState_Event.remove(temp_codes[i]);
+        }
+        else
+            info("MoveEventNode 找不到" + temp_codes[i]);
+    }
+
+    if(begin_pos > end_pos)
+    {
+        // id∈[end_pos, begin_pos)的事件后移
+        QString end_code = getItemCodeOf(0, m_eventTreeModel->index(end_pos, 0));
+        moveBackItemStateOf(end_code, begin_pos);
+
+        // 根据temp_states中的展开状态，更新被移动节点的展开状态
+        QMap<QString, bool>::iterator itr;
+        for(itr = temp_states.begin(); itr != temp_states.end(); ++itr)
+        {
+            QString new_key = itr.key();
+            new_key.replace(begin_code, end_code);
+            m_itemState_Event.insert(new_key, itr.value());
+        }
+    }
+    else if(begin_pos < end_pos - 1)
+    {
+        // id∈(begin_pos, end_pos)的事件前移
+        QString end_code = getItemCodeOf(0, m_eventTreeModel->index(end_pos - 1, 0));
+        moveForwardItemStateOf(end_code, begin_pos + 1);
+
+        // 根据temp_states中的展开状态，更新被移动节点的展开状态
+        QMap<QString, bool>::iterator itr;
+        for(itr = temp_states.begin(); itr != temp_states.end(); ++itr)
+        {
+            QString new_key = itr.key();
+            new_key.replace(begin_code, end_code);
+            m_itemState_Event.insert(new_key, itr.value());
+        }
+    }
+
+    temp_states.clear();
+    temp_codes.clear();
+
+    updateTreeViewState();
+    saveBackupJsonFile();
+}
+
 void MainWindow::slotTreeMenu_Event(const QPoint &pos)
 {
     QString qss = "QMenu::item{padding:3px 20px 3px 20px;}QMenu::indicator{width:13px;height:13px;}";
@@ -437,8 +496,21 @@ void MainWindow::slotNewEvent(bool b)
             {
                 if(EventType::GetInstance()->GetCount() > m_dlgChoseEvtType->index)
                 {
-                    createNewEventOnTree(EventType::GetInstance()->GetEventLuaType(m_dlgChoseEvtType->index), new_name);
+                    event_node = createNewEventOnTree(EventType::GetInstance()->GetEventLuaType(m_dlgChoseEvtType->index), new_name);
                     updateTreeViewState();
+
+                    // 选中新节点并展开
+                    if(event_node != nullptr)
+                    {
+                        m_curNode = event_node;
+                        int i = m_eventTreeModel->m_pRootNode->GetPosOfChildNode(event_node);
+                        MY_ASSERT(i != -1);
+                        m_curModelIndex = m_eventTreeModel->index(i, 0);
+                        selectTreeViewItem(m_curModelIndex);
+                        ui->eventTreeView->expand(m_curModelIndex);
+                        ui->eventTreeView->expand(m_eventTreeModel->index(0, 1, m_curModelIndex));
+                    }
+
                     saveBackupJsonFile();
                 }
                 else
@@ -457,6 +529,17 @@ void MainWindow::slotNewCondition(bool b)
 
         updateTreeViewState();
 
+        // 把m_curNode和m_curModelIndex更新为新建的节点，并选中它
+        NodeInfo* new_node = m_dlgConditionType->GetNewNode();
+        if(new_node != nullptr)
+        {
+            int pos = m_curNode->GetPosOfChildNode(new_node);
+            MY_ASSERT(pos != -1);
+            m_curNode = new_node;
+            setNewCurModelIndex(m_curModelIndex, pos);
+            selectTreeViewItem(m_curModelIndex);
+        }
+
         saveBackupJsonFile();
     }
 }
@@ -471,6 +554,17 @@ void MainWindow::slotNewAction(bool b)
     MY_ASSERT(parent_node != nullptr);
     MY_ASSERT(parent_node->type == SEQUENCE);
 
+    // 添加节点后，是否需要更新折叠/展开状态？
+    bool need_update_states = false;
+    QString temp_code;
+    int tree_type = ui->tabWidget->currentIndex();
+    int children_size = parent_node->childs.size();
+    if(parent_node != m_curNode)
+    {
+        need_update_states = true;
+        temp_code = getItemCodeOf(tree_type, m_curModelIndex);
+    }
+
     // 选择并新建一个动作节点
     m_dlgChoseActionType->CreateActionType(parent_node);
     QString node_text;
@@ -479,8 +573,8 @@ void MainWindow::slotNewAction(bool b)
     if(type == INVALID)
         return;
 
-    m_dlgChoseActionType->BeginResetModel();
     bool success = true;
+    NodeInfo* new_node = nullptr;
     switch (type)
     {
     case SET_VAR:
@@ -494,7 +588,7 @@ void MainWindow::slotNewAction(bool b)
             id_var = ValueManager::GetValueManager()->FindIdOfVarName(text_name.left(pos));
         else
             id_var = ValueManager::GetValueManager()->FindIdOfVarName(text_name);
-        NodeInfo* new_node = parent_node->addNewChildNode_SetVar(node_text, id_var); //在动作序列中插入新建的setvar节点
+        new_node = parent_node->addNewChildNode_SetVar(node_text, id_var); //在动作序列中插入新建的setvar节点
         CommonValueClass* v_pointer = m_dlgChoseActionType->GetValue_SetVar();
         if(new_node != nullptr && v_pointer != nullptr)
             ValueManager::GetValueManager()->UpdateValueOnNode_SetValue(new_node, v_pointer);
@@ -507,7 +601,7 @@ void MainWindow::slotNewAction(bool b)
     }
     case FUNCTION:
     {
-        NodeInfo* new_node = parent_node->addNewChild(FUNCTION, node_text);
+        new_node = parent_node->addNewChild(FUNCTION, node_text);
         if(new_node != nullptr)
         {
             ValueManager::GetValueManager()->UpdateValueOnNode_Function(new_node, m_dlgChoseActionType->GetValue_CallFunc());
@@ -522,7 +616,7 @@ void MainWindow::slotNewAction(bool b)
     case OPEN_EVENT:
     case CLOSE_EVENT:
     {
-        NodeInfo* new_node = parent_node->addNewChild(type, "");
+        new_node = parent_node->addNewChild(type, "");
         if(new_node == nullptr)
         {
             info("创建" + getNodeTypeStr(type) + "节点失败");
@@ -539,24 +633,59 @@ void MainWindow::slotNewAction(bool b)
     {
         if("-- ERROR Custom Action" != node_text)
         {
-            NodeInfo* new_node = parent_node->addNewChild(FUNCTION, node_text);
+            new_node = parent_node->addNewChild(FUNCTION, node_text);
             BaseValueClass* value = new BaseValueClass(node_text);
             ValueManager::GetValueManager()->UpdateValueOnNode_Function(new_node, value);
         }
     }
         break;
     default:
-        m_curNode = parent_node->addNewChild(type, node_text);
+        new_node = parent_node->addNewChild(type, node_text);
         break;
     }
 
-    m_dlgChoseActionType->EndResetModel();
-
-    // 重新展开到原来的形状
-    updateTreeViewState();
-
-    if(success)
+    if(success && new_node != nullptr)
     {
+        // 在新增节点之后的兄弟节点，它们的code都变了，需要更新
+        if(need_update_states)
+            moveBackItemStateOf(temp_code, children_size);
+
+        // 刷新TreeView
+        m_dlgChoseActionType->BeginResetModel();
+        m_dlgChoseActionType->EndResetModel();
+
+        // 把m_curNode和m_curModelIndex更新为新建的节点
+        int i = parent_node->GetPosOfChildNode(new_node);
+        MY_ASSERT(i != -1);
+        m_curNode = new_node;
+        if(need_update_states)
+            // 这时m_curModelIndex是new_node的下一个兄弟节点
+            setNewCurModelIndex(m_curModelIndex.parent(), i);
+        else
+            setNewCurModelIndex(m_curModelIndex, i);
+
+        // 选中新节点，设置其展开状态的记录
+        selectTreeViewItem(m_curModelIndex);
+        if(!need_update_states)
+            temp_code = getItemCodeOf(tree_type, m_curModelIndex);
+        if(tree_type == 0)
+        {
+            if(m_itemState_Event.contains(temp_code))
+                m_itemState_Event[temp_code] = true;
+            else
+                m_itemState_Event.insert(temp_code, true);
+        }
+        else if(tree_type == 1)
+        {
+            if(m_itemState_Custom.contains(temp_code))
+                m_itemState_Custom[temp_code] = true;
+            else
+                m_itemState_Custom.insert(temp_code, true);
+        }
+
+        // 将TreeView展开为记录中的形状
+        updateTreeViewState();
+
         // 备份关卡文件
         saveBackupJsonFile();
     }
@@ -574,14 +703,25 @@ void MainWindow::slotNewCustomSeq(bool b)
             info("动作名称不能为空！");
         else
         {
-            NodeInfo* event_node = m_customTreeModel->FindUppestNodeByName(new_name);
-            if(event_node != nullptr)
+            NodeInfo* act_seq_node = m_customTreeModel->FindUppestNodeByName(new_name);
+            if(act_seq_node != nullptr)
                 info("已存在动作名称：" + new_name);
             else
             {
-                m_customTreeModel->AddCustomSequence(new_name);
-                saveBackupJsonFile();
+                act_seq_node = m_customTreeModel->AddCustomSequence(new_name);
                 updateTreeViewState();
+
+                // 选中新节点
+                if(act_seq_node != nullptr)
+                {
+                    m_curNode = act_seq_node;
+                    int pos = m_customTreeModel->m_pRootNode->GetPosOfChildNode(act_seq_node);
+                    MY_ASSERT(pos != -1);
+                    m_curModelIndex = m_customTreeModel->index(pos, 0);
+                    selectTreeViewItem(m_curModelIndex);
+                }
+
+                saveBackupJsonFile();
             }
         }
     }
@@ -613,9 +753,9 @@ void MainWindow::InitEventTree()
     m_eventTreeModel = new TreeItemModel_Event(ui->eventTreeView);
     ui->eventTreeView->setModel(m_eventTreeModel);
 
-//    m_eventTreeModel->createNode("默认事件", NODE_TYPE::EVENT);
-//    ui->eventTreeView->expandAll();
-//    ui->eventTreeView->setItemsExpandable(false); //暂时禁止折叠
+    ui->eventTreeView->setDragEnabled(true); //允许拖拽
+    ui->eventTreeView->setDragDropMode(QAbstractItemView::InternalMove); //拖放模式为移动
+    ui->eventTreeView->setDropIndicatorShown(true);  //显示拖放位置
 
     ui->eventTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->eventTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Event);
@@ -697,6 +837,29 @@ void MainWindow::setTreeViewExpandSlots(bool ok)
         disconnect(ui->eventTreeView, SIGNAL(collapsed(const QModelIndex&)), this, SLOT(saveEventItemState_Collapsed(const QModelIndex&)));
         disconnect(ui->eventTreeView, SIGNAL(expanded(const QModelIndex&)), this, SLOT(saveEventItemState_Expanded(const QModelIndex&)));
     }
+}
+
+void MainWindow::setNewCurModelIndex(QModelIndex parent_index, int child_pos)
+{
+    MY_ASSERT(parent_index.isValid());
+    int tree_type = ui->tabWidget->currentIndex();
+    if(tree_type == 0)
+    {
+        m_curModelIndex = m_eventTreeModel->index(child_pos, 0, parent_index);
+    }
+    else if(tree_type == 1)
+    {
+        m_curModelIndex = m_customTreeModel->index(child_pos, 0, parent_index);
+    }
+}
+
+void MainWindow::selectTreeViewItem(const QModelIndex &index)
+{
+    int cur_tree_type = ui->tabWidget->currentIndex();
+    if(cur_tree_type == 0)
+        ui->eventTreeView->setCurrentIndex(index);
+    else if(cur_tree_type == 1)
+        ui->customTreeView->setCurrentIndex(index);
 }
 
 void MainWindow::editEventName(NodeInfo *node)
@@ -1341,6 +1504,9 @@ bool MainWindow::openJsonFile(QString filePath)
 
         if ( jsonDocument.isObject() )
         {
+            m_customTreeModel->beginResetModel();
+            m_eventTreeModel->beginResetModel();
+
             m_eventTreeModel->ClearAllData();
             m_customTreeModel->ClearAllData();
             QJsonObject jsonObject = jsonDocument.object();
@@ -1391,7 +1557,7 @@ bool MainWindow::openJsonFile(QString filePath)
                             NodeInfo* seq_node = m_customTreeModel->m_pRootNode->addNewChild(SEQUENCE, name);
                             if(!parseJsonArray_Sequence(&jsonArray, seq_node))
                             {
-                                m_eventTreeModel->deleteNode(seq_node); //todo 可能内存泄漏
+                                m_customTreeModel->deleteNode(seq_node); //todo 可能内存泄漏
                                 success = false;
                             }
                         }
@@ -1402,6 +1568,9 @@ bool MainWindow::openJsonFile(QString filePath)
                         success = false;
                 }
             }
+
+            m_eventTreeModel->endResetModel();
+            m_customTreeModel->endResetModel();
         }
     }
 
@@ -2791,9 +2960,9 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
     static QAction *create_act = nullptr;
     static QAction *openConfig_act = nullptr;
     static QAction *openLua_act = nullptr;
-    static QAction *reload_act = nullptr;
-    static QAction *save_act = nullptr;
-    static QAction *lua_act = nullptr;
+    //static QAction *reload_act = nullptr;
+    //static QAction *save_act = nullptr;
+    //static QAction *lua_act = nullptr;
     if(create_act == nullptr)
     {
         create_act = new QAction("新建关卡", this);
@@ -2809,21 +2978,21 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
         openLua_act = new QAction("打开lua文件位置", this);
         connect( openLua_act, SIGNAL(triggered()), this, SLOT(OpenLuaFolder()) );
     }
-    if(reload_act == nullptr)
-    {
-        reload_act = new QAction("重载所有关卡", this);
-        connect( reload_act, SIGNAL(triggered()), this, SLOT(ReloadAllLevels()) );
-    }
-    if(save_act == nullptr)
-    {
-        save_act = new QAction("保存所有关卡", this);
-        connect( save_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Json()) );
-    }
-    if(lua_act == nullptr)
-    {
-        lua_act = new QAction("全部json转lua", this);
-        connect( lua_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Lua()) );
-    }
+//    if(reload_act == nullptr)
+//    {
+//        reload_act = new QAction("重载所有关卡", this);
+//        connect( reload_act, SIGNAL(triggered()), this, SLOT(ReloadAllLevels()) );
+//    }
+//    if(save_act == nullptr)
+//    {
+//        save_act = new QAction("保存所有关卡", this);
+//        connect( save_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Json()) );
+//    }
+//    if(lua_act == nullptr)
+//    {
+//        lua_act = new QAction("全部json转lua", this);
+//        connect( lua_act, SIGNAL(triggered()), this, SLOT(SaveAllLevels_Lua()) );
+//    }
 
     // 添加选项 新建关卡
     popMenu->addAction( create_act );
@@ -2841,14 +3010,14 @@ void MainWindow::on_levelList_customContextMenuRequested(const QPoint &pos)
         connect( del_act, SIGNAL(triggered()), this, SLOT(DeleteCurrentLevel()) );
     }
 
-    // 添加选项 重载、保存、一键生成Lua
+    // 添加选项
     popMenu->addSeparator();
 
     popMenu->addAction( openConfig_act );
     popMenu->addAction( openLua_act );
-    popMenu->addAction( reload_act );
-    popMenu->addAction( save_act );
-    popMenu->addAction( lua_act );
+    //popMenu->addAction( reload_act );
+    //popMenu->addAction( save_act );
+    //popMenu->addAction( lua_act );
 
     // 弹出菜单
     popMenu->exec( QCursor::pos() );
@@ -3032,7 +3201,7 @@ void MainWindow::DeleteCurrentLevel()
     // todo 删除备份文件
 }
 
-void MainWindow::ReloadAllLevels()
+void MainWindow::on_action_Reload_triggered()
 {
     if(isNeedSave())
     {
@@ -3051,7 +3220,7 @@ void MainWindow::ReloadAllLevels()
     }
 }
 
-void MainWindow::SaveAllLevels_Json()
+void MainWindow::on_action_SaveAllLevel_triggered()
 {
     m_dlgChoseEvtType->EditLevelPrefix(m_levelPrefix);
     if(m_dlgChoseEvtType->event_name != "-1")
@@ -3103,7 +3272,7 @@ void MainWindow::SaveAllLevels_Json()
     }
 }
 
-void MainWindow::SaveAllLevels_Lua()
+void MainWindow::on_action_jsonTolua_triggered()
 {
     QString lua_path = QCoreApplication::applicationFilePath();
     lua_path.replace("LevelEditor.exe", m_LuaPath);
@@ -3194,7 +3363,7 @@ void MainWindow::updateTreeViewState(bool default_state)
         if(itr.key().left(pos) != c_lvl_id)
             continue;
 
-        QModelIndex index = getModelIndexBy(itr.key());
+        QModelIndex index = getModelIndexBy(itr.key().mid(pos + 1));
         if(index.isValid())
             ui->customTreeView->setExpanded(index, itr.value());
         else
@@ -3420,6 +3589,105 @@ QModelIndex MainWindow::getModelIndexBy(const QString &code)
         index = m->index(row, 0, index);
     }
     return index;
+}
+
+void MainWindow::moveBackItemStateOf(const QString &code_before, int brothers_size)
+{
+    if(brothers_size == -1)
+    {
+        NodeInfo* node = reinterpret_cast<NodeInfo*>(getModelIndexBy(code_before).internalPointer());
+        MY_ASSERT(node->parent != nullptr);
+        brothers_size = node->parent->childs.size();
+    }
+
+    int pos = code_before.lastIndexOf('.') + 1;
+    bool ok = true;
+    int index = code_before.mid(pos).toInt(&ok); //index表示这个节点是第几个子节点
+    MY_ASSERT(ok && index < brothers_size && index >= 0); //id从index到brothers_size-1的这几个节点都要往后移动
+
+    int pos_1 = code_before.indexOf(':');
+    MY_ASSERT(pos_1 != -1);
+    int pos_2 = code_before.indexOf('.');
+    MY_ASSERT(pos_2 != -1);
+    int tree_type = code_before.mid(pos_1 + 1, pos_2 - pos_1 - 1).toInt(&ok);
+    MY_ASSERT(ok && (tree_type == 0 || tree_type == 1));
+
+    QString common_code = code_before.left(pos);
+    QStringList to_remove_list;
+    QMap<QString, bool>* info_map = tree_type == 0 ? &m_itemState_Event : &m_itemState_Custom;
+
+    for(int i = brothers_size - 1; i >= index; i--)
+    {
+        QString s1 = common_code + QString::number(i);
+        QString s2 = common_code + QString::number(i + 1);
+        replaceItemStateInMap(s1, s2, to_remove_list, info_map);
+    }
+
+    int n = to_remove_list.size();
+    for(int i = 0; i < n; i++)
+        info_map->remove(to_remove_list.at(i));
+}
+
+void MainWindow::moveForwardItemStateOf(const QString &code_before, int front_id)
+{
+    int pos = code_before.lastIndexOf('.') + 1;
+    bool ok = true;
+    int index = code_before.mid(pos).toInt(&ok); //index表示这个节点是第几个子节点
+    MY_ASSERT(ok && index >= front_id && front_id >= 1); //id从front_id到index的这几个节点都要往前移动
+
+    int pos_1 = code_before.indexOf(':');
+    MY_ASSERT(pos_1 != -1);
+    int pos_2 = code_before.indexOf('.');
+    MY_ASSERT(pos_2 != -1);
+    int tree_type = code_before.mid(pos_1 + 1, pos_2 - pos_1 - 1).toInt(&ok);
+    MY_ASSERT(ok && (tree_type == 0 || tree_type == 1));
+
+    QString common_code = code_before.left(pos);
+    QStringList to_remove_list;
+    QMap<QString, bool>* info_map = tree_type == 0 ? &m_itemState_Event : &m_itemState_Custom;
+
+    // 删除第 front_id - 1 个节点的展开记录
+    replaceItemStateInMap(common_code + QString::number(front_id - 1), "", to_remove_list, info_map, false);
+    int n = to_remove_list.size();
+    for(int i = 0; i < n; i++)
+        info_map->remove(to_remove_list.at(i));
+
+    // 开始移动这些节点的展开记录
+    for(int i = front_id; i <= index; i++)
+    {
+        QString s1 = common_code + QString::number(i);
+        QString s2 = common_code + QString::number(i - 1);
+        replaceItemStateInMap(s1, s2, to_remove_list, info_map);
+    }
+}
+
+void MainWindow::replaceItemStateInMap(const QString &code_before, const QString &code_after, QStringList& to_do_list, QMap<QString, bool>* info_map, bool do_replace)
+{
+    to_do_list.clear();
+    int len_code_before = code_before.size();
+    QMap<QString, bool>::iterator itr;
+    for(itr = info_map->begin(); itr != info_map->end(); ++itr)
+    {
+        if( itr.key() == code_before ||
+            (itr.key().size() > len_code_before && itr.key().left(len_code_before) == code_before && itr.key().at(len_code_before) == '.')
+          )
+        {
+            to_do_list.push_back(itr.key());
+        }
+    }
+
+    if(!do_replace)
+        return;
+
+    int n = to_do_list.size();
+    for(int i = 0; i < n; i++)
+    {
+        QString new_key = to_do_list[i];
+        new_key.replace(code_before, code_after);
+        if(info_map->contains(new_key))
+            info_map->remove(new_key);
+        info_map->insert(new_key, info_map->value(to_do_list[i]));
+    }
 }
 
 void MainWindow::clearTreeViewState(const QString &lvl_id)
