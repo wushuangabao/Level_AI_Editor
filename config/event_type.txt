@@ -1,35 +1,37 @@
-BEFORE_INIT	关卡初始化前	tag1,tag2		
-AFTER_INIT	关卡初始化后	tag1,tag3		
-BEFORE_NPC_FORMATION	NPC上阵前	tag1,tag4		
-AFTER_NPC_FORMATION	NPC上阵后	tag1		
-BEFORE_PLAYER_ENTER	玩家进入前	tag2		
-AFTER_PLAYER_ENTER	玩家进入后	tag3		
-BATTLE_START_PRE	进入关卡之前			
-BATTLE_START_AFTER	进入关卡之后			
-BEFORE_MAKE_BIRTH	玩家布阵之前			
-AFTER_MAKE_BIRTH	玩家布阵之后			
-BEFORE_PREPARE_FINISH	玩家准备完成之前			
-AFTER_PREPARE_FINISH	玩家准备完成之后			
-BEFORE_NEW_ROUND	新回合之前		回合数|number|round	
-AFTER_NEW_ROUND	新回合之后		回合数|number|round	
-BEFORE_TURN_START	势力回合开始之前		回合数|number|round	势力|number|reputationId
-AFTER_TURN_START	势力回合开始之后		回合数|number|round	势力|number|reputationId
-BEFORE_SELECT_VALKYRJA	选择棋子之前			
-AFTER_SELECT_VALKYRJA	选择棋子之后			
-BEFORE_ACTION_START	单个棋子行动开始之前		回合数|number|round	DataId|number|dataId
-AFTER_ACTION_START	单个棋子行动开始之后		回合数|number|round	DataId|number|dataId
-BEFORE_MOVE	移动之前		目的点|number|cellIndex	势力|number|reputationId
-AFTER_MOVE	移动之后		目的点|number|cellIndex	势力|number|reputationId
-BEFORE_TRAP	陷阱之前			
-AFTER_TRAP	陷阱之后			
-BEFORE_USE_SKILL	使用技能之前			
-AFTER_USE_SKILL	使用技能之后			
-BEFORE_ACTION_END	单个棋子行动结束之前		回合数|number|round	DataId|number|dataI
-AFTER_ACTION_END	单个棋子行动结束之后		回合数|number|round	DataId|number|dataI
-BEFORE_TURN_END	势力回合结束之前		回合数|number|round	势力|number|reputationId
-AFTER_TURN_END	势力回合结束之后		回合数|number|round	势力|number|reputationId
-BEFORE_ROUND_END	回合结束之前		回合数|number|round	
-AFTER_ROUND_END	回合结束之后		回合数|number|round	
-BEFORE_BATTLE_END	战斗结束之前			
-AFTER_BATTLE_END	战斗结束之后			
-DEAD	棋子死亡		DataId|number|dataId	势力|number|reputationId
+BEFORE_INIT	关卡初始化前	"tag1,tag2"			
+AFTER_INIT	关卡初始化后	"tag1,tag3"			
+BEFORE_NPC_FORMATION	NPC上阵前	"tag1,tag4"			
+AFTER_NPC_FORMATION	NPC上阵后	tag1			
+BEFORE_PLAYER_ENTER	玩家进入前	tag2			
+AFTER_PLAYER_ENTER	玩家进入后	tag3			
+BATTLE_START_PRE	进入关卡之前				
+BATTLE_START_AFTER	进入关卡之后				
+BEFORE_MAKE_BIRTH	玩家布阵之前				
+AFTER_MAKE_BIRTH	玩家布阵之后				
+BEFORE_PREPARE_FINISH	玩家准备完成之前				
+AFTER_PREPARE_FINISH	玩家准备完成之后				
+BEFORE_NEW_ROUND	新回合之前		回合数|number|round		
+AFTER_NEW_ROUND	新回合之后		回合数|number|round		
+BEFORE_TURN_START	势力回合开始之前		回合数|number|round	势力|number|reputationId	
+AFTER_TURN_START	势力回合开始之后		回合数|number|round	势力|number|reputationId	
+BEFORE_SELECT_VALKYRJA	选择棋子之前				
+AFTER_SELECT_VALKYRJA	选择棋子之后				
+BEFORE_ACTION_START	单个棋子行动开始之前		回合数|number|round	DataId|number|dataId	
+AFTER_ACTION_START	单个棋子行动开始之后		回合数|number|round	DataId|number|dataId	
+BEFORE_MOVE	移动之前		目的点|number|cellIndex	势力|number|reputationId	
+AFTER_MOVE	移动之后		目的点|number|cellIndex	势力|number|reputationId	
+BEFORE_TRAP	陷阱之前				
+AFTER_TRAP	陷阱之后				
+BEFORE_USE_SKILL	使用技能之前		战棋id|number|valkyrjaId		
+AFTER_USE_SKILL	使用技能之后		战棋id|number|valkyrjaId		
+BEFORE_ACTION_END	单个棋子行动结束之前		回合数|number|round	objId|number|valkyrjaId	dataId|number|dataId	
+AFTER_ACTION_END	单个棋子行动结束之后		回合数|number|round	objId|number|valkyrjaId	guid|number|guid	dataId|number|dataId
+BEFORE_TURN_END	势力回合结束之前		回合数|number|round	势力|number|reputationId	
+AFTER_TURN_END	势力回合结束之后		回合数|number|round	势力|number|reputationId	
+BEFORE_ROUND_END	回合结束之前		回合数|number|round		
+AFTER_ROUND_END	回合结束之后		回合数|number|round		
+BEFORE_BATTLE_END	战斗结束之前				
+AFTER_BATTLE_END	战斗结束之后				
+DEAD	棋子死亡		DataId|number|dataId	势力|number|reputationId	guid|number|guid
+ENTER_AREA	进入区域 		区域ID|number|areaId		
+LEAVE_AREA	离开区域 		区域ID|number|areaId		

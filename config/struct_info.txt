@@ -1,4 +1,4 @@
 #名称	属性1|类型|lua	属性2|类型|lua	……		
-VecCell	x|number|x	z|number|z	layer|Vector3|layer						
+VecCell	x|number|x	z|number|z	layer|number|layer						
 Vector3	x|number|x	y|number|y	z|number|z						
 Custom_Value001	总时长|number|duration	位移时长|number|pos_duration	转向时长|number|rot_duration	广角时长|number|fov_duration	隐藏UI|number|hideUI	跳过|number|skip	中断|number|interrupt	等待|number|waitAI	复位|number|resetpos

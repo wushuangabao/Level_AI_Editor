@@ -2,17 +2,13 @@
 1100	1	LevelAIHelper.LevelSuccess	胜负判定——使关卡胜利	使关卡胜利	0	1		"tag1,tag3"
 1101	1	LevelAIHelper.LevelFailed	胜负判定——使关卡失败	使关卡失败	0	1		tag2
 1102	1	LevelAIHelper.AliveCount	势力——势力存活个数	势力{{number}}存活个数	number	0		tag3
-1103	1	LevelAIHelper.NewEnemyValkyrja	棋子创建——创建敌方棋子	创建敌方棋子 id{{number}}cellX{{number}}cellZ{{number}}layer{{number}}dir{{dir}}	0	1		
-1104	1	LevelAIHelper.NewAssistor	棋子创建——创建助战棋子	创建助战棋子 id{{number}}cellX{{number}}cellZ{{number}}layer{{number}}dir{{dir}}	0	1		
+1103	1	LevelAIHelper.NewEnemyValkyrja	棋子创建——创建敌方棋子	创建敌方棋子 id{{number}}cellX{{number}}cellZ{{number}}layer{{number}}dir{{dir}}guid{{number}}	0	1		
+1104	1	LevelAIHelper.NewAssistor	棋子创建——创建助战棋子	创建助战棋子 id{{number}}cellX{{number}}cellZ{{number}}layer{{number}}dir{{dir}}guid{{number}}	0	1		
 1105	1	LevelAIHelper.LeaveLevel	其他——离开关卡	离开关卡	0	1		
 1106	1	LevelAIHelper.PlayStory	剧情播放——播放剧情对话	播放剧情对话 id{{number}}	0	1		
 1107	1	LevelAIHelper.PlayTimeLine	剧情播放——播放TimeLine	播放TimeLine id{{number}}	0	1		
 1108	1	LevelAIHelper.HideOrRecoverAllUI	界面——隐藏或恢复所有界面	隐藏或恢复所有界面 是否隐藏{{bool}}	0	1		
-1109	1	LevelAIHelper.OpenFormUI	界面——打开界面（无参数）	界面 id{{number}}	0	1		
-1110	1	LevelAIHelper.OpenFormUI	界面——打开界面（1个参数）	界面 id{{number}} 参数1{{number}}	0	1		
 1111	1	LevelAIHelper.OpenFormUI	界面——打开界面（2个参数）	界面 id{{number}} 参数1{{number}} 参数2 {{number}}	0	1		
-1112	1	LevelAIHelper.OpenFormUIWithCloseCallback	界面——打开界面并等待输入（无参数）	打开界面id{{number}}并等待输入	0	1		
-1113	1	LevelAIHelper.OpenFormUIWithCloseCallback	界面——打开界面并等待输入（1个参数）	打开界面id{{number}}并等待输入 参数1{{number}}	0	1		
 1114	1	LevelAIHelper.OpenFormUIWithCloseCallback	界面——打开界面并等待输入（2个参数）	打开界面id{{number}}并等待输入 参数1{{number}} 参数2{{number}}	0	1		
 1115	1	LevelAIHelper.PlayerFormation	其他——自动上阵	自动上阵	0	1		
 1116	1	LevelAIHelper.PrepareFinish	其他——自动出战	自动出战	0	1		
@@ -27,15 +23,34 @@
 1125	1	LevelAIHelper.MoveCamera_ByDistance_WorldPos	相机(距离)-注视某点	注视坐标{{Vector3}}距离{{number}}相机朝向{{Vector3}}广角{{number}}custom_value{{Custom_Value001}}	0	1		
 1126	1	LevelAIHelper.MoveCamera_ByDistance_CellPos	相机(距离)-注视某格	格子坐标{{VecCell}}距离{{number}}相机朝向{{Vector3}}广角{{number}}custom_value{{Custom_Value001}}	0	1		
 1127	1	LevelAIHelper.MoveCamera_ByDistance_Obj	相机(距离)-注视某棋子	objId{{number}}lookAt{{bool}}follow{{bool}}距离{{number}}相机朝向{{Vector3}}广角{{number}}custom_value{{Custom_Value001}}	0	1		
-1128	1	LevelAIHelper.GetValGuidByCellPos	获取目标格子上棋子的GUID	获取目标格子上棋子的GUID 格子坐标{{VecCell}}	number	1		
-1129	1	LevelAIHelper.GetValObjIdByCellPos	获取目标格子上棋子的objID	获取目标格子上棋子的objID 格子坐标{{VecCell}}	number	1		
-1130	1	LevelAIHelper.GetValObjIdByGuid	通过GUID获取objID	通过GUID获取objID guid{{number}}	number	1		
-1131	1	LevelAIHelper.GetValGuidByObjID	通过objID获取GUID	通过objID获取GUID objID{{number}}	number	1		
-1132	1	LevelAIHelper.SetJiGuanSwitchState	播放机关并存储状态	机关对应场景的 id{{number}} 机关state{{number}}	number	1		
-1133	1	LevelAIHelper.PlayJiGuanTimeLine	直接播放机关 无状态	机关timeline资源id{{number}}	number	1		
-1134	1	LevelAIHelper.SetValkyrjaHP	调整棋子血量状态	棋子guid{{number}}血量调整至{{number}}	0	1		
-1135	1	LevelAIHelper.SetValkyrjaEnergy	调整棋子能量状态	棋子guid{{number}}能量调整至{{number}}	0	1		
-1136	1	LevelAIHelper.SetValkyrjaCellPos	调整棋子坐标状态	棋子guid{{number}}坐标调整至X{{number}}Z{{number}}Layer{{number}}dir{{dir}}	0	1		
-1137	1	LevelAIHelper.SetValkyrjaActed	调整棋子回合状态	棋子guid{{number}}回合状态调整至{{act}}	0	1		
-1138	1	LevelAIHelper.GetPlayerValkyrjaGUIDByDataId	根据棋子ID获得GUID	棋子id{{number}}势力id{{number}}	number	1		
-1139	1	LevelAIHelper.ChangeLevelCondition	修改界面显示胜利条件	修改界面显示胜利条件参数1{{string}}参数2{{string}}参数3{{string}}参数4{{string}}参数5{{string}}	number	1		
+1128	1	LevelAIHelper.GetValGuidByCellPos	id——获取目标格子上棋子的GUID	获取目标格子上棋子的GUID 格子坐标{{VecCell}}	number	1		
+1129	1	LevelAIHelper.GetValObjIdByCellPos	id——获取目标格子上棋子的objID	获取目标格子上棋子的objID 格子坐标{{VecCell}}	number	1		
+1130	1	LevelAIHelper.GetValObjIdByGuid	id——通过GUID获取objID	通过GUID获取objID guid{{number}}	number	1		
+1131	1	LevelAIHelper.GetValGuidByObjID	id——通过objID获取GUID	通过objID获取GUID objID{{number}}	number	1		
+1132	1	LevelAIHelper.SetJiGuanSwitchState	机关——播放机关并存储状态	机关id(前5位){{number}} 目标状态{{number}}	number	1		
+1133	1	LevelAIHelper.PlayJiGuanTimeLine	机关——直接播放机关 无状态	机关timeline资源id{{number}}	number	1		
+1134	1	LevelAIHelper.SetValkyrjaHP	棋子——调整棋子血量状态	棋子guid{{number}}血量调整至{{number}}	0	1		
+1135	1	LevelAIHelper.SetValkyrjaEnergy	棋子——调整棋子能量状态	棋子guid{{number}}能量调整至{{number}}	0	1		
+1136	1	LevelAIHelper.SetValkyrjaCellPos	棋子——调整棋子坐标状态	棋子guid{{number}}坐标调整至X{{number}}Z{{number}}Layer{{number}}dir{{dir}}	0	1		
+1137	1	LevelAIHelper.SetValkyrjaActed	棋子——调整棋子回合状态	棋子guid{{number}}回合状态调整至{{act}}	0	1		
+1138	1	LevelAIHelper.GetPlayerValkyrjaGUIDByDataId	id——根据棋子ID获得GUID	棋子id{{number}}势力id{{number}}	number	1		
+1139	1	LevelAIHelper.ChangeLevelCondition	界面——修改界面显示胜利条件	修改界面显示胜利条件参数1{{string}}参数2{{string}}参数3{{string}}参数4{{string}}参数5{{string}}	number	1		
+1140	1	LevelAIHelper.JiGuanDamageByRectangle	机关——机关对格子造成范围伤害（矩形）	矩形的左下角原点X{{number}}Z{{number}}Layer{{number}}矩形长{{number}}矩形宽{{number}}伤害值{{number}}buffid{{number}}	0	1		
+1141	1	LevelAIHelper.JiGuanDamageByRhomb	机关——机关对格子造成范围伤害（菱形）	菱形的中心点X{{number}}Z{{number}}Layer{{number}}菱形半径{{number}}伤害值{{number}}buffid{{number}}	0	1		
+1142	1	LevelAIHelper.RuoMuLevelCheckAllValkyrjaRayBuff	若木关卡射线buff的处理	若木关卡射线buff的处理	0	1		ruomu
+1143	1	LevelAIHelper.SetValkyrijaValue	棋子——调整棋子状态	棋子guid{{number}}血量调整至{{number}}能量调整至{{number}}坐标调整至X{{number}}Z{{number}}Layer{{number}}dir{{dir}}回合状态调整至{{act}}	0	1		
+1144	1	LevelAIHelper.RemoveValkyrjaInAreaForAll	删除某区域内的某单位--全部棋子	区域id{{number}}	0	1		Area
+1145	1	LevelAIHelper.RemoveValkyrjaInAreaWithReputation	删除某区域内的某单位--目标单位势力ID	区域id{{number}}目标单位势力id{{number}}	0	1		Area
+1146	1	LevelAIHelper.RemoveValkyrjaInAreaWithDataId	删除某区域内的某单位--目标单位棋子ID	区域id{{number}}目标单位棋子id{{number}}	0	1		Area
+1147	1	LevelAIHelper.RemoveValkyrjaInAreaWithGuid	删除某区域内的某单位--目标单位GUID	区域id{{number}}目标单位guid{{number}}	0	1		Area
+1148	1	LevelAIHelper.KillValkyrjaInAreaForAll	杀死某区域内的某单位--全部棋子	区域id{{number}}	0	1		Area
+1149	1	LevelAIHelper.KillValkyrjaInAreaWithReputation	杀死某区域内的某单位--目标单位势力ID	区域id{{number}}目标单位势力id{{number}}	0	1		Area
+1150	1	LevelAIHelper.KillValkyrjaInAreaWithDataId	杀死某区域内的某单位--目标单位棋子ID	区域id{{number}}目标单位棋子id{{number}}	0	1		Area
+1151	1	LevelAIHelper.KillValkyrjaInAreaWithGuid	杀死某区域内的某单位--目标单位GUID	区域id{{number}}目标单位guid{{number}}	0	1		Area
+1152	1	LevelAIHelper.GetValkyrjasNumInArea	获取区域内共有多少棋子	区域id{{number}}	number	1		Area
+1153	1	LevelAIHelper.GetValkyrjasNumInAreaWithReputation	获取区域内某势力有多少棋子	区域id{{number}}目标单位势力id{{number}}	number	1		Area
+1154	1	LevelAIHelper.RandomCellIdInArea	在区域中随机选择一个格子	区域id{{number}}	number	1		Area
+1155	1	LevelAIHelper.JiGuanDamageInArea	机关——机关对区域内造成伤害	区域id{{number}}伤害值{{number}}buffid{{number}}	0	1		
+1156	1	LevelAIHelper.GetPlayerValkyrjaGUIDByBaseId	id——根据棋子BaseID获得GUID	棋子baseId{{number}}	number	1		
+1157	1	LevelAIHelper.PlayJuQing	播放剧情	剧情JuQIngBase的JuQingId字段{{number}}	0	1		
+1158	1	LevelAIHelper.PlayCopySceneEvent	播放框式对话	延时播放时间（秒）（从上一句消失开始算）{{number}} DRCopySceneEvent的id{{number}}	0	1		

@@ -1,4 +1,6 @@
 {
+    "CustomAction": [
+    ],
     "Event": [
         {
             "AND": [
@@ -19,7 +21,6 @@
                 {
                     "ACTION": "CALL",
                     "function": "LevelAIHelper.LevelFailed",
-                    "id": 1101,
                     "params": [
                     ]
                 }
@@ -36,7 +37,6 @@
                     "value_left": {
                         "call": {
                             "function": "LevelAIHelper.AliveCount",
-                            "id": 1102,
                             "params": [
                                 {
                                     "code": "1",
@@ -56,7 +56,6 @@
                 {
                     "ACTION": "CALL",
                     "function": "LevelAIHelper.LevelFailed",
-                    "id": 1101,
                     "params": [
                     ]
                 }
@@ -73,7 +72,6 @@
                     "value_left": {
                         "call": {
                             "function": "LevelAIHelper.AliveCount",
-                            "id": 1102,
                             "params": [
                                 {
                                     "code": "21",
@@ -93,38 +91,8 @@
                 {
                     "ACTION": "CALL",
                     "function": "LevelAIHelper.LevelSuccess",
-                    "id": 1100,
                     "params": [
                     ]
-                },
-                {
-                    "ACTION": "SET_VAR",
-                    "id": 1,
-                    "name": "但是得到",
-                    "value": {
-                        "code": "nil",
-                        "type": ""
-                    }
-                },
-                {
-                    "ACTION": "LOOP",
-                    "SEQUENCE": [
-                        {
-                            "ACTION": "IF",
-                            "AND": [
-                            ],
-                            "else": [
-                                {
-                                    "ACTION": "BREAK"
-                                }
-                            ],
-                            "then": [
-                            ]
-                        }
-                    ]
-                },
-                {
-                    "ACTION": "BREAK"
                 }
             ],
             "event_name": "关卡胜利",
@@ -134,14 +102,5 @@
         }
     ],
     "Var": [
-        {
-            "id": 1,
-            "initValue": {
-                "code": "nil",
-                "type": "number"
-            },
-            "name": "但是得到",
-            "type": "number"
-        }
     ]
 }
