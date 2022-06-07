@@ -37,8 +37,8 @@ public:
 private slots:
     void on_comboBox_currentIndexChanged(int index);
 
-    void on_buttonBox_rejected();
-    void on_buttonBox_accepted();
+    void on_DlgConditionType_rejected();
+    void on_DlgConditionType_accepted();
 
     void on_btnText_1_clicked();
     void on_btnText_2_clicked();

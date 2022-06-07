@@ -243,24 +243,18 @@ bool TreeItemModel::deleteNode(NodeInfo *node)
     {
         if(node->parent->childs[i] == node)
         {
-            beginResetModel();
             node->parent->childs.removeAt(i);
             node->parent = nullptr;
-            endResetModel();
             is_del = true;
             break;
         }
     }
 
-    // 剪切板中是否存在对其的引用
-    if(!NodesClipBoard::GetInstance()->HasCopyNode(node))
-    {
-        // 如果 value manager 中有node和对应的value，也要删掉
-        globalValueManager->OnDeleteNode(node);
-        // 清除节点数据、子节点数据
-        delete node;
-        node = nullptr;
-    }
+    // 如果 value manager 中有node和对应的value，也要删掉
+    globalValueManager->OnDeleteNode(node);
+    // 清除节点数据、子节点数据
+    delete node;
+    node = nullptr;
 
     // todo: 如果删除的是Event，那么其他事件中的OPEN_EVENT和CLOSE_EVENT节点会失效
 

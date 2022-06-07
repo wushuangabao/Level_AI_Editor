@@ -47,7 +47,8 @@ SOURCES += \
     Dialogs/dlgeditstructvalue.cpp \
     Values/structvalueclass.cpp \
     Values/valueclass.cpp \
-    Dialogs/multilevelcombobox.cpp
+    Dialogs/multilevelcombobox.cpp \
+    Utils/pinyin.cpp
 
 HEADERS += \
         mainwindow.h \
@@ -72,7 +73,8 @@ HEADERS += \
     Dialogs/multiselectcombobox.h \
     Values/structinfo.h \
     Dialogs/dlgeditstructvalue.h \
-    Dialogs/multilevelcombobox.h
+    Dialogs/multilevelcombobox.h \
+    Utils/pinyin.h
 
 FORMS += \
         mainwindow.ui \

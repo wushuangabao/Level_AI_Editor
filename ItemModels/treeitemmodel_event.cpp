@@ -129,6 +129,12 @@ bool TreeItemModel_Event::dropMimeData(const QMimeData* data, Qt::DropAction act
     int begin_pos = m_pRootNode->GetPosOfChildNode(begin_node);
     int end_pos = m_pRootNode->GetPosOfChildNode(end_node);
 
+    if(begin_pos == end_pos || begin_pos + 1 == end_pos)
+    {
+        delete index;
+        return false;
+    }
+
     // 插入到end_pos位置
     beginResetModel();
     m_pRootNode->childs.insert(end_pos, begin_node);
@@ -142,6 +148,7 @@ bool TreeItemModel_Event::dropMimeData(const QMimeData* data, Qt::DropAction act
     MainWindow* main_win = getMainWindow();
     MY_ASSERT(main_win != nullptr);
     main_win->OnMoveEventNode(begin_pos, end_pos);
+    main_win->SaveBackup(true);
 
     delete index;
     return true;

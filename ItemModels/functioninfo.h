@@ -10,8 +10,6 @@ class FunctionClass
 private:
     friend class FunctionInfo;
 
-    FUNCTION_POS id;
-
     QString name_lua;   // 函数名（lua）
     QString name_ui;    // 函数名（UI显示）
     QStringList texts;  // 拼接成描述的纯文本
@@ -24,7 +22,6 @@ public:
 
     inline void Clear()
     {
-        id = -1;
         name_lua.clear();
         name_ui.clear();
         texts.clear();
@@ -35,7 +32,6 @@ public:
         can_be_call = false;
     }
 
-    inline FUNCTION_POS GetID() { return id; }
     inline QString GetNameLua() { return name_lua; }
     inline QString GetNameUI() { return name_ui; }
     inline QString GetNote() { return note; }
@@ -95,14 +91,20 @@ private:
     bool createDataByLuaFile(const QString& lua_path);
     bool parseLuaLine(FunctionClass* func, QString line);
     void parseTextsAndParams(FunctionClass* func, QString str);
-    void parseTags(QString str, int func_id);
+    void parseTags(QString str, QString func_name_lua);
+
+    // 将func插入infoList（保持func.name_ui是从小到大的顺序）。fugai表示是否覆盖已有的相同name_lua的数据。
+    void addFunctionInfo(const FunctionClass &func, bool fugai);
+    // 辅助函数：查找插入位置
+    int findIdxInRange(int fst_i, int size, const QString &name_ui);
+    int findIdxInList(const QString& name_ui);
 
     QString config_path;
     QString parse_flag;
 
     static FunctionInfo* data;
-    QVector<FunctionClass> infoList;
-    QMap<QString, QVector<FUNCTION_POS>> tagMap;
+    QList<FunctionClass> infoList;
+    QMap<QString, QStringList> tagMap;
 };
 
 #endif // FUNCTIONINFO_H

@@ -1,3 +1,5 @@
+#include "qapplication.h"
+#include "mainwindow.h"
 #include "ItemModels/treeitemmodel.h"
 #include "nodesclipboard.h"
 
@@ -28,6 +30,7 @@ void NodesClipBoard::SetTreeItemModel(TreeItemModel *et, TreeItemModel *ct)
 
 bool NodesClipBoard::AddCopyNode(NodeInfo *node)
 {
+    MY_ASSERT(node != nullptr);
     NODE_TYPE paste_node_type = getTypeOfPasteNode(node);
     if(paste_node_type == MAX)
     {
@@ -42,9 +45,11 @@ bool NodesClipBoard::AddCopyNode(NodeInfo *node)
         return false;
     }
 
-    if(copyValueOnNode(node))
+    // 复制一份node的拷贝，包括相关的value数据
+    NodeInfo* new_node = nullptr;
+    if(copyValueOnNode(node, new_node, true))
     {
-        m_nodes.push_back(node);
+        m_nodes.push_back(new_node);
         return true;
     }
     else
@@ -123,16 +128,34 @@ bool NodesClipBoard::PasteToNode(NodeInfo *node, int tree_type)
         }
     }
 
-    // 实施粘贴
+    MainWindow* win = getMainWindow();
+    MY_ASSERT(win != nullptr);
+
     if(tree_type == 0)
         m_eventTreeModel->beginResetModel();
     else if(tree_type == 1)
         m_customTreeModel->beginResetModel();
-    pasteChildrenNodesTo(parent, pos);
+
+    // 记录原来在pos的节点的code
+    QString code;
+    if(pos != -1)
+        code = win->GetItemCodeOfNode(parent->childs.at(pos));
+    // 实施粘贴
+    QStringList codes = pasteChildrenNodesTo(parent, pos);
+    // 移动原pos位置的节点及其后的兄弟节点的位置
+    if(pos != -1)
+        win->MoveBackItemStateOf(code, parent->childs.size() - codes.size(), codes.size());
+    // 进行备份
+    win->SaveBackup(pos != -1);
+
     if(tree_type == 0)
         m_eventTreeModel->endResetModel();
     else if(tree_type == 1)
         m_customTreeModel->endResetModel();
+
+    // 通过进行展开、折叠操作，记录新增的这些节点的状态，并选中
+    win->OnPasteNodes(codes);
+
     return true;
 }
 
@@ -162,23 +185,40 @@ void NodesClipBoard::ClearNodes()
     m_nodeSetVarId.clear();
 }
 
-void NodesClipBoard::pasteChildrenNodesTo(NodeInfo *root_node, int pos)
+MainWindow *NodesClipBoard::getMainWindow()
 {
+    foreach (QWidget *w, qApp->topLevelWidgets())
+        if (MainWindow* mainWin = qobject_cast<MainWindow*>(w))
+            return mainWin;
+    return nullptr;
+}
+
+QStringList NodesClipBoard::pasteChildrenNodesTo(NodeInfo *root_node, int pos)
+{
+    QStringList codes;
+    MainWindow* win = getMainWindow();
     if(pos != -1)
     {
         int n = m_nodes.size();
         for(int i = 0; i < n; i++)
-            pasteChildNodeTo(root_node, m_nodes[i], pos + i);
+        {
+            QString code = win->GetItemCodeOfNode(pasteChildNodeTo(root_node, m_nodes[i], pos + i));
+            codes.push_back(code);
+        }
     }
     else
     {
         int n = m_nodes.size();
         for(int i = 0; i < n; i++)
-            pasteChildNodeTo(root_node, m_nodes[i]);
+        {
+            QString code = win->GetItemCodeOfNode(pasteChildNodeTo(root_node, m_nodes[i]));
+            codes.push_back(code);
+        }
     }
+    return codes;
 }
 
-void NodesClipBoard::pasteChildNodeTo(NodeInfo *root_node, NodeInfo* node, int pos)
+NodeInfo* NodesClipBoard::pasteChildNodeTo(NodeInfo *root_node, NodeInfo* node, int pos)
 {
     // 防止事件重名
     QString name = node->text;
@@ -200,14 +240,14 @@ void NodesClipBoard::pasteChildNodeTo(NodeInfo *root_node, NodeInfo* node, int p
         new_node = root_node->addNewChild(node);
 
     if(new_node == nullptr)
-    {
         info("节点" + node->text + "粘贴失败");
-        return;
+    else
+    {
+        new_node->text = name;
+        pasteValuesOnNode(node, new_node);
     }
 
-    new_node->text = name;
-
-    pasteValuesOnNode(node, new_node);
+    return new_node;
 }
 
 void NodesClipBoard::pasteValuesOnNode(NodeInfo *node, NodeInfo* new_node)
@@ -249,7 +289,7 @@ void NodesClipBoard::pasteValuesOnNode(NodeInfo *node, NodeInfo* new_node)
     }
 }
 
-bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
+bool NodesClipBoard::copyValueOnNode(NodeInfo *node, NodeInfo *&new_node, bool copy_node)
 {
     ValueManager* vm = ValueManager::GetValueManager();
     CommonValueClass* v = nullptr;
@@ -268,8 +308,9 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
                 CommonValueClass* new_value_2 = tryCopyValue(v_2);
                 if(new_value_1 != nullptr && new_value_2 != nullptr)
                 {
-                    m_valueManager->UpdateValueOnNode_Compare_Left(node, new_value_1);
-                    m_valueManager->UpdateValueOnNode_Compare_Right(node, new_value_2);
+                    if(copy_node) copyNode(new_node, node);
+                    m_valueManager->UpdateValueOnNode_Compare_Left(new_node, new_value_1);
+                    m_valueManager->UpdateValueOnNode_Compare_Right(new_node, new_value_2);
                     return true;
                 }
             }
@@ -291,7 +332,10 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
             // 添加 set_var 节点等号左边的变量
             int pos = tryAddNewVar(vm->GetVarNameAt(var_id));
             if(-1 != pos)
-                m_nodeSetVarId.insert(node, pos);
+            {
+                if(copy_node) copyNode(new_node, node);
+                m_nodeSetVarId.insert(new_node, pos);
+            }
             else
                 return false;
         }
@@ -302,10 +346,12 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
             CommonValueClass* new_value = tryCopyValue(v);
             if(new_value != nullptr)
             {
-                m_valueManager->UpdateValueOnNode_SetValue(node, new_value);
+                m_valueManager->UpdateValueOnNode_SetValue(new_node, new_value);
                 return true;
             }
         }
+        delete new_node;
+        new_node = nullptr;
         return false;
     }
         break;
@@ -317,7 +363,8 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
             CommonValueClass* new_value = tryCopyValue(v);
             if(new_value != nullptr)
             {
-                m_valueManager->UpdateValueOnNode_Function(node, new_value);
+                if(copy_node) copyNode(new_node, node);
+                m_valueManager->UpdateValueOnNode_Function(new_node, new_value);
                 return true;
             }
         }
@@ -333,13 +380,28 @@ bool NodesClipBoard::copyValueOnNode(NodeInfo *node)
     }
 
     // EVENT SEQUENCE CONDITION LOOP CHOICE 都（可能）有子节点
-    int children_n = node->childs.size();
+    if(new_node == nullptr)
+        copyNode(new_node, node);
+    int children_n = new_node->childs.size();
+    MY_ASSERT(children_n == node->childs.size());
     for(int i = 0; i < children_n; i++)
     {
-        if(!copyValueOnNode(node->childs.at(i)))
+        NodeInfo* child_node = new_node->childs.at(i);
+        if(!copyValueOnNode(node->childs.at(i), child_node))
+        {
+            delete new_node;
+            new_node = nullptr;
             return false;
+        }
     }
     return true;
+}
+
+void NodesClipBoard::copyNode(NodeInfo *&cur_node, NodeInfo *node_be_copy)
+{
+    if(cur_node != nullptr)
+        delete cur_node;
+    cur_node = new NodeInfo(node_be_copy);
 }
 
 CommonValueClass* NodesClipBoard::tryCopyValue(CommonValueClass *v)
@@ -381,7 +443,7 @@ bool NodesClipBoard::checkValueBeforeCopy(CommonValueClass *v)
         }
     }
     case VT_STR:
-        if(v->GetText().contains("自定义动作："))
+        if(v->GetText().contains(BaseValueClass::custom_name_prefix))
         {
             info("拷贝值使用了自定义动作");
             //todo: 可以在clipboard中存储使用的自定义动作，一起粘贴。现在暂时不处理。

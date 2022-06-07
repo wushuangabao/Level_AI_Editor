@@ -25,6 +25,7 @@ public:
     void EditCustomSeqName(QString name = "");
 
     void EditLevelName(const QString& name);
+    void EditLevelName_Custom(const QString& name);
     void EditLevelPrefix(const QString& name);
 
     int ChoseCustActSeqNameIn(QStringList names);
@@ -48,6 +49,7 @@ private:
     Ui::DlgChoseEType *ui;
 
     void resetETypeComboBox();
+    void setUIForEditText(const QString &name);
 };
 
 #endif // DLGCHOSEETYPE_H

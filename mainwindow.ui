@@ -88,10 +88,13 @@ background: rgb(28,77,120);
      <string>File</string>
     </property>
     <addaction name="actionSave"/>
-    <addaction name="actionLua"/>
-    <addaction name="action_Reload"/>
     <addaction name="action_SaveAllLevel"/>
+    <addaction name="separator"/>
+    <addaction name="actionLua"/>
     <addaction name="action_jsonTolua"/>
+    <addaction name="separator"/>
+    <addaction name="action_Reload"/>
+    <addaction name="action_SaveCustomLvlName"/>
    </widget>
    <widget class="QMenu" name="menuEdit">
     <property name="title">
@@ -333,10 +336,21 @@ background: rgb(28,77,120);
    <property name="text">
     <string>保存所有关卡</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+S</string>
+   </property>
   </action>
   <action name="action_jsonTolua">
    <property name="text">
     <string>全部json转lua</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+D</string>
+   </property>
+  </action>
+  <action name="action_SaveCustomLvlName">
+   <property name="text">
+    <string>保存关卡备注</string>
    </property>
   </action>
  </widget>

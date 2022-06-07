@@ -49,8 +49,8 @@ public:
 
     void OnDeleteNode(NodeInfo* node); //删除节点时更新map
 
-    QStringList* GetEventParamsUI(NodeInfo* node);
-    QStringList* GetEventParamsLua(NodeInfo* node);
+    QStringList* GetEventParamsUI(NodeInfo* node); //获取事件参数（UI）
+    QStringList* GetEventParamsLua(NodeInfo* node); //获取事件参数（lua）
 
     // 自定义动作序列
     bool CustomSeqNameIsUsed(const QString& name);

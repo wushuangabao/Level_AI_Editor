@@ -11,31 +11,39 @@ public:
 
     static EventType* GetInstance();
 
-    inline int GetCount() { return eventTypeNameVector.size(); }
-    inline bool IsEventIdValid(QString etype_lua) { return eventTypeNameVector.contains(etype_lua); }
-    inline QStringList GetEventTypeList() { return eventNameVector; }
+    inline int GetCount() { return eventTypeNameLuaVector.size(); }
+    inline bool IsEventTypeNameLuaValid(QString etype_lua) { return eventTypeNameLuaVector.contains(etype_lua); }
+    inline QStringList GetEventTypeNameUIList() { return eventTypeNameUIVector; }
 
-    inline QString GetEventNameAt(int idx)
+    QString GetEventTypeUIOf(const QString& event_type_lua);
+    inline QString GetEventTypeUIAt(int idx)
     {
-        if(idx > -1 && idx < eventNameVector.size())
-            return eventNameVector[idx];
+        if(idx > -1 && idx < eventTypeNameUIVector.size())
+            return eventTypeNameUIVector[idx];
         else
             return "";
     }
 
-    inline QString GetEventLuaType(int idx)
+    inline QString GetEventLuaTypeAt(int idx)
     {
-        if(idx > -1 && idx < eventTypeNameVector.size())
-            return eventTypeNameVector[idx];
+        if(idx > -1 && idx < eventTypeNameLuaVector.size())
+            return eventTypeNameLuaVector[idx];
         else
             return "???";
     }
 
-    int GetIndexOf(const QString &event_id);
-    int GetIndexOfName(const QString &event_name);
+    QString GetEventParamNameLua(int event_type_id, int param_id);
+    QString GetEventParamNameUI(int event_type_id, int param_id);
+
+    int GetIdOfParamNameLuaInEventTypeLua(const QString &param_lua, const QString &event_type);
+
+    int GetIndexOfEventTypeLua(const QString &event_type);
+    int GetIndexOfEventTypeName(const QString &event_name);
 
     QStringList* GetEventParamsUIAt(int idx);
     QStringList* GetEventParamsLuaAt(int idx);
+    QStringList* GetEventParamsUIOf(const QString &event_type);
+    QStringList* GetEventParamsLuaOf(const QString &event_type);
     QStringList* GetEventParamTypes(QStringList* params);
 
     QStringList GetTagList();
@@ -50,19 +58,19 @@ private:
     void createFakeData();
     bool createDateByConfig(QString path);
 
-    void parseTags(QString str);
+    void parseTags(QString str, const QString &etype_lua);
 
     // 参数名ui
-    QVector<QStringList> paramNamesVector;
+    QList<QStringList> paramNamesInUIVector;
     // 参数的变量类型
-    QVector<QStringList> paramTypesVector;
+    QList<QStringList> paramTypesVector;
     // 参数名lua
-    QVector<QStringList> paramNameInLuaVector;
+    QList<QStringList> paramNamesInLuaVector;
 
     // 事件ENUM
-    QVector<QString> eventTypeNameVector;
+    QList<QString> eventTypeNameLuaVector;
     // 事件名
-    QStringList eventNameVector;
+    QStringList eventTypeNameUIVector;
 
     // 事件标签
     QMap<QString, QStringList> eventTagMap;

@@ -52,110 +52,48 @@ void DlgChoseEType::CreateNewEvent()
 void DlgChoseEType::EditEventName(QString name)
 {
     setWindowTitle("编辑事件名称");
-
-    ui->label->setVisible(false);
-    ui->multiComboBox->setVisible(false);
-
-    ui->lineEdit->setVisible(true);
-    ui->lineEdit->setText(name);
-    event_name = name;
-
     ui->label_name->setText("事件名称：");
-    ui->label_name->setVisible(true);
-
-    ui->comboBox->setVisible(false);
-
-    index = 0;
-    text = "";
-
+    setUIForEditText(name);
     exec();
 }
 
 void DlgChoseEType::CreateNewCustomSeq()
 {
     setWindowTitle("新建动作序列");
-
-    ui->label->setVisible(false);
-    ui->multiComboBox->setVisible(false);
-
-    ui->lineEdit->setVisible(true);
-    ui->lineEdit->setText("");
-    event_name = "";
-
     ui->label_name->setText("动作名称：");
-    ui->label_name->setVisible(true);
-
-    ui->comboBox->setVisible(false);
-
-    index = 0;
-    text = "";
-
+    setUIForEditText("");
     exec();
 }
 
 void DlgChoseEType::EditCustomSeqName(QString name)
 {
     setWindowTitle("编辑动作名称");
-
-    ui->label->setVisible(false);
-    ui->multiComboBox->setVisible(false);
-
-    ui->lineEdit->setVisible(true);
-    ui->lineEdit->setText(name);
-    event_name = name;
-
     ui->label_name->setText("动作名称：");
-    ui->label_name->setVisible(true);
-
-    ui->comboBox->setVisible(false);
-
-    index = 0;
-    text = "";
-
+    setUIForEditText(name);
     exec();
 }
 
 void DlgChoseEType::EditLevelName(const QString& name)
 {
     setWindowTitle("编辑关卡名称");
-
-    ui->label->setVisible(false);
-    ui->multiComboBox->setVisible(false);
-
-    ui->lineEdit->setVisible(true);
-    ui->lineEdit->setText(name);
-    event_name = name;
-
     ui->label_name->setText("关卡名称：");
-    ui->label_name->setVisible(true);
+    setUIForEditText(name);
+    exec();
+}
 
-    ui->comboBox->setVisible(false);
-
-    index = 0;
-    text = "";
-
+void DlgChoseEType::EditLevelName_Custom(const QString &name)
+{
+    setWindowTitle("编辑关卡备注名");
+    ui->label_name->setText("关卡备注：");
+    setUIForEditText(name);
     exec();
 }
 
 void DlgChoseEType::EditLevelPrefix(const QString &name)
 {
     setWindowTitle("关卡文件的前缀");
-
-    ui->label->setVisible(false);
-    ui->multiComboBox->setVisible(false);
-
-    ui->lineEdit->setVisible(true);
-    ui->lineEdit->setText(name);
-    event_name = name;
-
     ui->label_name->setText("关卡前缀：");
-    ui->label_name->setVisible(true);
-
-    ui->comboBox->setVisible(false);
-
-    index = 0;
-    text = "";
-
+    setUIForEditText(name);
     exec();
 }
 
@@ -267,7 +205,7 @@ void DlgChoseEType::on_comboBox_currentIndexChanged(int id)
     }
     else
     {
-        index = EventType::GetInstance()->GetIndexOfName(text);
+        index = EventType::GetInstance()->GetIndexOfEventTypeName(text);
     }
 }
 
@@ -280,7 +218,7 @@ void DlgChoseEType::on_multiComboBox_editTextChanged(const QString &arg1)
 void DlgChoseEType::resetETypeComboBox()
 {
     EventType* events = EventType::GetInstance();
-    QStringList etypes = events->GetEventTypeList();
+    QStringList etypes = events->GetEventTypeNameUIList();
     QStringList items;
     QStringList tags = ui->multiComboBox->currentText();
 
@@ -295,7 +233,7 @@ void DlgChoseEType::resetETypeComboBox()
         {
             for(int j = 0; j < tags_n; j++)
             {
-                if(events->CheckEventInTag(events->GetEventLuaType(i), tags[j]))
+                if(events->CheckEventInTag(events->GetEventLuaTypeAt(i), tags[j]))
                 {
                     ok = true;
                     break;
@@ -307,7 +245,7 @@ void DlgChoseEType::resetETypeComboBox()
 
         if(ok)
         {
-            items.push_back(events->GetEventNameAt(i));
+            items.push_back(events->GetEventTypeUIAt(i));
         }
     }
 
@@ -318,4 +256,19 @@ void DlgChoseEType::resetETypeComboBox()
 
     ui->comboBox->setCurrentIndex(0);
     on_comboBox_currentIndexChanged(0);
+}
+
+void DlgChoseEType::setUIForEditText(const QString& name)
+{
+    ui->lineEdit->setVisible(true);
+    ui->lineEdit->setText(name);
+    event_name = name;
+
+    ui->label_name->setVisible(true);
+    ui->comboBox->setVisible(false);
+    ui->label->setVisible(false);
+    ui->multiComboBox->setVisible(false);
+
+    index = 0;
+    text = "";
 }

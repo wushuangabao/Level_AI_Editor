@@ -37,9 +37,25 @@ public:
     ~MainWindow();
 
     void closeEvent(QCloseEvent *e);
+    void paintEvent(QPaintEvent *e);
 
-    // 将事件节点从begin_pos到end_pos（只允许被m_eventTreeModel调用）
+    void SaveBackup(bool save_states = false);
+    QString GetItemCodeOfNode(NodeInfo *node); //获取node在itemState map中的Key
+
+    // code对应的节点往后移动（在其后的兄弟节点也都要后移）
+    void MoveBackItemStateOf(const QString& code, int brothers_size = -1, int move_len = 1);
+    // code对应的节点往前移动（在其之前的数个兄弟节点也都要前移）
+    void MoveForwardItemStateOf(const QString& code, int front_id = 1, int move_len = 1);
+    // 将一个事件节点从begin_pos到end_pos（被m_eventTreeModel调用）
     void OnMoveEventNode(int begin_pos, int end_pos);
+    // 粘贴成功后，新增节点状态记录到itemState map中
+    void OnPasteNodes(QStringList item_codes);
+
+    // 根据文件中的record_move_item来修改itemStates（默认true表示反操作）
+    void ModifyItemStatesByFile(const QString& file_path, bool is_undo = true);
+    // itemStates Move（Back\Forward\From..to..）的记录
+    QString record_move_item;
+    bool record_enabled;
 
 private slots:
     // 弹出菜单
@@ -105,6 +121,7 @@ private slots:
 
     void OpenConfigFolder();
     void OpenLuaFolder();
+    void EditCustomLevelName();
 
     // 切换tab时 切换树模型
     void on_tabWidget_currentChanged(int index);
@@ -124,6 +141,9 @@ private slots:
     void on_action_ExpandAllEvents_triggered();
     void on_action_CollapseAllEvents_triggered();
 
+    // 保存关卡备注m_customLevelName
+    void on_action_SaveCustomLvlName_triggered();
+
 private:
     Ui::MainWindow *ui;
 
@@ -140,13 +160,12 @@ private:
     QMap<QString, bool> m_itemState_Event; //存储事件TreeView的展开状态
     QMap<QString, bool> m_itemState_Custom; //存储自定义动作TreeView的展开状态
     QString getItemCodeOf(int tree_type, const QModelIndex& index);
-    QModelIndex getModelIndexBy(const QString& code);
-    void moveBackItemStateOf(const QString& code_before, int brothers_size = -1); //code_before对应的节点往后移动（在其后的兄弟节点也都要后移）
-    void moveForwardItemStateOf(const QString& code_before, int front_id = 1); //code_before对应的节点往前移动（在其之前的数个兄弟节点也都要前移）
+    QModelIndex getModelIndexBy(const QString& code, int *tree_type = nullptr);
+    void removeItemCode(const QString& code, int tree_type = -1);
     void replaceItemStateInMap(const QString& code_before, const QString& code_after, QStringList& to_do_list, QMap<QString, bool>* info_map, bool do_replace = true); //moveBackItemStateOf的辅助函数
     void clearTreeViewState(const QString& lvl_id); //删除关卡时清数据
     void resetTreeViewSate(const QString& lvl_id); //每次打开新的关卡时，都会初始化TreeView上的节点状态
-    void updateTreeViewState(bool default_state = true); //根据存储的展开状态进行刷新
+    void updateTreeViewStateByData(bool default_state = true); //根据存储的展开状态进行刷新
     void setTreeViewExpandSlots(bool ok); //是否存储节点的展开、折叠状态
     void setNewCurModelIndex(QModelIndex parent_index, int child_pos); //更新m_curModelIndex，变成parent_index的第child_pos个子节点
     void selectTreeViewItem(const QModelIndex& index); //选择TreeView上的index节点
@@ -158,6 +177,7 @@ private:
     // 自定义动作树
     TreeItemModel_Custom* m_customTreeModel;
     void InitCustomTree();
+    int findCustomSeqIndex(const QString &name, NodeInfo* &node);
     // 展开、折叠所有子孙节点
     void expandAllNodes(QTreeView *tree, TreeItemModel* model, QModelIndex item);
     void collapseAllNodes(QTreeView* tree, TreeItemModel* model, QModelIndex item);
@@ -171,9 +191,9 @@ private:
     void updateVarTable();
 
     // 生成Json文件
+    QString m_temp_etype;
     QString getTriggerNameAt(int id);
     void generateJsonDocument(QFile* file);
-    void createEventTypeJsonObj(NodeInfo* node, QJsonObject* json);
     void addVariablesToJsonObj(QJsonObject* json);
     void addActionSeqToJsonObj(NodeInfo* node, QJsonObject* json, QString key_name = "SEQUENCE");
     void addConditionToJsonObj(NodeInfo* node, QJsonObject* json);
@@ -186,11 +206,11 @@ private:
     bool openJsonFile(QListWidgetItem* item, QString &level_name); // 打开新的关卡文件或者对应的备份文件
     bool parseJsonArray_Var(QJsonArray* varJsonArray);
     bool parseJsonObj_Event(QJsonObject* eventJsonObj, QString event_name);
-    bool parseJsonArray_Condition(QJsonArray* conditions, NodeInfo* condition_node);
-    bool parseJsonObj_ActionNode(QJsonObject* actionJsonObj, NodeInfo* parent_node);
-    bool parseJsonArray_Sequence(QJsonArray* seqJsonArray, NodeInfo* seq_node);
-    CommonValueClass *parseJsonObj_Value(QJsonObject* valueJsonObj); //这个函数会new一个BaseValueClass
-    BaseValueClass* parseJsonObj_Function(QJsonObject* funcJsonObj); //这个函数会new一个BaseValueClass
+    bool parseJsonArray_Condition(QJsonArray* conditions, NodeInfo* condition_node, const QString &etype);
+    bool parseJsonObj_ActionNode(QJsonObject* actionJsonObj, NodeInfo* parent_node, const QString &etype);
+    bool parseJsonArray_Sequence(QJsonArray* seqJsonArray, NodeInfo* seq_node, QString etype = "");
+    CommonValueClass *parseJsonObj_Value(QJsonObject* valueJsonObj, const QString &etype = ""); //这个函数会new一个BaseValueClass
+    BaseValueClass* parseJsonObj_Function(QJsonObject* funcJsonObj, const QString &etype = ""); //这个函数会new一个BaseValueClass
 
     // 生成Lua文件
     void generateLuaDocument(QFile* file);
@@ -211,26 +231,33 @@ private:
 
     // config目录
     QString config_path;
+    QString backup_path;
+    QString backup_states_path;
 
     // 左侧关卡列表
     QString m_levelPrefix;
     QStringList m_levelList;
     QString m_LuaPath;
-    void InitLevelTree();
+    QMap<QString, QDateTime> m_filesLastModTime; //存储config文件的最后修改时间
+    QList<QString> m_filesToReload; //存储发生修改的config文件名（需要被重载的）
+    QMap<QString, QString> m_customLevelName; //关卡名称备注
+    void InitLevelTree(); //初始化关卡列表，顺带初始化m_filesModifyTime
     bool checkNewLevelName(); //检查新建的关卡名称
     bool checkLevelPrefix(const QString& str);
     QString getCurrentLevelFile(const QString& level_name, bool* is_backup = nullptr);
 
     void resetUndoAndRedo(const QString& level_name);
+    bool reloadCurrentLevel(const QString& file_path = "");
 
     // 备份Json关卡文件
     int lastLevelIndex;
     QMap<QString, bool> savedOrNot;
     QMap<QString, QStringList> backupFilePaths;
     QMap<QString, QStringList> backupFilePaths_Redo;
-    void saveBackupJsonFile();
-    void saveBackupJsonFile(QString &level_name);
-    void saveBackupWhenInit(const QString &namelvl);
+    QMap<QString, QString> backupItemStates; //QMap<备份的关卡文件地址, 对应的节点展开状态备份文件名>
+    QString saveBackupItemStates(const QString &level_name);
+    QString saveBackupJsonFileOf(QString &level_name);
+    bool saveBackupWhenInit(const QString &namelvl);
     void changeSavedFlag(const QString& level_name, bool already_saved);
     bool isSameFile(const QString& path1, const QString& path2);
     void deleteFile(const QString& path);
@@ -238,6 +265,8 @@ private:
     QString getLevelNameOnItem(QListWidgetItem* item);
     bool isNeedSave();
     bool pushNewBackupFileName(const QString& lvl_name, const QString& bk_file_path); // 在backupFilePaths最后插入新的备份文件路径
+    bool isBackUpFileInUsed(const QString& path, QString &lvl_name);
+    void onCreateNewLevel(const QString& lvl_name, const QDateTime &date_time);
 };
 
 #endif // MAINWINDOW_H

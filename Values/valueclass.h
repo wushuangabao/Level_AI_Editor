@@ -61,7 +61,7 @@ public:
     void ModifyVarName(const QString& name);
     void SetLuaStr(const QString& lua_str, const QString &type_text = "");
     void SetEnumValue(const QString& value_str);
-    void SetEvtParam(const QString& lua_str, const QString& ui_str, QString var_type);
+    bool SetEvtParam(int event_type_id, int param_id);
 
     void SetFunction(FunctionClass* function_class);
     void SetParamAt(int idx, CommonValueClass *v);
@@ -71,11 +71,14 @@ public:
     CommonValueClass *GetFunctionParamAt(int id);
     FunctionClass* GetFunctionInfo();
 
-    QString GetEventParamInLua();
+    int GetEventParamId();
     virtual QString GetLuaValueString(QString var_prefix);
 
     virtual bool UpdateVarNameAndType(int var_id, const QString& name, const QString &type, bool *need_update = nullptr); //函数的返回值表示类型是否出错，need_update表示数据是否有更新
     virtual bool IsUsingVar(const QString& vname);
+
+    const static QString custom_name_prefix;
+    const static int custom_name_prefix_len;
 
 private:
     QString name;        //变量名

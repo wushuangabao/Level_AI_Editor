@@ -547,13 +547,11 @@ void DlgEditValue::on_DlgEditValue_accepted()
             info("不存在事件参数！");
             return;
         }
-        QStringList* lua = model->GetEventParamsLuaOf(node);
-        int id = event_params->indexOf(str);
-        QStringList* params_types = EventType::GetInstance()->GetEventParamTypes(event_params);
-        if(id != -1 && lua != nullptr && lua->size() > id && params_types != nullptr && params_types->size() > id)
-        {
-            value_base->SetEvtParam(QString(lua->at(id)), str, QString(params_types->at(id)));
-        }
+        bool ok = false;
+        int eid = model->findUppestNodeOf(node)->childs[0]->childs[0]->getValue(0).toInt(&ok);
+        MY_ASSERT(ok);
+        int pid = event_params->indexOf(str);
+        value_base->SetEvtParam(eid, pid);
     }
         break;
     case VT_ENUM:
@@ -985,6 +983,7 @@ void DlgEditValue::initEvtParamComboBox()
 
     // init comboBox_EvtParam
     QStringList* event_params = model->GetEventParamsUIOf(node);
+    MY_ASSERT(event_params != nullptr);
     QStringList* params_types = EventType::GetInstance()->GetEventParamTypes(event_params);
     QStringList items;
 

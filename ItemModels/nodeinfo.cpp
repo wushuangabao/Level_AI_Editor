@@ -48,13 +48,9 @@ void NodeInfo::clear()
     for(int i = 0; i < childs.size(); i++)
     {
         childs[i]->parent = nullptr;
-        // 剪切板中是否存在对childs[i]的引用
-        if(!NodesClipBoard::GetInstance()->HasCopyNode(childs[i]))
-        {
-            // 清除节点数据、子节点数据
-            delete childs[i];
-            childs[i] = nullptr;
-        }
+        // 清除节点数据、子节点数据
+        delete childs[i];
+        childs[i] = nullptr;
     }
     childs.clear();
     values.clear();
@@ -83,9 +79,9 @@ void NodeInfo::operator=(NodeInfo &obj)
     }
 }
 
-void NodeInfo::FindAndSetNewNodePos(NodeInfo *&parent_node)
+void NodeInfo::FindAndSetNewNodePos(NODE_TYPE parent_type, NodeInfo *&parent_node)
 {
-    if(type == SEQUENCE)
+    if(type == parent_type)
     {
         parent_node = this;
         parent_node->new_child_pos = -1;
@@ -273,6 +269,17 @@ int NodeInfo::GetPosOfChildNode(NodeInfo *child_node)
     return -1;
 }
 
+NodeInfo *NodeInfo::GetRootNode(QList<int> &pos_list)
+{
+    NodeInfo* node = this;
+    while(node->parent != nullptr)
+    {
+        pos_list.push_front(node->parent->GetPosOfChildNode(node));
+        node = node->parent;
+    }
+    return node;
+}
+
 int NodeInfo::getValuesCount()
 {
     return values.size();
@@ -386,7 +393,7 @@ void NodeInfo::UpdateEventType(int index)
 
     values.clear();
     values.append(QString::number(index));
-    text = EventType::GetInstance()->GetEventNameAt(index);
+    text = EventType::GetInstance()->GetEventTypeUIAt(index);
 }
 
 bool NodeInfo::IsBreakButNotReturn()

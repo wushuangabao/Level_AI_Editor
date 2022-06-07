@@ -96,7 +96,7 @@ NODE_TYPE DlgChoseActionType::GetNodeTypeAndText(QString& node_text)
         int id = m_dlgChoseEvent->index;
         if(id >= 0 && id < names.size())
         {
-            node_text = "自定义动作：" + names[id];
+            node_text = BaseValueClass::custom_name_prefix + names[id];
         }
         else
         {

@@ -121,71 +121,6 @@ void DlgConditionType::on_comboBox_currentIndexChanged(int index)
     }
 }
 
-void DlgConditionType::on_buttonBox_rejected()
-{
-    type = CONDITION_OP::INVALID_CONDITION;
-    node = nullptr;
-}
-
-void DlgConditionType::on_buttonBox_accepted()
-{
-    // 修改Condition或者Compare节点
-    if(node_type != INVALID)
-    {
-        node->modifyValue(type); // 比较运算符的类型
-
-        if(node_type == CONDITION)
-            node->UpdateText();
-        else if(node_type == COMPARE && checkCompareValuesType())
-        {
-            // 修改value_left和value_right
-            model->GetValueManager()->UpdateValueOnNode_Compare_Left(node, GetValue_Left());
-            model->GetValueManager()->UpdateValueOnNode_Compare_Right(node, GetValue_Right());
-
-            node->modifyValue(1, ui->btnText_1->text());
-            node->modifyValue(2, ui->btnText_2->text());
-            node->UpdateText();
-        }
-    }
-
-    // 创建Condition或者Compare节点
-    else
-    {
-        NodeInfo* new_node = nullptr;
-        if(type == CONDITION_OP::AND)
-        {
-            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
-            MY_ASSERT(new_node != nullptr);
-            new_node->modifyValue(CONDITION_OP::AND);
-            new_node->UpdateText();
-        }
-        else if(type == CONDITION_OP::OR)
-        {
-            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
-            MY_ASSERT(new_node != nullptr);
-            new_node->modifyValue(CONDITION_OP::OR);
-            new_node->UpdateText();
-        }
-        else
-        {
-            if(!checkCompareValuesType())
-                return;
-            new_node = model->createNode("", NODE_TYPE::COMPARE, node);
-            MY_ASSERT(new_node != nullptr);
-            new_node->modifyValue(type);
-
-            // 把value_left和value_right赋值给new_node
-            model->GetValueManager()->UpdateValueOnNode_Compare_Left(new_node, GetValue_Left());
-            model->GetValueManager()->UpdateValueOnNode_Compare_Right(new_node, GetValue_Right());
-
-            new_node->modifyValue(1, m_dlgEditValueLeft->GetValueText());
-            new_node->modifyValue(2, m_dlgEditValueRight->GetValueText());
-            new_node->UpdateText();
-        }
-        node = new_node; //让GetNewNode可以取到新建的节点
-    }
-}
-
 void DlgConditionType::on_btnText_1_clicked()
 {
     if(node_type == INVALID) //创建Condition或者Compare节点
@@ -290,5 +225,70 @@ bool DlgConditionType::checkCompareValuesType()
     {
         info("左右值的类型不一致！");
         return false;
+    }
+}
+
+void DlgConditionType::on_DlgConditionType_rejected()
+{
+    type = CONDITION_OP::INVALID_CONDITION;
+    node = nullptr;
+}
+
+void DlgConditionType::on_DlgConditionType_accepted()
+{
+    // 修改Condition或者Compare节点
+    if(node_type != INVALID)
+    {
+        node->modifyValue(type); // 比较运算符的类型
+
+        if(node_type == CONDITION)
+            node->UpdateText();
+        else if(node_type == COMPARE && checkCompareValuesType())
+        {
+            // 修改value_left和value_right
+            model->GetValueManager()->UpdateValueOnNode_Compare_Left(node, GetValue_Left());
+            model->GetValueManager()->UpdateValueOnNode_Compare_Right(node, GetValue_Right());
+
+            node->modifyValue(1, ui->btnText_1->text());
+            node->modifyValue(2, ui->btnText_2->text());
+            node->UpdateText();
+        }
+    }
+
+    // 创建Condition或者Compare节点
+    else
+    {
+        NodeInfo* new_node = nullptr;
+        if(type == CONDITION_OP::AND)
+        {
+            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
+            MY_ASSERT(new_node != nullptr);
+            new_node->modifyValue(CONDITION_OP::AND);
+            new_node->UpdateText();
+        }
+        else if(type == CONDITION_OP::OR)
+        {
+            new_node = model->createNode("", NODE_TYPE::CONDITION, node);
+            MY_ASSERT(new_node != nullptr);
+            new_node->modifyValue(CONDITION_OP::OR);
+            new_node->UpdateText();
+        }
+        else
+        {
+            if(!checkCompareValuesType())
+                return;
+            new_node = model->createNode("", NODE_TYPE::COMPARE, node);
+            MY_ASSERT(new_node != nullptr);
+            new_node->modifyValue(type);
+
+            // 把value_left和value_right赋值给new_node
+            model->GetValueManager()->UpdateValueOnNode_Compare_Left(new_node, GetValue_Left());
+            model->GetValueManager()->UpdateValueOnNode_Compare_Right(new_node, GetValue_Right());
+
+            new_node->modifyValue(1, m_dlgEditValueLeft->GetValueText());
+            new_node->modifyValue(2, m_dlgEditValueRight->GetValueText());
+            new_node->UpdateText();
+        }
+        node = new_node; //让GetNewNode可以取到新建的节点
     }
 }

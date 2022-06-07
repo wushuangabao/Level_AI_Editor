@@ -535,7 +535,9 @@ bool ValueManager::CustomSeqNameIsUsed(const QString &name)
         if(itr.value()->GetValueType() == VT_STR)
         {
             QString lua_str = itr.value()->GetText();
-            if(lua_str.contains("自定义动作：") && lua_str.contains(name))
+            if(lua_str.length() == name.length() + BaseValueClass::custom_name_prefix_len
+               && lua_str.left(BaseValueClass::custom_name_prefix_len) == BaseValueClass::custom_name_prefix
+               && lua_str.mid(BaseValueClass::custom_name_prefix_len) == name)
                 return true;
         }
     }
@@ -551,7 +553,9 @@ void ValueManager::UpdateCustomSeqName(const QString &old_name, const QString &n
         if(itr.value()->GetValueType() == VT_STR)
         {
             QString lua_str = itr.value()->GetText();
-            if(lua_str.contains("自定义动作：") && lua_str.contains(old_name))
+            if(lua_str.length() == old_name.length() + BaseValueClass::custom_name_prefix_len
+               && lua_str.left(BaseValueClass::custom_name_prefix_len) == BaseValueClass::custom_name_prefix
+               && lua_str.mid(BaseValueClass::custom_name_prefix_len) == old_name)
             {
                 lua_str.replace(old_name, new_name);
                 static_cast<BaseValueClass*>(itr.value())->SetLuaStr(lua_str);

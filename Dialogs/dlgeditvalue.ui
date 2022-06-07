@@ -188,10 +188,16 @@
      <item>
       <widget class="MultiSelectComboBox" name="multiComboBox_Func">
        <property name="sizePolicy">
-        <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
+        <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>0</height>
+        </size>
        </property>
       </widget>
      </item>
@@ -205,6 +211,12 @@
          <horstretch>0</horstretch>
          <verstretch>0</verstretch>
         </sizepolicy>
+       </property>
+       <property name="minimumSize">
+        <size>
+         <width>130</width>
+         <height>0</height>
+        </size>
        </property>
       </widget>
      </item>
@@ -226,7 +238,7 @@
        <rect>
         <x>0</x>
         <y>0</y>
-        <width>538</width>
+        <width>542</width>
         <height>68</height>
        </rect>
       </property>

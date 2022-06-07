@@ -1,6 +1,7 @@
 #include <QDir>
 #include <QCoreApplication>
 #include <QTextStream>
+#include "../Utils/pinyin.h"
 #include "eventtype.h"
 
 EventType::EventType()
@@ -23,19 +24,58 @@ EventType *EventType::GetInstance()
     return instance;
 }
 
-int EventType::GetIndexOf(const QString& event_id)
+QString EventType::GetEventTypeUIOf(const QString &event_type_lua)
 {
-    for(int i = 0; i < eventTypeNameVector.size(); i++)
-        if(eventTypeNameVector[i] == event_id)
+    int idx = GetIndexOfEventTypeLua(event_type_lua);
+    if(idx > -1 && idx < eventTypeNameUIVector.size())
+        return eventTypeNameUIVector[idx];
+    else
+        return "";
+}
+
+QString EventType::GetEventParamNameLua(int eid, int param_id)
+{
+    if(eid < 0 || eid >= paramNamesInLuaVector.size())
+        return "";
+    if(param_id < 0 || param_id >= paramNamesInLuaVector[eid].size())
+        return "";
+
+    return paramNamesInLuaVector[eid].at(param_id);
+}
+
+QString EventType::GetEventParamNameUI(int eid, int param_id)
+{
+    if(eid < 0 || eid >= paramNamesInUIVector.size())
+        return "";
+    if(param_id < 0 || param_id >= paramNamesInUIVector[eid].size())
+        return "";
+
+    return paramNamesInUIVector[eid].at(param_id);
+}
+
+int EventType::GetIdOfParamNameLuaInEventTypeLua(const QString &param_lua, const QString &event_type)
+{
+    int eid = GetIndexOfEventTypeLua(event_type);
+    if(eid < 0 || eid >= paramNamesInLuaVector.size())
+        return -1;
+
+    return paramNamesInLuaVector[eid].indexOf(param_lua);
+}
+
+int EventType::GetIndexOfEventTypeLua(const QString& event_type)
+{
+    int n = eventTypeNameLuaVector.size();
+    for(int i = 0; i < n; i++)
+        if(eventTypeNameLuaVector[i] == event_type)
             return i;
 
     return -1;
 }
 
-int EventType::GetIndexOfName(const QString &event_name)
+int EventType::GetIndexOfEventTypeName(const QString &event_name)
 {
-    for(int i = 0; i < eventNameVector.size(); i++)
-        if(eventNameVector[i] == event_name)
+    for(int i = 0; i < eventTypeNameUIVector.size(); i++)
+        if(eventTypeNameUIVector[i] == event_name)
             return i;
 
     return -1;
@@ -43,18 +83,30 @@ int EventType::GetIndexOfName(const QString &event_name)
 
 QStringList *EventType::GetEventParamsUIAt(int idx)
 {
-    if(idx < 0 || idx >= paramNamesVector.size())
+    if(idx < 0 || idx >= paramNamesInUIVector.size())
         return nullptr;
 
-    return &(paramNamesVector[idx]);
+    return &(paramNamesInUIVector[idx]);
 }
 
 QStringList *EventType::GetEventParamsLuaAt(int idx)
 {
-    if(idx < 0 || idx >= paramNameInLuaVector.size())
+    if(idx < 0 || idx >= paramNamesInLuaVector.size())
         return nullptr;
 
-    return &(paramNameInLuaVector[idx]);
+    return &(paramNamesInLuaVector[idx]);
+}
+
+QStringList *EventType::GetEventParamsUIOf(const QString &event_type)
+{
+    int eid = GetIndexOfEventTypeLua(event_type);
+    return GetEventParamsUIAt(eid);
+}
+
+QStringList *EventType::GetEventParamsLuaOf(const QString &event_type)
+{
+    int eid = GetIndexOfEventTypeLua(event_type);
+    return GetEventParamsLuaAt(eid);
 }
 
 QStringList *EventType::GetEventParamTypes(QStringList *params)
@@ -62,7 +114,13 @@ QStringList *EventType::GetEventParamTypes(QStringList *params)
     int n = paramTypesVector.size();
     for(int i = 0; i < n; i++)
     {
-        if(&(paramNamesVector[i]) == params)
+        if(&(paramNamesInLuaVector[i]) == params)
+            return &(paramTypesVector[i]);
+    }
+
+    for(int i = 0; i < n; i++)
+    {
+        if(&(paramNamesInUIVector[i]) == params)
             return &(paramTypesVector[i]);
     }
 
@@ -118,11 +176,11 @@ void EventType::InitEventTypes()
 
 void EventType::ClearData()
 {
-    if(paramNamesVector.size() > 0)
+    if(paramNamesInUIVector.size() > 0)
     {
-        for(int i = 0; i < paramNamesVector.size(); i++)
+        for(int i = 0; i < paramNamesInUIVector.size(); i++)
         {
-            paramNamesVector[i].clear();
+            paramNamesInUIVector[i].clear();
         }
     }
 
@@ -134,9 +192,9 @@ void EventType::ClearData()
         }
     }
 
-    paramNamesVector.clear();
-    eventTypeNameVector.clear();
-    eventNameVector.clear();
+    paramNamesInUIVector.clear();
+    eventTypeNameLuaVector.clear();
+    eventTypeNameUIVector.clear();
     eventTagMap.clear();
 }
 
@@ -203,10 +261,10 @@ void EventType::createFakeData()
             break;
         }
 
-        paramNamesVector.append(str_list);
+        paramNamesInUIVector.append(str_list);
         paramTypesVector.append(type_list);
-        eventTypeNameVector.append(QString::number(i + 1000));
-        eventNameVector.append(event_list[i]);
+        eventTypeNameUIVector.append(QString::number(i + 1000));
+        eventTypeNameLuaVector.append(event_list[i]);
     }
 
 
@@ -234,38 +292,44 @@ bool EventType::createDateByConfig(QString file_path)
         if(n < 3)
             continue;
 
-        QStringList params;
-        QStringList types;
-        QStringList lua;
+        QStringList params_ui;
+        QStringList param_types;
+        QStringList params_lua;
         for(int i = 3; i < n; i++)
         {
             QStringList pname_type = sl[i].split('|', QString::SkipEmptyParts);
             if(pname_type.size() == 3)
             {
-                params << pname_type[0];
-                types << pname_type[1];
-                lua << pname_type[2];
+                params_ui << pname_type[0];
+                param_types << pname_type[1];
+                params_lua << pname_type[2];
             }
             else
-            {
                 continue;
-            }
         }
 
-        eventTypeNameVector << sl[0];
-        eventNameVector << sl[1];
-        paramNamesVector << params;
-        paramTypesVector << types;
-        paramNameInLuaVector << lua;
+        int pos = 0, num = eventTypeNameUIVector.size();
+        for(; pos < num; pos++)
+        {
+            int res = PinYin::GetInstance()->Compare(eventTypeNameUIVector[pos], sl[1]);
+            if(res == 1 || res == 0)
+                break;
+        }
 
-        parseTags(sl[2]);
+        eventTypeNameLuaVector.insert(pos, sl[0]);
+        eventTypeNameUIVector.insert(pos, sl[1]);
+        paramNamesInUIVector.insert(pos, params_ui);
+        paramTypesVector.insert(pos, param_types);
+        paramNamesInLuaVector.insert(pos, params_lua);
+
+        parseTags(sl[2], sl[0]);
     }
 
     file.close();
     return true;
 }
 
-void EventType::parseTags(QString str)
+void EventType::parseTags(QString str, const QString& etype_lua)
 {
     QRegExp rx("(,|，)");
     QStringList sl = str.split(rx, QString::SkipEmptyParts);
@@ -282,6 +346,6 @@ void EventType::parseTags(QString str)
             v.clear();
             eventTagMap.insert(sl[i], v);
         }
-        eventTagMap[sl[i]].append(eventTypeNameVector.last());
+        eventTagMap[sl[i]].append(etype_lua);
     }
 }

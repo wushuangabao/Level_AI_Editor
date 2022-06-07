@@ -7,6 +7,9 @@
 #include "../Values/valuemanager.h"
 #include "valueclass.h"
 
+const QString BaseValueClass::custom_name_prefix = QStringLiteral("自定义动作：");
+const int BaseValueClass::custom_name_prefix_len = BaseValueClass::custom_name_prefix.length();
+
 BaseValueClass::BaseValueClass()
 {
     params = QVector<CommonValueClass*>();
@@ -112,53 +115,7 @@ QString BaseValueClass::GetText()
         return getFunctionText();
     else if(value_type == VT_STR)
     {
-        if(lua_str == "nil")
-        {
-            return lua_str;
-        }
-        else if(var_type == "number")
-        {
-            bool ok = true;
-            lua_str.toDouble(&ok);
-            if(!ok)
-            {
-                info(lua_str + " 不是number类型的值");
-                return "0";
-            }
-        }
-        else if(var_type == "string")
-        {
-            int pos = lua_str.indexOf('\"');
-            if(pos == -1)
-                lua_str = QString("\"%1\"").arg(lua_str);
-            else
-            {
-                int last_pos = lua_str.lastIndexOf('\"');
-                if(last_pos == pos && !lua_str.contains('\''))
-                    lua_str = QString("\'%1\'").arg(lua_str);
-                else if(pos > 0 || last_pos < lua_str.size() - 1)
-                {
-                    // 检查一下""之外的头尾是否有空格，有的话去掉。如果头尾有非空字符，最外层套上'
-                    bool empty = true;
-                    for(int i = 0; i < pos; i++)
-                        if(lua_str[i] != ' ')
-                        {
-                            empty = false;
-                            break;
-                        }
-                    for(int i = last_pos + 1; i < lua_str.size(); i++)
-                        if(lua_str[i] != ' ')
-                        {
-                            empty = false;
-                            break;
-                        }
-                    if(empty)
-                        lua_str = lua_str.mid(pos, last_pos - pos + 1);
-                    else if(!empty && !lua_str.contains('\''))
-                        lua_str = QString("\'%1\'").arg(lua_str);
-                }
-            }
-        }
+        checkLuaStrAndVarType(lua_str, var_type);
         return lua_str;
     }
     else
@@ -194,22 +151,8 @@ void BaseValueClass::SetLuaStr(const QString &text, const QString &type_text)
     lua_str = text;
     var_type = type_text;
 
-    // string类型的加上引号
-    /*
-    if(var_type == "string")
-    {
-        lua_str.remove('"');
-        lua_str.push_front('"');
-        lua_str.push_back('"');
-        return;
-    }
-    */
-
     // 检测一下lua_str是否合法
-    if(var_type != "")
-    {
-        checkLuaStrAndVarType(lua_str, type_text);
-    }
+    checkLuaStrAndVarType(lua_str, type_text);
 }
 
 void BaseValueClass::SetEnumValue(const QString &value_str)
@@ -236,12 +179,27 @@ void BaseValueClass::SetEnumValue(const QString &value_str)
     }
 }
 
-void BaseValueClass::SetEvtParam(const QString &lua_str, const QString &ui_str, QString var_type)
+bool BaseValueClass::SetEvtParam(int event_type_id, int param_id)
 {
+    EventType* evt_info = EventType::GetInstance();
     value_type = VT_PARAM;
-    name = ui_str;
-    this->lua_str = lua_str;
-    this->var_type = var_type;
+    name = evt_info->GetEventParamNameUI(event_type_id, param_id);
+    if(name == "")
+        return false;
+    lua_str = evt_info->GetEventParamNameLua(event_type_id, param_id);
+    if(lua_str == "")
+        return false;
+    g_var_id = param_id;
+
+    QStringList* event_params = evt_info->GetEventParamsLuaAt(event_type_id);
+    if(event_params == nullptr)
+        return false;
+    QStringList* params_types = evt_info->GetEventParamTypes(event_params);
+    if(params_types != nullptr && params_types->size() > param_id && param_id >= 0)
+        var_type = params_types->at(param_id);
+    else
+        return false;
+    return true;
 }
 
 void BaseValueClass::SetFunction(FunctionClass *function_class)
@@ -261,7 +219,11 @@ void BaseValueClass::SetFunction(FunctionClass *function_class)
             params.append(struct_v);
         }
         else
-            params.append(new BaseValueClass("nil"));
+        {
+            BaseValueClass* base_v = new BaseValueClass("nil");
+            base_v->SetVarType(func->GetParamTypeAt(i));
+            params.append(base_v);
+        }
     }
 }
 
@@ -318,11 +280,10 @@ FunctionClass *BaseValueClass::GetFunctionInfo()
     return func;
 }
 
-QString BaseValueClass::GetEventParamInLua()
+int BaseValueClass::GetEventParamId()
 {
-    if(value_type != VT_PARAM)
-        return "";
-    return lua_str;
+    MY_ASSERT(value_type == VT_PARAM);
+    return g_var_id;
 }
 
 QString BaseValueClass::GetLuaValueString(QString var_prefix)
@@ -331,17 +292,24 @@ QString BaseValueClass::GetLuaValueString(QString var_prefix)
     case VT_STR:
     {
         QString lua_str = GetText();
-        if(lua_str.contains("自定义动作："))
+        int l = lua_str.length();
+        if(l > custom_name_prefix_len && lua_str.left(custom_name_prefix_len) == custom_name_prefix)
         {
-            lua_str.replace("自定义动作：", "");
+            lua_str = lua_str.right(l - custom_name_prefix_len);
             int n = NodeInfo::GetRootNode_Custom()->childs.size();
-            for(int i = 0; i < n; i++)
+            int i = 0;
+            for(; i < n; i++)
             {
                 if(NodeInfo::GetRootNode_Custom()->childs[i]->text == lua_str)
                 {
                     lua_str = "CustomAction_" + QString::number(i) + "(level)";
                     break;
                 }
+            }
+            if(i >= n)
+            {
+                info(lua_str + " 这个自定义动作不存在");
+                lua_str = "";
             }
         }
         return lua_str;
@@ -379,13 +347,7 @@ QString BaseValueClass::GetLuaValueString(QString var_prefix)
     }
         break;
     case VT_PARAM:
-        if(GetEventParamInLua() != "")
-            return QString("event.%1").arg(GetEventParamInLua());
-        else
-        {
-            info("Lua值错误：找不到" + GetText() + "所使用的事件参数");
-            return QString("\"" + GetText() + "\"");
-        }
+        return QString("event.%1").arg(lua_str); //todo 检查合法性
         break;
     case VT_ENUM:
         return EnumInfo::GetInstance()->GetLuaStr(GetVarType(), GetText());
@@ -649,10 +611,18 @@ bool BaseValueClass::checkLuaStrAndVarType(QString &lua_str, const QString &var_
             return false;
         }
     }
-    // 检查number类型
-    /*
+    // 检查number类型（todo：支持四则运算）
     else if(var_type == "number")
     {
+        bool ok = true;
+        lua_str.toDouble(&ok);
+        if(!ok)
+        {
+            info(lua_str + " 不是number类型的值");
+            lua_str = "0";
+            return false;
+        }
+        /*
         QRegExp rx("(\+|-|\\*|/)");
         QStringList str_list = text.split(rx);
         int list_num = str_list.size();
@@ -681,8 +651,42 @@ bool BaseValueClass::checkLuaStrAndVarType(QString &lua_str, const QString &var_
                 return false;
             }
         }
+        */
     }
-    */
+    // 检查string类型（加上引号）
+    else if(var_type == "string")
+    {
+        int pos = lua_str.indexOf('\"');
+        if(pos == -1)
+            lua_str = QString("\"%1\"").arg(lua_str);
+        else
+        {
+            int last_pos = lua_str.lastIndexOf('\"');
+            if(last_pos == pos && !lua_str.contains('\''))
+                lua_str = QString("\'%1\'").arg(lua_str);
+            else if(pos > 0 || last_pos < lua_str.size() - 1)
+            {
+                // 检查一下""之外的头尾是否有空格，有的话去掉。如果头尾有非空字符，最外层套上'
+                bool empty = true;
+                for(int i = 0; i < pos; i++)
+                    if(lua_str[i] != ' ')
+                    {
+                        empty = false;
+                        break;
+                    }
+                for(int i = last_pos + 1; i < lua_str.size(); i++)
+                    if(lua_str[i] != ' ')
+                    {
+                        empty = false;
+                        break;
+                    }
+                if(empty)
+                    lua_str = lua_str.mid(pos, last_pos - pos + 1);
+                else if(!empty && !lua_str.contains('\''))
+                    lua_str = QString("\'%1\'").arg(lua_str);
+            }
+        }
+    }
     return true;
 }
 

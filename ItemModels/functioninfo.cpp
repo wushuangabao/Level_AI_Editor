@@ -5,6 +5,7 @@
 #include "enumdefine.h"
 #include "../Values/structinfo.h"
 #include "../Values/enuminfo.h"
+#include "../Utils/pinyin.h"
 #include "functioninfo.h"
 
 FunctionInfo* FunctionInfo::data = nullptr;
@@ -65,7 +66,7 @@ QStringList FunctionInfo::GetTagList()
     QStringList list;
     list.clear();
 
-    QMap<QString, QVector<FUNCTION_POS>>::iterator i = tagMap.begin();
+    QMap<QString, QStringList>::iterator i = tagMap.begin();
     for(; i != tagMap.end(); ++i)
     {
         list.append(i.key());
@@ -78,7 +79,7 @@ bool FunctionInfo::CheckFunctionInTag(FunctionClass *func, const QString &tag)
 {
     if(tagMap.contains(tag))
     {
-        return tagMap[tag].contains(func->GetID());
+        return tagMap[tag].contains(func->GetNameLua());
     }
     else
     {
@@ -201,13 +202,11 @@ bool FunctionInfo::createDateByConfig(QString file_path)
         else
             func.note = "";
 
-        // 插入infoList
-        func.id = infoList.size();
-        infoList << func;
-
         // 标签
         if(n >= 9)
-            parseTags(sl[8], func.id);
+            parseTags(sl[8], func.name_lua);
+
+        addFunctionInfo(func, false);
     }
 
     file.close();
@@ -271,24 +270,9 @@ bool FunctionInfo::createDataByLuaFile(const QString &lua_path)
                 continue;
             }
 
-            // 检查是否已经有同名的函数了。如果有，覆盖掉这个函数。
-            FunctionClass* func_old = GetFunctionInfoByLuaName(func.name_lua);
-            if(func_old != nullptr)
-            {
-                int idx = func_old->GetID();
-                *func_old = func; //由于没有指针类型的成员变量，貌似不用重写一个深拷贝
-                func_old->id = idx;
-                if(tags_str != "") //最后解析tags
-                    parseTags(line, idx);
-            }
-            // 如果没有，直接插到infoList最后
-            else
-            {
-                func.id = infoList.size();
-                infoList << func;
-                if(tags_str != "") //最后解析tags
-                    parseTags(line, func.id);
-            }
+            addFunctionInfo(func, true);
+            if(tags_str != "") //最后解析tags
+                parseTags(line, func.name_lua);
         }
     }
     file.close();
@@ -389,7 +373,7 @@ void FunctionInfo::parseTextsAndParams(FunctionClass *func, QString str)
     }
 }
 
-void FunctionInfo::parseTags(QString str, int func_id)
+void FunctionInfo::parseTags(QString str, QString func_name_lua)
 {
     QRegExp rx("(,|，)");
     QStringList sl = str.split(rx, QString::SkipEmptyParts);
@@ -402,10 +386,64 @@ void FunctionInfo::parseTags(QString str, int func_id)
             continue;
         if(!tagMap.contains(sl[i]))
         {
-            QVector<FUNCTION_POS> v;
+            QStringList v;
             v.clear();
             tagMap.insert(sl[i], v);
         }
-        tagMap[sl[i]].append(func_id);
+        tagMap[sl[i]].append(func_name_lua);
     }
+}
+
+void FunctionInfo::addFunctionInfo(const FunctionClass &func, bool fugai)
+{
+    // 检查是否已经有同名的函数了
+    FunctionClass* func_old = GetFunctionInfoByLuaName(func.name_lua);
+    if(func_old != nullptr)
+    {
+        if(fugai)
+            *func_old = func; //由于没有指针类型的成员变量，貌似不用重写一个深拷贝
+        else
+            return;
+    }
+    // 插到infoList中合适的位置
+    else
+    {
+        int idx = findIdxInList(func.name_ui);
+        infoList.insert(idx, func);
+    }
+}
+
+// 这个算法写得有问题，还需要改。暂时用更简单的findIdxInList来替代
+int FunctionInfo::findIdxInRange(int fst_i, int size, const QString& name_ui)
+{
+    if(fst_i >= size)
+        return size;
+
+    int idx = (size + fst_i) / 2;
+    int res = PinYin::GetInstance()->Compare(name_ui, infoList[idx].name_ui);
+    if(res == 1)
+    {
+        return findIdxInRange(idx + 1, size, name_ui);
+    }
+    else if(res == 2)
+    {
+        if(idx == 0)
+            return 0;
+        else
+            return findIdxInRange(fst_i, idx - 1, name_ui);
+    }
+    else
+        return idx;
+}
+
+int FunctionInfo::findIdxInList(const QString &name_ui)
+{
+    int n = infoList.size();
+    for(int i = 0; i < n; i++)
+    {
+        int res = PinYin::GetInstance()->Compare(infoList[i].name_ui, name_ui);
+        if(res == 1 || res == 0)
+            return i;
+    }
+    return n;
 }
