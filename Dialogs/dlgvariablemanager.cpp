@@ -13,6 +13,7 @@ DlgVariableManager::DlgVariableManager(QWidget *parent) :
     node = nullptr;
     init_v_struct = new StructValueClass();
     m_dlgEditValue = new DlgEditValue(this);
+    m_dlgEditValue->SetUpforInitValue(true);
     init_v = new BaseValueClass(m_dlgEditValue->GetValuePointer_Base());
 
     ui->setupUi(this);

@@ -32,3 +32,9 @@ void TreeItemModel_Custom::UpdateCustActSeqName(NodeInfo *node, const QString &n
     node->text = name;
 }
 
+bool TreeItemModel_Custom::OnMoveNode(NodeInfo *begin_node, NodeInfo *end_node)
+{
+    Q_UNUSED(begin_node);
+    Q_UNUSED(end_node);
+    return false;
+}

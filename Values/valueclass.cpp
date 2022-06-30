@@ -326,13 +326,22 @@ QString BaseValueClass::GetLuaValueString(QString var_prefix)
         else
         {
             MY_ASSERT(ValueManager::GetValueManager()->GetVarNameAt(id) == name);
-            return QString("%1%2").arg(var_prefix).arg(GetText());
+            QString text = name;
+            if(lua_str != "")
+            {
+                QString name_var_type = ValueManager::GetValueManager()->GetVarTypeAt(id);
+                text = text + "." + StructInfo::GetInstance()->GetKeyInLua(name_var_type, lua_str);
+            }
+            return QString("%1%2").arg(var_prefix).arg(text);
         }
     }
         break;
     case VT_FUNC:
     {
-        QString str = GetFunctionName() + QString("(%1flowController").arg(var_prefix);
+        QString str = GetFunctionName();
+        if(str.left(5) == "Basic")
+            return getCustomFuncLuaString(var_prefix);
+        str = str + QString("(%1flowController").arg(var_prefix);
         int n = GetFunctionParamsNum();
         for(int i = 0; i < n; i++)
         {
@@ -484,6 +493,38 @@ QString BaseValueClass::getFunctionText()
     return text;
 }
 
+QString BaseValueClass::getCustomFuncLuaString(const QString &var_prefix)
+{
+    MY_ASSERT(func != nullptr);
+
+    int func_param_num = func->GetParamNum();
+    int actually_p_num = params.size();
+    MY_ASSERT(func_param_num <= actually_p_num);
+
+    QString text = "";
+    int pos = 0;
+    int text_num = func->GetTextNum();
+
+    if(func->param_is_before_text)
+    {
+        MY_ASSERT(func_param_num > 0);
+        text = params[0]->GetLuaValueString(var_prefix);
+        pos++;
+    }
+
+    for(int i = 0; i < text_num; i++)
+    {
+        text = text + func->GetTextAt(i);
+        if(pos < func_param_num)
+        {
+            text = text + params[pos]->GetLuaValueString(var_prefix);
+            pos++;
+        }
+    }
+
+    return text;
+}
+
 // 检查lua_str是否合法（类型是否符合var_type）
 // 这个方法目前还不完善
 bool BaseValueClass::checkLuaStrAndVarType(QString &lua_str, const QString &var_type)
@@ -527,7 +568,7 @@ bool BaseValueClass::checkLuaStrAndVarType(QString &lua_str, const QString &var_
             return false;
         }
         // 检查每个key是否合法
-        QString str_table = text.mid(1, str_table.size() - 2);
+        QString str_table = text.mid(1, text.size() - 2);
         int pos_dou = str_table.indexOf(',');
         while(pos_dou != -1)
         {

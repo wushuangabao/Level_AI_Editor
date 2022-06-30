@@ -111,29 +111,22 @@ void TreeItemModel_Event::UpdateEventName(NodeInfo *evt_node, QString new_name)
     }
 }
 
-// 参考 https://blog.csdn.net/weixin_43435307/article/details/109469207
-bool TreeItemModel_Event::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent)
+bool TreeItemModel_Event::OnMoveNode(NodeInfo *begin_node, NodeInfo *end_node)
 {
-    Q_UNUSED(action);
-    Q_UNUSED(row);
-    Q_UNUSED(column);
+    if(begin_node->type == EVENT && end_node->type == EVENT)
+        return moveEventNode(begin_node, end_node);
+    else
+        return false;
+}
 
-    QByteArray array = data->data(QString("hehe"));
-    QDataStream stream(&array, QIODevice::ReadOnly);
-    qint64 p;
-    stream >> p;
-    QModelIndex* index = (QModelIndex*)p;
-
-    NodeInfo* begin_node = static_cast<NodeInfo*>(index->internalPointer());
-    NodeInfo* end_node = static_cast<NodeInfo*>(parent.internalPointer());
+bool TreeItemModel_Event::moveEventNode(NodeInfo *begin_node, NodeInfo *end_node)
+{
     int begin_pos = m_pRootNode->GetPosOfChildNode(begin_node);
     int end_pos = m_pRootNode->GetPosOfChildNode(end_node);
-
-    if(begin_pos == end_pos || begin_pos + 1 == end_pos)
-    {
-        delete index;
+    if(begin_pos == -1 || end_pos == -1)
         return false;
-    }
+    if(begin_pos == end_pos || begin_pos + 1 == end_pos)
+        return false;
 
     // 插入到end_pos位置
     beginResetModel();
@@ -150,44 +143,7 @@ bool TreeItemModel_Event::dropMimeData(const QMimeData* data, Qt::DropAction act
     main_win->OnMoveEventNode(begin_pos, end_pos);
     main_win->SaveBackup(true);
 
-    delete index;
     return true;
-}
-
-Qt::DropActions TreeItemModel_Event::supportedDropActions() const
-{
-    return Qt::MoveAction;
-}
-
-QMimeData* TreeItemModel_Event::mimeData(const QModelIndexList & indexes) const
-{
-    QMimeData* mimeData = QAbstractItemModel::mimeData(indexes);
-    for (int i = 0; i < indexes.count(); i++)
-    {
-        QModelIndex index = indexes[i];
-        QModelIndex* p = new QModelIndex(index);
-        QByteArray array;
-        QDataStream stream(&array, QIODevice::WriteOnly);
-        stream << (qint64)p;
-        mimeData->setData(QString("hehe"), array);
-
-        return mimeData; //只取第一个节点的数据
-    }
-    return mimeData;
-}
-
-Qt::ItemFlags TreeItemModel_Event::flags(const QModelIndex &index) const
-{
-    if (!index.isValid())
-        return Qt::NoItemFlags;
-
-    NodeInfo* item = (NodeInfo*)index.internalPointer();
-    Qt::ItemFlags flag = QAbstractItemModel::flags(index);
-
-    if(item->type == EVENT)
-        return flag | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
-    else
-        return flag;
 }
 
 void TreeItemModel_Event::findNodesOpenOrCloseEventIn(NodeInfo *parent_node, QString event_name, QList<NodeInfo *> &node_list)

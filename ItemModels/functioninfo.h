@@ -86,7 +86,6 @@ private:
     void InitFuncInfo();
     void ClearData();
 
-    void createFakeData();
     bool createDateByConfig(QString path);
     bool createDataByLuaFile(const QString& lua_path);
     bool parseLuaLine(FunctionClass* func, QString line);

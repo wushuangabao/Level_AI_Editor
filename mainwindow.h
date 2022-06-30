@@ -39,13 +39,20 @@ public:
     void closeEvent(QCloseEvent *e);
     void paintEvent(QPaintEvent *e);
 
+    // 树形结构
+    QString getItemCodeOf(int tree_type, const QModelIndex& index);
+    QModelIndex getModelIndexBy(const QString& code, int *tree_type = nullptr);
+    void updateTreeViewStateByData(bool default_state = true); //根据存储的展开状态进行刷新
+    void replaceItemStateInMap(const QString& code_before, const QString& code_after, QStringList& to_do_list, QMap<QString, bool>* info_map, bool do_replace = true); //moveBackItemStateOf的辅助函数
+    void selectTreeViewItem(const QModelIndex& index); //选择TreeView上的index节点
+
     void SaveBackup(bool save_states = false);
     QString GetItemCodeOfNode(NodeInfo *node); //获取node在itemState map中的Key
 
     // code对应的节点往后移动（在其后的兄弟节点也都要后移）
-    void MoveBackItemStateOf(const QString& code, int brothers_size = -1, int move_len = 1);
+    void MoveBackItemStateOf(const QString& code, int brothers_size, int move_len = 1);
     // code对应的节点往前移动（在其之前的数个兄弟节点也都要前移）
-    void MoveForwardItemStateOf(const QString& code, int front_id = 1, int move_len = 1);
+    void MoveForwardItemStateOf(const QString& code, int front_id, int move_len = 1);
     // 将一个事件节点从begin_pos到end_pos（被m_eventTreeModel调用）
     void OnMoveEventNode(int begin_pos, int end_pos);
     // 粘贴成功后，新增节点状态记录到itemState map中
@@ -53,9 +60,16 @@ public:
 
     // 根据文件中的record_move_item来修改itemStates（默认true表示反操作）
     void ModifyItemStatesByFile(const QString& file_path, bool is_undo = true);
+    bool ModifyItemStatesByRecord(const QString &record, bool is_undo);
     // itemStates Move（Back\Forward\From..to..）的记录
     QString record_move_item;
     bool record_enabled;
+
+    QMap<QString, bool> m_itemState_Event; //存储事件TreeView的展开状态
+    QMap<QString, bool> m_itemState_Custom; //存储自定义动作TreeView的展开状态
+
+    QModelIndex m_curModelIndex; //当前选中的Tree View节点
+    NodeInfo* m_curNode; //当前选中的节点数据
 
 private slots:
     // 弹出菜单
@@ -155,20 +169,11 @@ private:
     DlgChoseActionType* m_dlgChoseActionType;
 
     // 树形结构
-    QModelIndex m_curModelIndex;
-    NodeInfo* m_curNode;
-    QMap<QString, bool> m_itemState_Event; //存储事件TreeView的展开状态
-    QMap<QString, bool> m_itemState_Custom; //存储自定义动作TreeView的展开状态
-    QString getItemCodeOf(int tree_type, const QModelIndex& index);
-    QModelIndex getModelIndexBy(const QString& code, int *tree_type = nullptr);
     void removeItemCode(const QString& code, int tree_type = -1);
-    void replaceItemStateInMap(const QString& code_before, const QString& code_after, QStringList& to_do_list, QMap<QString, bool>* info_map, bool do_replace = true); //moveBackItemStateOf的辅助函数
     void clearTreeViewState(const QString& lvl_id); //删除关卡时清数据
     void resetTreeViewSate(const QString& lvl_id); //每次打开新的关卡时，都会初始化TreeView上的节点状态
-    void updateTreeViewStateByData(bool default_state = true); //根据存储的展开状态进行刷新
     void setTreeViewExpandSlots(bool ok); //是否存储节点的展开、折叠状态
     void setNewCurModelIndex(QModelIndex parent_index, int child_pos); //更新m_curModelIndex，变成parent_index的第child_pos个子节点
-    void selectTreeViewItem(const QModelIndex& index); //选择TreeView上的index节点
     void setModelForDlg(TreeItemModel *model);
     // 事件树
     TreeItemModel_Event* m_eventTreeModel;
@@ -254,7 +259,7 @@ private:
     QMap<QString, bool> savedOrNot;
     QMap<QString, QStringList> backupFilePaths;
     QMap<QString, QStringList> backupFilePaths_Redo;
-    QMap<QString, QString> backupItemStates; //QMap<备份的关卡文件地址, 对应的节点展开状态备份文件名>
+    QMap<QString, QString> backupItemStates; //QMap<备份的关卡文件地址, 对应的“节点位置移动状态记录”的文件名>
     QString saveBackupItemStates(const QString &level_name);
     QString saveBackupJsonFileOf(QString &level_name);
     bool saveBackupWhenInit(const QString &namelvl);

@@ -1,6 +1,7 @@
 #ifndef TREEITEMMODEL_H
 #define TREEITEMMODEL_H
 
+#include <QMimeData>
 #include <QAbstractItemModel>
 #include "nodeinfo.h"
 #include "Values/valuemanager.h"
@@ -48,6 +49,13 @@ public:
     QStringList GetUppestNodeNames();
     QStringList getEventNames();
     QStringList getCustActSeqNames();
+
+    // 节点拖拽
+    virtual bool OnMoveNode(NodeInfo* begin_node, NodeInfo* end_node) = 0;
+    virtual bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &obj_node) override;
+    virtual Qt::DropActions supportedDropActions() const override;
+    virtual QMimeData *mimeData(const QModelIndexList &indexes) const override;
+    virtual Qt::ItemFlags flags(const QModelIndex& index) const override;
 
     NodeInfo* m_pRootNode;
 

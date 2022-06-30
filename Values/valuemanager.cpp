@@ -626,7 +626,7 @@ void ValueManager::updateVarOnNodes(int var_id)
         }
         // 更新Node附带的values并检查是否合法
         QString left_var_type;
-        QString left_var_text = itr.key()->GetVarName_SetVar();
+        QString left_var_text = itr.key()->GetVarNameUI_SetVar();
         if(need_update && itr.key()->CheckLeftText_SetVar(left_var_type) == false)
         {
             info("set var 节点中的" + left_var_text + "不合法，请删除");

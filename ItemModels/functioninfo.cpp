@@ -104,7 +104,7 @@ void FunctionInfo::InitFuncInfo()
     QDir dir(config_path);
     if(!dir.exists())
     {
-        createFakeData();
+        info("找不到 config 目录！");
     }
     else
     {
@@ -113,7 +113,6 @@ void FunctionInfo::InitFuncInfo()
         {
             ClearData();
             info("找不到 config/function_info.txt ！");
-            createFakeData();
         }
     }
 }
@@ -130,11 +129,6 @@ void FunctionInfo::ClearData()
     }
 
     tagMap.clear();
-}
-
-void FunctionInfo::createFakeData()
-{
-
 }
 
 bool FunctionInfo::createDateByConfig(QString file_path)
@@ -162,10 +156,14 @@ bool FunctionInfo::createDateByConfig(QString file_path)
 
         QStringList sl = line.split('\t');
         int n = sl.size();
-        MY_ASSERT(n >= 7);
+        if(n < 7)
+        {
+            info(line + "无法解析");
+            continue;
+        }
 
         // 检查函数名称是否已经有了。如果已经有了，跳过这一行
-        if(GetFunctionInfoByLuaName(sl[2]) != nullptr)
+        if(sl[2] != "" && GetFunctionInfoByLuaName(sl[2]) != nullptr)
             continue;
         FunctionClass func;
 
@@ -203,7 +201,7 @@ bool FunctionInfo::createDateByConfig(QString file_path)
             func.note = "";
 
         // 标签
-        if(n >= 9)
+        if(n >= 9 && func.name_lua != "")
             parseTags(sl[8], func.name_lua);
 
         addFunctionInfo(func, false);
@@ -216,7 +214,7 @@ bool FunctionInfo::createDateByConfig(QString file_path)
 bool FunctionInfo::createDataByLuaFile(const QString &lua_path)
 {
     QString abs_path = config_path + lua_path;
-    QFile file(abs_path);
+    QFile file(abs_path.remove('\t'));
     if(!file.open(QIODevice::ReadOnly))
     {
         info(lua_path + "打开失败");
@@ -398,7 +396,7 @@ void FunctionInfo::addFunctionInfo(const FunctionClass &func, bool fugai)
 {
     // 检查是否已经有同名的函数了
     FunctionClass* func_old = GetFunctionInfoByLuaName(func.name_lua);
-    if(func_old != nullptr)
+    if(func.name_lua != "" && func_old != nullptr)
     {
         if(fugai)
             *func_old = func; //由于没有指针类型的成员变量，貌似不用重写一个深拷贝

@@ -355,3 +355,221 @@ QStringList TreeItemModel::getCustActSeqNames()
     }
     return names;
 }
+
+bool TreeItemModel::dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &obj_node)
+{
+    Q_UNUSED(action);
+    Q_UNUSED(row);
+    Q_UNUSED(column);
+
+    QByteArray ba = data->data(QString("count"));
+    QDataStream ds(&ba, QIODevice::ReadOnly);
+    int n;
+    ds >> n;
+
+    bool res = false;
+    for(int i = 0; i < n; i++)
+    {
+        QByteArray array = data->data(QString("id_%1").arg(i));
+        QDataStream stream(&array, QIODevice::ReadOnly);
+        qint64 p;
+        stream >> p;
+        QModelIndex* index = (QModelIndex*)p;
+
+        NodeInfo* begin_node = static_cast<NodeInfo*>(index->internalPointer());
+        NodeInfo* end_node = static_cast<NodeInfo*>(obj_node.internalPointer());
+        do
+        {
+            if(begin_node == nullptr || end_node == nullptr)
+                break;
+
+            if(begin_node->type == SEQUENCE)
+                break;
+
+            // Event Tree & Custom Tree 通用部分：移动动作节点
+            if(begin_node->type >= SET_VAR && begin_node->type <= CLOSE_EVENT)
+            {
+                int begin_pos, end_pos;
+                NodeInfo* parent_node;
+                begin_pos = begin_node->parent->GetPosOfChildNode(begin_node);
+                if(end_node->type == SEQUENCE)
+                {
+                    end_pos = end_node->childs.size();
+                    parent_node = end_node;
+                }
+                else if(end_node->type >= SET_VAR && end_node->type <= CLOSE_EVENT)
+                {
+                    parent_node = end_node->parent;
+                    end_pos = parent_node->GetPosOfChildNode(end_node);
+                }
+                else
+                    break;
+                QList<int> pos_list_1, pos_list_2;
+                NodeInfo* begin_root = begin_node->GetRootNode(pos_list_1);
+                NodeInfo* end_root = end_node->GetRootNode(pos_list_2);
+                if(begin_root != end_root)
+                    break;
+                NodeInfo* event_root_node = NodeInfo::GetRootNode_Event();
+                if(begin_pos == -1 || end_pos == -1 || (event_root_node == begin_root && (pos_list_1.size() < 2 || pos_list_2.size() < 2 || pos_list_1[0] != pos_list_2[0])))
+                    break;
+                if((begin_node->parent == end_node->parent || begin_node->parent == end_node) && (begin_pos == end_pos || begin_pos + 1 == end_pos))
+                    break;
+
+                MainWindow* main_win = getMainWindow();
+                MY_ASSERT(main_win != nullptr);
+                beginResetModel();
+
+                // 找到被移动的节点及其子节点temp_codes
+                QStringList temp_codes;
+                QString begin_code = main_win->GetItemCodeOfNode(begin_node);
+                QMap<QString, bool> *state_info = nullptr;
+                if(m_pRootNode == event_root_node)
+                    state_info = &(main_win->m_itemState_Event);
+                else if(m_pRootNode == NodeInfo::GetRootNode_Custom())
+                    state_info = &(main_win->m_itemState_Custom);
+                if(state_info == nullptr)
+                    break;
+                main_win->replaceItemStateInMap(begin_code, "", temp_codes, state_info, false);
+
+                // 存储一个临时副本temp_states（删除原数据）
+                QMap<QString, bool> temp_states;
+                int n = temp_codes.size();
+                for(int i = 0; i < n; i++)
+                {
+                    if(state_info->contains(temp_codes[i]))
+                    {
+                        temp_states.insert(temp_codes[i], state_info->value(temp_codes[i]));
+                        state_info->remove(temp_codes[i]);
+                    }
+                }
+
+                // 先删除
+                if(begin_pos != begin_node->parent->childs.size() - 1)
+                    main_win->MoveForwardItemStateOf(main_win->GetItemCodeOfNode(begin_node->parent->childs.last()), begin_pos + 1);
+                begin_node->parent->childs.removeAt(begin_pos);
+
+                if(begin_node->parent == parent_node && begin_pos < end_pos)
+                    end_pos--;
+
+                // 后插入
+                QString end_code;
+                if(end_pos != parent_node->childs.size())
+                {
+                    end_code = main_win->GetItemCodeOfNode(parent_node->childs.at(end_pos));
+                    main_win->MoveBackItemStateOf(end_code, parent_node->childs.size());
+                }
+                parent_node->childs.insert(end_pos, begin_node);
+                begin_node->parent = parent_node;
+
+                // 根据temp_states中的展开状态，更新被移动节点的展开状态
+                if(end_code != "")
+                    end_code = main_win->GetItemCodeOfNode(parent_node->childs.at(end_pos));
+                QMap<QString, bool>::iterator itr;
+                for(itr = temp_states.begin(); itr != temp_states.end(); ++itr)
+                {
+                    QString new_key = itr.key();
+                    new_key.replace(begin_code, end_code);
+                    state_info->insert(new_key, itr.value());
+                }
+
+                temp_states.clear();
+                temp_codes.clear();
+
+                endResetModel();
+                main_win->updateTreeViewStateByData();
+                main_win->SaveBackup(true);
+                res = true;
+
+                // 选中被移动之后的节点
+                main_win->m_curModelIndex = main_win->getModelIndexBy(end_code);
+                main_win->m_curNode = begin_node;
+                main_win->selectTreeViewItem(main_win->m_curModelIndex);
+            }
+
+            // Event Tree & Custom Tree 相异部分：各自实现 OnMoveNode 接口
+            res = OnMoveNode(begin_node, end_node) || res;
+        }
+        while(false);
+
+        delete index;
+    }
+
+    return res;
+}
+
+Qt::DropActions TreeItemModel::supportedDropActions() const
+{
+    return Qt::MoveAction;
+}
+
+QMimeData *TreeItemModel::mimeData(const QModelIndexList &indexes) const
+{
+    // 记录每个节点的pos序列（pos是指位于父节点childs的第几个位置）
+    QList<QList<int>> pos_list;
+    int n = indexes.count();
+    for(int i = 0; i < n; i++)
+    {
+        NodeInfo* node = static_cast<NodeInfo*>(indexes[i].internalPointer());
+        QList<int> pos_l_i;
+        node->GetRootNode(pos_l_i);
+        pos_list.push_back(pos_l_i);
+    }
+
+    // 对这些节点重新排序，按照TreeView中从上到下的顺序
+    QList<int> index_list; //记录indexes中的下标，按顺序排列
+    for(int i = 0; i < n; i++)
+    {
+        int num = index_list.size();
+        int j = 0;
+        for(; j < num; j++)
+        {
+            QList<int> *pos_list_j = &(pos_list[index_list[j]]);
+            QList<int> *pos_list_i = &(pos_list[i]);
+            int deep = pos_list_i->size();
+            if(pos_list_j->size() < deep)
+                deep = pos_list_j->size();
+            int deep_compare = 0;
+            for(; deep_compare < deep; deep_compare++)
+            {
+                if(pos_list_i->at(deep_compare) < pos_list_j->at(deep_compare))
+                    break;
+            }
+            if(deep_compare < deep)
+                break;
+        }
+        index_list.insert(j, i);
+    }
+
+    QMimeData* mimeData = QAbstractItemModel::mimeData(indexes);
+    QByteArray ba;
+    QDataStream stream(&ba, QIODevice::WriteOnly);
+    stream << n;
+    mimeData->setData(QString("count"), ba);
+
+    for (int i = 0; i < n; i++)
+    {
+        QModelIndex index = indexes[index_list[i]];
+        QModelIndex* p = new QModelIndex(index);
+        QByteArray array;
+        QDataStream stream(&array, QIODevice::WriteOnly);
+        stream << (qint64)p;
+        mimeData->setData(QString("id_%1").arg(i), array);
+        //return mimeData; //只取第一个节点的数据
+    }
+
+    return mimeData;
+}
+
+Qt::ItemFlags TreeItemModel::flags(const QModelIndex &index) const
+{
+    if (!index.isValid())
+        return Qt::NoItemFlags;
+
+    NodeInfo* item = (NodeInfo*)index.internalPointer();
+    Qt::ItemFlags flag = QAbstractItemModel::flags(index);
+
+    if(item->type == EVENT || (item->type >= SET_VAR && item->type <= CLOSE_EVENT)) // 动作节点和事件节点可拖拽，其他节点都有可能是固定位置的节点所以不能拖
+        return flag | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled;
+    else
+        return flag;
+}

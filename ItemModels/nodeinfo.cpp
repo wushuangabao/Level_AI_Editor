@@ -119,6 +119,8 @@ NodeInfo *NodeInfo::addNewChildNode_SetVar(QString node_text, int id_var)
             QStringList s_l = node_text.left(pos).split('.', QString::SkipEmptyParts);
             if(s_l.size() > 1)
             {
+                QString var_type = ValueManager::GetValueManager()->GetVarTypeAt(id_var);
+                MY_ASSERT(StructInfo::GetInstance()->CheckIsStruct(var_type));
                 for(int i = 1; i < s_l.size(); i++)
                     new_node->addNewValue(s_l[i]);
             }
@@ -414,7 +416,7 @@ bool NodeInfo::IsBreakButNotReturn()
     return flag;
 }
 
-QString NodeInfo::GetVarName_SetVar()
+QString NodeInfo::GetVarNameUI_SetVar()
 {
     MY_ASSERT(type == SET_VAR);
     MY_ASSERT(!values.isEmpty());
@@ -426,6 +428,29 @@ QString NodeInfo::GetVarName_SetVar()
     for(int i = 1; i < n; i++)
     {
         var_name += QString(".%1").arg(values[i]);
+    }
+    return var_name;
+}
+
+QString NodeInfo::GetVarNameLua_SetVar()
+{
+    MY_ASSERT(type == SET_VAR);
+    MY_ASSERT(!values.isEmpty());
+    bool ok = true;
+    int id = values[0].toInt(&ok);
+    MY_ASSERT(ok);
+    QString var_name = ValueManager::GetValueManager()->GetVarNameAt(id);
+    int n = values.size();
+    if(n > 1)
+    {
+        QString var_type = ValueManager::GetValueManager()->GetVarTypeAt(id);
+        StructInfo* struct_info = StructInfo::GetInstance();
+        MY_ASSERT(struct_info->CheckIsStruct(var_type));
+        for(int i = 1; i < n; i++)
+        {
+            QString key_name_lua = struct_info->GetKeyInLua(var_type, values[i]);
+            var_name += QString(".%1").arg(key_name_lua);
+        }
     }
     return var_name;
 }
@@ -445,7 +470,7 @@ bool NodeInfo::CheckLeftText_SetVar(QString& var_type, bool should_update)
 
     // 依次检查每个Key是否合法
     StructInfo* table_info = StructInfo::GetInstance();
-    int i = 0;
+    int i = 1;
     for(; i < n; i++)
     {
         if(table_info->CheckIsStruct(var_type))

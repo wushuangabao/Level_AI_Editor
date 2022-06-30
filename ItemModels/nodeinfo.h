@@ -41,7 +41,8 @@ public:
     void UpdateEventType(int event_idx);
 
     bool IsBreakButNotReturn();
-    QString GetVarName_SetVar();
+    QString GetVarNameUI_SetVar();
+    QString GetVarNameLua_SetVar();
     bool CheckLeftText_SetVar(QString &var_type, bool should_update = false); //检查set var左值的写法是否正确，var_type是推断出的左值的变量类型
 
     NodeInfo* parent;          // 父节点

@@ -89,7 +89,8 @@ private:
 
     QVector<CommonValueClass*> params; //函数参数
     void clearFuncParams();
-    QString getFunctionText();
+    QString getFunctionText(); //函数显示在UI上的文字
+    QString getCustomFuncLuaString(const QString& var_prefix); //function_custom.txt中的函数输出Lua时的字符串
 
     bool checkLuaStrAndVarType(QString &str, const QString &var_t);
     bool checkVarType(const QString& type); //检查VT_VAR变量的变量类型是否为type

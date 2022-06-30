@@ -24,6 +24,7 @@ public:
     StructValueClass* GetValuePointer();
     inline bool CheckIsAccepted() {return is_accepted;}
     inline void SetModelAndNode(TreeItemModel* m, NodeInfo* n) {model = m; node = n;}
+    inline void SetUpForInitValue(bool ok) {is_init_value = ok;}
 
 private slots:
     void on_DlgEditStructValue_accepted();
@@ -37,6 +38,7 @@ private:
     NodeInfo* node;
     StructValueClass* m_value;
     bool is_accepted;
+    bool is_init_value;
 };
 
 #endif // DIALOGEDITSTRUCTVALUE_H

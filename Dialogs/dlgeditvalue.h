@@ -33,6 +33,7 @@ public:
     void ModifyCallNode(NodeInfo* function_node);
     void CreateCallNode();
     void SetUpforFunction();
+    void SetUpforInitValue(bool ok);
 
     void SetModel(TreeItemModel* m);
     inline void SetValueType(VALUE_TYPE vt){value_type = vt;}
@@ -104,7 +105,7 @@ private:
 
     void resetFuncComboBox();
 
-    void initUIforValue(const QString &var_type, bool is_init_value = false);
+    void initUIforValue(const QString &var_type);
 
     void setValueAndUI_Common(CommonValueClass* v);
     void setValueAndUI_Base(BaseValueClass* v);
@@ -129,7 +130,10 @@ private:
 
     Ui::DlgEditValue *ui;
     TreeItemModel* model;
+
     bool is_for_function;
+    bool is_init_value; //如果是对init value进行编辑，就禁用value
+
     QVector<int> vectorFunctionInfo;
 
     NodeInfo* node;

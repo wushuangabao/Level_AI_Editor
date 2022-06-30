@@ -15,6 +15,9 @@ public:
 
     NodeInfo *AddCustomSequence(const QString& name);
     void UpdateCustActSeqName(NodeInfo* node, const QString& name);
+
+    // 处理节点拖拽
+    virtual bool OnMoveNode(NodeInfo* begin_node, NodeInfo* end_node) override;
 };
 
 #endif // TREEITEMMODEL_CUSTOM_H

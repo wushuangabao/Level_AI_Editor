@@ -19,6 +19,7 @@ DlgEditValue::DlgEditValue(QWidget *parent) :
     model = nullptr;
     node = nullptr;
     is_for_function = false;
+    is_init_value = false;
     value_base = new BaseValueClass("nil");
     value_struct = nullptr;
     is_accepted = false;
@@ -177,12 +178,13 @@ void DlgEditValue::ModifyInitVarValue(BaseValueClass *b_v, StructValueClass *s_v
     MY_ASSERT(model != nullptr);
     MY_ASSERT(b_v != nullptr);
     MY_ASSERT(s_v != nullptr);
+    MY_ASSERT(is_init_value == true);
     node = nullptr;
 
     if(var_type != "" && var_type != b_v->GetVarType())
         b_v->ClearData();
 
-    initUIforValue(var_type, true);
+    initUIforValue(var_type);
     setValueAndUI_Base(b_v);
 
     if(StructInfo::GetInstance()->CheckIsStruct(var_type))
@@ -211,31 +213,26 @@ void DlgEditValue::CreateNewValueForParentNode(const QString& var_type, NodeInfo
     this->exec();
 }
 
-void DlgEditValue::initUIforValue(const QString &var_type, bool is_init_value)
+void DlgEditValue::initUIforValue(const QString &var_type)
 {
     MY_ASSERT(model != nullptr);
 
     is_for_function = false;
     this->var_type = var_type;
 
-    setUIVisible_EvtParam(!is_init_value);
-    setUIVisible_Var(!is_init_value);
-    if(is_init_value)
+    if(!is_init_value)
     {
-        if(var_type == "")
-            setWindowTitle("设置变量初始值");
-        else
-            setWindowTitle("设置" + var_type + "初始值");
-    }
-    else
-    {
-        if(var_type != "")
-            setWindowTitle("设置：" + var_type);
-        else
-            setWindowTitle("设置：Value");
+        setUIVisible_EvtParam(true);
+        setUIVisible_Var(true);
+
         initEvtParamComboBox();
         initVariableComboBox();
     }
+
+    if(var_type != "")
+        setWindowTitle("设置：" + var_type);
+    else
+        setWindowTitle("设置：Value");
 
     bool is_struct = StructInfo::GetInstance()->CheckIsStruct(var_type);
     setUIVisible_Enum(!is_struct);
@@ -282,6 +279,14 @@ void DlgEditValue::SetUpforFunction()
     ui->radioFunction->setChecked(true);
 
     initFunctionComboBox();
+}
+
+void DlgEditValue::SetUpforInitValue(bool ok)
+{
+    is_init_value = ok;
+    setUIVisible_EvtParam(!ok);
+    setUIVisible_Var(!ok);
+    dlgEditStruct->SetUpForInitValue(ok);
 }
 
 void DlgEditValue::updateFuncTextUI(FunctionClass* func)
@@ -379,6 +384,8 @@ void DlgEditValue::ModifyCallNode(NodeInfo *function_node)
     MY_ASSERT(function_node->type == FUNCTION);
 
     node = function_node;
+    ui->lineEdit_Func->setText("");
+    ui->multiComboBox_Func->ResetSelection();
 
     // 初始化value
     BaseValueClass* v = model->GetValueManager()->GetValueOnNode_Function(function_node);
@@ -405,6 +412,7 @@ void DlgEditValue::CreateCallNode()
     value_type = VT_FUNC;
 
     ui->lineEdit->setText("");
+    ui->lineEdit_Func->setText("");
     ui->radioFunction->setChecked(true);
     ui->comboBoxFunction->setCurrentIndex(0);
     on_comboBoxFunction_currentIndexChanged(0);
@@ -795,6 +803,7 @@ void DlgEditValue::modifyUIParamValue(int idx)
         param_type = func->GetParamTypeAt(idx);
 
     DlgEditValue* dlg = new DlgEditValue();
+    dlg->SetUpforInitValue(is_init_value);
     dlg->SetModel(model);
     dlg->node = node;
     QPoint widget_pos = this->mapToGlobal(QPoint(0, 0));

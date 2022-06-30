@@ -199,7 +199,7 @@ void MainWindow::OnMoveEventNode(int begin_pos, int end_pos)
     QString begin_code = getItemCodeOf(0, m_eventTreeModel->index(begin_pos, 0));
     replaceItemStateInMap(begin_code, "", temp_codes, &m_itemState_Event, false);
 
-    // 删除被temp_codes的展开状态，不过先存储一个临时副本temp_states
+    // 删除temp_codes的展开状态，不过先存储一个临时副本temp_states
     QMap<QString, bool> temp_states;
     int n = temp_codes.size();
     for(int i = 0; i < n; i++)
@@ -321,22 +321,31 @@ void MainWindow::ModifyItemStatesByFile(const QString &file_path, bool is_undo)
         info(file_path + "打开失败！");
         return;
     }
-    QString record = file.readLine();
+    QStringList records;
+    records.append(file.readLine());
+    while(!file.atEnd())
+    {
+        QString line = file.readLine();
+        if(!line.isEmpty())
+            records.push_back(line);
+    }
     file.close();
 
+    int n = records.size();
+    MY_ASSERT(n > 0);
     record_enabled = false;
 
     // EventFrom%1To%2 移动事件节点的位置
-    if(record.length() >= 13 && record.left(9) == QStringLiteral("EventFrom"))
+    if(records[0].length() >= 13 && records[0].left(9) == QStringLiteral("EventFrom"))
     {
         bool ok1, ok2;
-        int i = record.indexOf("To", 9);
+        int i = records[0].indexOf("To", 9);
         MY_ASSERT(i != -1);
-        int begin_pos = record.mid(9, i - 9).toInt(&ok1);
-        int end_pos = record.mid(i + 2).toInt(&ok2);
+        int begin_pos = records[0].mid(9, i - 9).toInt(&ok1);
+        int end_pos = records[0].mid(i + 2).toInt(&ok2);
         if(!ok1 || !ok2)
         {
-            info(record + "操作解析失败");
+            info(records[0] + "操作解析失败");
             return;
         }
         if(is_undo)
@@ -350,11 +359,29 @@ void MainWindow::ModifyItemStatesByFile(const QString &file_path, bool is_undo)
             OnMoveEventNode(begin_pos, end_pos);
     }
 
+    if(!is_undo)
+    {
+        for(int i = 0; i < n; i++)
+            if(!ModifyItemStatesByRecord(records[i], is_undo))
+                break;
+    }
+    else
+    {
+        for(int i = n - 1; i >= 0; i--)
+            if(!ModifyItemStatesByRecord(records[i], is_undo))
+                break;
+    }
+
+    record_enabled = true;
+}
+
+bool MainWindow::ModifyItemStatesByRecord(const QString &record, bool is_undo)
+{
     // Move(%1)Children[%2,%3)%4; 将子节点往后移动
     // Move(%1)Children[%2,%3]%4; 将子节点往前移动
-    if(record.length() >= 21 && record.left(5) == QStringLiteral("Move("))
+    if(record.length() >= 21 && record.left(5) == QStringLiteral("Move(") && record.indexOf(';', 20) != -1)
     {
-        bool ok1, ok2, ok3, is_move_back;
+        bool ok1, ok2, ok3, is_move_back = false;
         int i = record.indexOf(')', 5);
         MY_ASSERT(i != -1);
         QString parent_item_code = record.mid(5, i - 5);
@@ -372,7 +399,7 @@ void MainWindow::ModifyItemStatesByFile(const QString &file_path, bool is_undo)
             else if(record[j] == ']')
             { is_move_back = false; break; }
             else if(record[j] == ';')
-            { info(record.left(j) + "操作解析失败"); return; }
+            { info(record.left(j) + "操作解析失败"); return false; }
         }
         int index_2 = record.mid(i, j - i).toInt(&ok2);
 
@@ -384,7 +411,7 @@ void MainWindow::ModifyItemStatesByFile(const QString &file_path, bool is_undo)
         if(!ok1 || !ok2 || !ok3)
         {
             info(record + "操作解析失败");
-            return;
+            return false;
         }
         if(!is_undo)
         {
@@ -396,13 +423,13 @@ void MainWindow::ModifyItemStatesByFile(const QString &file_path, bool is_undo)
         else //反向操作
         {
             if(!is_move_back)
-                MoveBackItemStateOf(parent_item_code + QString::number(index_1), index_2 + 1, move_len);
+                MoveBackItemStateOf(parent_item_code + QString::number(index_1 - 1), index_2, move_len);
             else
-                MoveForwardItemStateOf(parent_item_code + QString::number(index_2), index_1 - 1, move_len);
+                MoveForwardItemStateOf(parent_item_code + QString::number(index_2), index_1 + 1, move_len);
         }
+        return true;
     }
-
-    record_enabled = true;
+    return false;
 }
 
 void MainWindow::slotTreeMenu_Event(const QPoint &pos)
@@ -1119,6 +1146,10 @@ void MainWindow::InitCustomTree()
     m_customTreeModel = new TreeItemModel_Custom(ui->customTreeView);
     ui->customTreeView->setModel(m_customTreeModel);
 
+    ui->customTreeView->setDragEnabled(true); //允许拖拽
+    ui->customTreeView->setDragDropMode(QAbstractItemView::InternalMove); //拖放模式为移动
+    ui->customTreeView->setDropIndicatorShown(true);  //显示拖放位置
+
     ui->customTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(ui->customTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::slotTreeMenu_Custom);
 }
@@ -1667,7 +1698,7 @@ void MainWindow::addActionSeqToJsonObj(NodeInfo *node, QJsonObject *json, QStrin
                 QJsonObject value_obj;
                 addValueToJsonObj(vm->GetValueOnNode_SetVar(c_node), &value_obj);
                 int var_id = c_node->getValue(0).toInt();
-                QString var_name = c_node->GetVarName_SetVar();
+                QString var_name = c_node->GetVarNameUI_SetVar();
                 if(var_name != "")
                 {
                     node_obj.insert("value", value_obj);
@@ -2910,7 +2941,7 @@ bool MainWindow::writeLuaSetVar(QFile *file, NodeInfo *setvar_node)
         info("set_var节点的value[0]不是var_id");
         return false;
     }
-    QString var_name = setvar_node->GetVarName_SetVar();
+    QString var_name = setvar_node->GetVarNameLua_SetVar();
 //    if(vm->GetVarTypeOf(va) != value->GetVarType() && value->GetValueType() != VT_STR)
 //        info("Lua提示：设置变量" + var_name + "的类型与值" + value->GetText() + "的类型不一致");
 
@@ -4185,8 +4216,15 @@ QModelIndex MainWindow::getModelIndexBy(const QString &code, int* tree_type)
 {
     QStringList sl = code.split('.', QString::SkipEmptyParts);
     int n = sl.size();
+    if(n < 1)
+        return QModelIndex();
     QModelIndex index;
     TreeItemModel* m = nullptr;
+
+    int pos = sl[0].indexOf(':');
+    if(pos != -1)
+        sl[0] = sl[0].mid(pos + 1);
+
     if(sl[0] == "0")
     {
         if(tree_type != nullptr)
@@ -4242,13 +4280,6 @@ QString MainWindow::GetItemCodeOfNode(NodeInfo *node)
 
 void MainWindow::MoveBackItemStateOf(const QString &code_before, int brothers_size, int move_len)
 {
-    if(brothers_size == -1)
-    {
-        NodeInfo* node = reinterpret_cast<NodeInfo*>(getModelIndexBy(code_before).internalPointer());
-        MY_ASSERT(node->parent != nullptr);
-        brothers_size = node->parent->childs.size();
-    }
-
     int pos = code_before.lastIndexOf('.') + 1;
     bool ok = true;
     int index = code_before.mid(pos).toInt(&ok); //index表示这个节点是第几个子节点
@@ -4276,7 +4307,7 @@ void MainWindow::MoveBackItemStateOf(const QString &code_before, int brothers_si
     }
 
     if(record_enabled)
-        record_move_item = QString("Move(%1)Children[%2,%3)%4;").arg(common_code).arg(index).arg(brothers_size).arg(move_len);
+        record_move_item += QString("Move(%1)Children[%2,%3)%4;\n").arg(common_code).arg(index).arg(brothers_size).arg(move_len);
 }
 
 void MainWindow::MoveForwardItemStateOf(const QString &code_before, int front_id, int move_len)
@@ -4315,7 +4346,7 @@ void MainWindow::MoveForwardItemStateOf(const QString &code_before, int front_id
     }
 
     if(record_enabled)
-        record_move_item = QString("Move(%1)Children[%2,%3]%4;").arg(common_code).arg(front_id).arg(index).arg(move_len);
+        record_move_item += QString("Move(%1)Children[%2,%3]%4;\n").arg(common_code).arg(front_id).arg(index).arg(move_len);
 }
 
 void MainWindow::removeItemCode(const QString &code, int tree_type)

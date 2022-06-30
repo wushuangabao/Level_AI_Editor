@@ -112,7 +112,8 @@ bool NodesClipBoard::PasteToNode(NodeInfo *node, int tree_type)
     for(int i = 0; i < var_n; i++)
     {
         // vm中这个变量的类型和剪切板中的不一致
-        if(vm->GetIdOfVariable(var_names[i]) != -1 && !CommonValueClass::AreSameVarType(vm->GetInitValueOfVarByName(var_names[i]), m_valueManager->GetInitValueOfVar(i)))
+        int idx = vm->GetIdOfVariable(var_names[i]);
+        if(idx != -1 && !CommonValueClass::AreSameVarType(vm->GetInitValueOfVar(idx), m_valueManager->GetInitValueOfVar(i)))
         {
             info("存在变量名冲突");
             return false;
@@ -469,8 +470,9 @@ bool NodesClipBoard::checkValueBeforeCopy(CommonValueClass *v)
     return true;
 }
 
-int NodesClipBoard::tryAddNewVar(const QString &var_name)
+int NodesClipBoard::tryAddNewVar(const QString &var_name_)
 {
+    QString var_name = ValueManager::GetVarNameInKeyStr(var_name_);
     int pos = m_valueManager->GetIdOfVariable(var_name);
     if(pos == -1)
     {

@@ -8,6 +8,7 @@ DlgEditStructValue::DlgEditStructValue(QWidget *parent) :
     QDialog(parent),
     ui(new Ui::DlgEditStructValue)
 {
+    is_init_value = false;
     ui->setupUi(this);
     ui->tableWidget->setColumnCount(2);
     QStringList header;
@@ -57,6 +58,7 @@ void DlgEditStructValue::on_tableWidget_itemDoubleClicked(QTableWidgetItem *item
 
     DlgEditValue* dlg = new DlgEditValue();
     dlg->SetModel(model);
+    dlg->SetUpforInitValue(is_init_value);
     QPoint widget_pos = this->mapToGlobal(QPoint(0, 0));
     dlg->move(widget_pos.x() + 5, widget_pos.y() + 5);
     dlg->ModifyValue(comv);
